@@ -13,11 +13,8 @@ export const Rarity = {
 } as const;
 
 export interface ModValue {
-  stat_id: string;
   text: string;
   value: number | null;
-  value_min: number | null;
-  value_max: number | null;
   /** explicit / implicit / desecrated / enchant / rune / fractured */
   mod_type: string;
   /** every number of the line (the roll range (a-b) left out) */
@@ -31,7 +28,7 @@ export interface ModValue {
 }
 
 export const newModValue = (o: Partial<ModValue> & { text: string }): ModValue => ({
-  stat_id: "", value: null, value_min: null, value_max: null, mod_type: "explicit", values: [], tier: 0, group: -1, affix: "", ...o,
+  value: null, mod_type: "explicit", values: [], tier: 0, group: -1, affix: "", ...o,
 });
 
 export interface ParsedItem {

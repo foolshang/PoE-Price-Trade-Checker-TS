@@ -11,3 +11,4 @@ playwright-report/
 test-results/
 dist-local/
 dist-tools/
+dist-checker/

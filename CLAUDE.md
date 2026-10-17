@@ -70,6 +70,8 @@
   Winai แจ้งว่าของเดิมแก้บั๊ก → รัน `npm run parity:regen` แล้วดู diff ของ golden ก่อนแก้ TS ให้ตรง
 - เว็บ: `npm run web:local` (build + เสิร์ฟที่ http://127.0.0.1:4173/ พร้อม proxy hub เพราะ hub ยอมแค่ origin ของ Pages) ·
   `npm run web:dev` (5173) · `npm run web:build` · `npm run test:e2e` · `npm run test:ui` · `npm run names:refresh`
+- Checker: `npm run checker:build` · `checker:pack` · `checker:swap` · `test:checker` (ใช้คีย์บอร์ดจริงชั่วคราว: หน้าต่างทดสอบขึ้นหน้าสุด กด F4/F5)
+  · `node tests/checker/live.mjs [exe]` (hub + GGG จริง)
 - `node tools/unused-exports.mjs` หา export ที่ไม่มีใครใช้ (ตัวตั้งต้นของกฎ 6c)
 - Desktop (Filter Generator): `npm run desktop:build` · `desktop:pack` (→ `dist/PoE-Filter-Generator-TS-Setup-<version>.exe` ตัวติดตั้ง
   one-click ต่อผู้ใช้) · `desktop:swap` (ปิดตัวเก่า → build → ติดตั้งเงียบทับ → เปิดตัวที่ติดตั้ง → เช็ค title bar + path ตามกฎข้อ 3) · `test:desktop` · `desktop:setup` (ครั้งแรกหลัง npm install: ดาวน์โหลด Electron)

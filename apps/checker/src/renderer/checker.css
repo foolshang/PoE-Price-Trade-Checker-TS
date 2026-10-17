@@ -1,0 +1,45 @@
+/* the Checker's own bits on top of the shared look (packages/ui/src/style.css) */
+body.index main { max-width: none; padding: 12px 14px 16px; }
+body.index .log { min-height: 8em; max-height: none; height: 12em; }
+body.index .log .dim { color: #777; }
+body.index .legend { margin: 8px 0 0; text-align: center; }
+
+body.picker, body.skillref { display: inline-block; min-width: 420px; padding: 0 0 8px; background: var(--panel); }
+body.picker #root, body.skillref #root { padding: 0 10px; }
+.p-head { margin: 10px 2px 0; color: var(--accent); font-weight: 700; font-size: 15px; }
+.p-sub { margin: 0 2px 2px; color: #777; font-size: 12px; white-space: pre-wrap; }
+.p-summary { margin: 0 2px 6px; color: #7fbf7f; font-size: 12px; white-space: pre-wrap; }
+.p-row { display: flex; align-items: center; gap: 2px; margin: 1px 0; }
+.p-badge { width: 20px; text-align: center; flex: none; }
+.p-ps { width: 26px; flex: none; color: #777; font-size: 12px; text-align: center; white-space: pre; }
+.p-row label { flex: 1 1 auto; display: flex; align-items: center; gap: 4px; min-width: 0; }
+.p-row label.money { color: var(--accent); }
+.p-row label.off { color: #777; }
+.p-row input.num { width: 56px; text-align: center; flex: none; margin-left: 2px; padding: 2px 4px; }
+.p-sel { margin: 4px 2px 0; }
+.p-sel button { background: none; color: #777; padding: 0 2px; margin-right: 8px; font-size: 12px; }
+.p-sel button:hover { color: var(--fg); background: none; }
+.p-actions { display: flex; justify-content: space-between; margin: 8px 0 2px; }
+
+.s-title { margin: 10px 2px 4px; color: var(--accent); font-weight: 700; font-size: 15px; }
+.s-warn { margin: 0 2px 4px; color: #d08030; font-size: 12px; }
+.s-search { display: flex; gap: 6px; align-items: center; }
+.s-search input { flex: 1; }
+.s-suggest { list-style: none; margin: 2px 0 0; padding: 0; background: var(--input); }
+.s-suggest li { padding: 2px 6px; cursor: pointer; }
+.s-suggest li:hover, .s-suggest li.sel { background: #3a3020; }
+.s-brackets { display: flex; gap: 4px; margin-top: 8px; flex-wrap: wrap; }
+.s-brackets button, .s-tabs button { background: var(--input); padding: 3px 10px; }
+.s-brackets button[aria-pressed=true], .s-tabs button[aria-pressed=true] { background: var(--accent); color: #141414; }
+.s-pop { margin: 2px 2px 0; font-size: 12px; color: #777; }
+.s-pop.thin { color: #d08030; }
+.s-body { max-height: 380px; overflow-y: auto; margin-top: 4px; }
+.s-tabs { display: flex; gap: 2px; margin-top: 4px; flex-wrap: wrap; }
+.s-mods, .s-pass { margin: 4px 0; }
+.s-mod { display: flex; gap: 8px; }
+.s-mod .t { flex: 1 1 20em; min-width: 18em; }
+.s-mod .u { width: 3.5em; text-align: right; color: #777; font-size: 12px; }
+.s-mod .r { width: 7.5em; text-align: right; color: #777; font-size: 12px; }
+.s-label { margin: 8px 2px 2px; color: var(--accent); font-weight: 700; }
+.s-note { margin: 6px 2px; color: #777; font-size: 12px; }
+.s-actions { display: flex; justify-content: flex-end; margin: 6px 0 2px; }

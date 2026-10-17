@@ -11,9 +11,9 @@ import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { promises as fsp } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { HttpError, filterOutput, filterService, tradeNames } from "@poe/core";
+import { filterOutput, filterService, tradeNames } from "@poe/core";
 import type { HttpPort } from "@poe/core";
-import { AppConfig, IMPORT_MARKER, NodeFs, importOldConfig } from "@poe/node";
+import { AppConfig, IMPORT_MARKER, NodeFs, NodeHttp, importOldConfig } from "@poe/node";
 import type { FilterFileInfo, GameId, InitData } from "../shared/api.ts";
 import { MAX_FILE_BYTES, cleanHeaders, collectSoundPaths, enforceGameDirs, isAllowedName, isAllowedUrl, isExternalLink, isGame, isInside } from "./guard.ts";
 
@@ -53,14 +53,7 @@ const exeName = process.execPath;
 const nodeFs = new NodeFs();
 
 /** The network of the main process is Chromium's (net.fetch): it follows the system proxy settings like a browser does. */
-class ElectronHttp implements HttpPort {
-  constructor(private timeoutMs = 20000) {}
-  async getText(url: string, headers: Record<string, string> = {}): Promise<string> {
-    const res = await net.fetch(url, { headers, signal: AbortSignal.timeout(this.timeoutMs) });
-    if (!res.ok) throw new HttpError(res.status, url);
-    return new TextDecoder("utf-8", { fatal: false }).decode(await res.arrayBuffer());
-  }
-}
+const electronHttp = (timeoutMs = 20000): HttpPort => new NodeHttp(timeoutMs, net.fetch as typeof fetch);
 const documentsDir = (): string => process.env.POE_FILTERGEN_DOCUMENTS || app.getPath("documents");
 
 // ---------------------------------------------------------------------------------------------- single instance
@@ -208,7 +201,7 @@ function setupIpc(): void {
     if (!isGame(game)) return null;
     try {
       const names = await tradeNames.getNames(game, path.join(configDir, "cache"), {
-        fs: nodeFs, http: new ElectronHttp(), now: () => Date.now() / 1000, warn: (m: string) => log("WARNING", m),
+        fs: nodeFs, http: electronHttp(), now: () => Date.now() / 1000, warn: (m: string) => log("WARNING", m),
       });
       return [...names];
     } catch (e) {

@@ -9,7 +9,7 @@ repo at v0.13.5, local experiments); estimates are marked as estimates.
 | 1 | `packages/core`: filter logic converted + byte parity against Python | done 2026-10-17, not committed as a release (see docs/PHASE1.md) |
 | 2 | Web page on core TS (no Pyodide), live at the site root (old page in `/legacy/`) | done 2026-10-17 (docs/PHASE2.md, docs/DEPLOY.md); Winai tested the live page |
 | 3 | Filter Generator on Electron | built as a one-click installer and tested 2026-10-18 (v1.0.0-beta.6), waiting for Winai's test; auto-update (electron-updater), a no-install zip and README / release asset names are decided when the release is prepared (docs/PHASE3.md) |
-| 4 | F4 skill reference + F5 trade (hotkeys, Ctrl+C, clipboard) | not started |
+| 4 | F4 skill reference + F5 trade (hotkeys, Ctrl+C, clipboard) | built and tested 2026-10-18 (v1.0.0-beta.8), waiting for Winai in the game (docs/PHASE4.md) |
 | 5 | Checker complete, replaces the original | not started |
 
 ## C. Project structure (proposal)
@@ -104,9 +104,10 @@ logs `version + build timestamp` first (CLAUDE.md rule 5).
 2. **Web (decided by Winai, the `/ts/` step was skipped):** the TypeScript page is at the site root of
    `foolshang.github.io/PoE-Filter-Generator/` and the old Pyodide page lives in `/legacy/` (same origin, so settings and
    folder handles are shared). Deploy / rollback: `docs/DEPLOY.md`. The original repo's deploy job writes `/legacy/` only.
-3. **Exe:** TS builds are published as `v1.0.0-beta.N` prereleases with asset name `PoE-Filter-Generator-TS.exe`; the
-   title bar says "(TypeScript)". At cut-over `v1.0.0` becomes Latest with the usual asset name, the README is updated,
-   the old exe stays downloadable from its release.
+3. **Exe (decided by Winai after phase 3):** no release of any kind - no beta for the public - until every phase is done; then ONE release
+   replaces the original (Filter Generator + Checker together; `v1.0.0`, asset names and README then). Until then the builds are only for
+   Winai's own tests (installers `PoE-Filter-Generator-TS-Setup-<v>.exe` / `PoE-Price-Trade-Checker-TS-Setup-<v>.exe`, per user, no admin).
+   Open for the release: auto-update (electron-updater), a no-install zip, README / release asset names.
 4. The original repo is not touched except for bug fixes Winai asks for; at the very end Winai decides whether to archive it.
 
 ## D. Phases (order agreed with Winai; effort = estimated developer-days, rough)

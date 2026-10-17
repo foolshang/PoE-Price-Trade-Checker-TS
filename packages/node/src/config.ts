@@ -36,10 +36,10 @@ export const DEFAULTS: Record<string, any> = {
 const isDict = (v: unknown): v is Record<string, any> => v !== null && typeof v === "object" && !Array.isArray(v);
 
 /** The settings a saved file means: the defaults with every known saved key on top (dicts merged key by key). */
-export function mergeSaved(saved: unknown): Record<string, any> {
-  const data: Record<string, any> = structuredClone(DEFAULTS);
+export function mergeSaved(saved: unknown, defaults: Record<string, any> = DEFAULTS): Record<string, any> {
+  const data: Record<string, any> = structuredClone(defaults);
   if (isDict(saved)) {
-    for (const [k, def] of Object.entries(DEFAULTS)) {
+    for (const [k, def] of Object.entries(defaults)) {
       if (!(k in saved)) continue;
       data[k] = isDict(def) && isDict(saved[k]) ? { ...def, ...saved[k] } : saved[k];
     }
@@ -59,8 +59,10 @@ export function parseConfigText(text: string): Record<string, any> | null {
 }
 
 export class AppConfig {
-  data: Record<string, any> = structuredClone(DEFAULTS);
-  constructor(private dir: string) {}
+  data: Record<string, any>;
+  constructor(private dir: string, private defaults: Record<string, any> = DEFAULTS) {
+    this.data = structuredClone(defaults);
+  }
 
   appDir(): string {
     return this.dir;
@@ -71,12 +73,16 @@ export class AppConfig {
     try {
       saved = parseConfigText(await fsp.readFile(path.join(this.dir, CONFIG_FILE), "utf-8"));
     } catch { /* none yet */ }
-    this.data = mergeSaved(saved);
+    this.data = mergeSaved(saved, this.defaults);
   }
 
+  /** Written to a temp file and renamed over config.json: a program that is killed in the middle of a save leaves the old file, never a half one. */
   async save(): Promise<void> {
     await fsp.mkdir(this.dir, { recursive: true });
-    await fsp.writeFile(path.join(this.dir, CONFIG_FILE), JSON.stringify(this.data, null, 2), "utf-8");
+    const file = path.join(this.dir, CONFIG_FILE);
+    const tmp = `${file}.${process.pid}.tmp`;
+    await fsp.writeFile(tmp, JSON.stringify(this.data, null, 2), "utf-8");
+    await fsp.rename(tmp, file);
   }
 
   get(key: string, dflt: any = null): any {
@@ -96,9 +102,10 @@ export interface ImportResult {
  * First start of the app: take the original's config (`oldDir`\config.json) once. The new folder gets the merged config and
  * a marker file; nothing in `oldDir` is written. A new folder that already has a config.json is never overwritten.
  */
-export async function importOldConfig(newDir: string, oldDir: string): Promise<ImportResult> {
+export async function importOldConfig(newDir: string, oldDir: string, opts: { defaults?: Record<string, any>; marker?: string } = {}): Promise<ImportResult> {
+  const defaults = opts.defaults ?? DEFAULTS;
   const mine = path.join(newDir, CONFIG_FILE);
-  const marker = path.join(newDir, IMPORT_MARKER);
+  const marker = path.join(newDir, opts.marker ?? IMPORT_MARKER);
   const exists = async (p: string): Promise<boolean> => fsp.stat(p).then(() => true, () => false);
   if ((await exists(marker)) || (await exists(mine))) return { status: "already", message: "" };
   const oldFile = path.join(oldDir, CONFIG_FILE);
@@ -111,7 +118,27 @@ export async function importOldConfig(newDir: string, oldDir: string): Promise<I
   const parsed = parseConfigText(text);
   if (parsed === null) return { status: "unreadable", message: `ค่าเดิมอ่านไม่ได้ (${oldFile}) — เริ่มด้วยค่าเริ่มต้น ไฟล์เดิมไม่ถูกแตะ` };
   await fsp.mkdir(newDir, { recursive: true });
-  await fsp.writeFile(mine, JSON.stringify(mergeSaved(parsed), null, 2), "utf-8");
+  await fsp.writeFile(mine, JSON.stringify(mergeSaved(parsed, defaults), null, 2), "utf-8");
   await fsp.writeFile(marker, `imported once from ${oldFile} at ${new Date().toISOString()}\nthe original's files are never written\n`, "utf-8");
   return { status: "imported", message: `นำเข้าค่าจากโปรแกรมเดิมแล้ว (${oldFile}) — ไฟล์เดิมไม่ถูกแก้` };
 }
+
+/**
+ * The Checker keeps the keys of the original that the new program still reads. The price-scan keys (overlay, scan, hover, match,
+ * currency unit, f4_mode, ...) are not here: a saved config that has them is read and the keys are dropped, no error.
+ */
+export const CHECKER_DEFAULTS: Record<string, any> = {
+  game_version: "poe2",
+  league: "",
+  prefer_hardcore: false,
+  auto_league: true,
+  hotkey_scan: "F4",
+  hotkey_trade: "F5",
+  hotkey_settings: "F8",
+  hotkey_quit: "Ctrl+Alt+Q",
+  log_level: "INFO",
+  mod_badge_archetype: "all",
+  close_action: "minimize",
+  f5_mod_picker: true,
+  filter_gen: structuredClone(DEFAULTS.filter_gen),
+};

@@ -1,19 +1,24 @@
 # After every build (CLAUDE.md rule 3): close the old program, (re)build the installer into dist\, install it silently over the
 # old one, start the INSTALLED program and prove from the title bar that it is the new version. No old process is left holding
 # the single-instance lock, and nothing runs from a side folder.
-#   powershell -File tools\swap-exe.ps1            close old -> install dist\...-Setup-<version>.exe -> start -> check title
-#   powershell -File tools\swap-exe.ps1 -Build     close old -> npm run desktop:pack -> install -> start -> check title
+#   powershell -File tools\swap-exe.ps1 [-App filtergen|checker]           close old -> install the Setup of <version> -> start -> check title
+#   powershell -File tools\swap-exe.ps1 [-App filtergen|checker] -Build    close old -> build + pack -> install -> start -> check title
 # Exit code 0 = the running window's title says the version of package.json.
 param(
+  [ValidateSet("filtergen", "checker")][string]$App = "filtergen",
   [switch]$Build,
-  [string]$Name = "PoE-Filter-Generator-TS",
-  [string]$TitleStart = "PoE1 & PoE2 Filter Generator (TypeScript)",
   [int]$TimeoutSeconds = 90
 )
+$apps = @{
+  filtergen = @{ Name = "PoE-Filter-Generator-TS"; Title = "PoE1 & PoE2 Filter Generator (TypeScript)"; Dist = "dist"; Pack = "desktop:pack" }
+  checker   = @{ Name = "PoE-Price-Trade-Checker-TS"; Title = "PoE Price & Trade Checker (TypeScript)"; Dist = "dist-checker"; Pack = "checker:pack" }
+}
+$Name = $apps[$App].Name
+$TitleStart = $apps[$App].Title
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $version = (Get-Content (Join-Path $root "package.json") -Raw | ConvertFrom-Json).version
-$setup = Join-Path $root "dist\$Name-Setup-$version.exe"
+$setup = Join-Path $root "$($apps[$App].Dist)\$Name-Setup-$version.exe"
 $installed = Join-Path $env:LOCALAPPDATA "Programs\$Name\$Name.exe"
 
 function Stop-Old {
@@ -30,7 +35,7 @@ function Stop-Old {
 Stop-Old
 if ($Build) {
   Push-Location $root
-  try { & npm run desktop:pack; if ($LASTEXITCODE -ne 0) { throw "build failed" } } finally { Pop-Location }
+  try { & npm run $apps[$App].Pack; if ($LASTEXITCODE -ne 0) { throw "build failed" } } finally { Pop-Location }
 }
 if (-not (Test-Path $setup)) { throw "$setup does not exist - run with -Build" }
 Write-Host "installing $setup (silent, over the old version, for this user)"

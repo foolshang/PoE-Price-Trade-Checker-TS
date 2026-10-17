@@ -7,6 +7,7 @@ import { _electron as electron } from "playwright";
 
 export const ROOT = path.resolve(import.meta.dirname, "..", "..");
 export const APP_DIR = path.join(ROOT, "apps", "filtergen");
+export const CHECKER_DIR = path.join(ROOT, "apps", "checker");
 export const FIXTURES = path.join(ROOT, "tests", "parity", "fixtures");
 
 export function tmpdir(prefix = "pfg-") {
@@ -20,14 +21,14 @@ export function sandbox() {
   const docs = path.join(base, "Documents");
   fs.mkdirSync(local, { recursive: true });
   fs.mkdirSync(docs, { recursive: true });
-  return { base, local, docs, configDir: path.join(local, "PoeFilterGenTS"), oldDir: path.join(local, "PoeFilterGen") };
+  return { base, local, docs, configDir: path.join(local, "PoeFilterGenTS"), oldDir: path.join(local, "PoeFilterGen"), checkerDir: path.join(local, "PoePriceTradeTS"), checkerOldDir: path.join(local, "PoePriceTrade") };
 }
 
 /** Launch the app. `exe` = an unpacked exe (the packaged app); without it the build output runs under the electron of node_modules. */
-export async function launch(sbx, { exe = process.env.PFG_EXE, extraEnv = {}, chromiumArgs = [] } = {}) {
+export async function launch(sbx, { exe = process.env.PFG_EXE, extraEnv = {}, chromiumArgs = [], appDir = APP_DIR } = {}) {
   const env = { ...process.env, LOCALAPPDATA: sbx.local, POE_FILTERGEN_DOCUMENTS: sbx.docs, ...extraEnv };
   delete env.ELECTRON_RUN_AS_NODE;
-  const opts = exe ? { executablePath: exe, args: [...chromiumArgs], env } : { args: [APP_DIR, ...chromiumArgs], env };
+  const opts = exe ? { executablePath: exe, args: [...chromiumArgs], env } : { args: [appDir, ...chromiumArgs], env };
   const app = await electron.launch(opts);
   const page = await app.firstWindow();
   return { app, page };

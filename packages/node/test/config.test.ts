@@ -91,3 +91,28 @@ describe("import from the original's folder", () => {
     expect(c.get("league")).toBe("MINE");
   });
 });
+
+describe("save is atomic", () => {
+  it("leaves no temp file and replaces the old content whole", async () => {
+    const dir = await tmp();
+    const c = new AppConfig(dir);
+    await c.load();
+    c.set("league", "A");
+    await c.save();
+    c.set("league", "B");
+    await Promise.all([c.save(), c.save()]);
+    expect((await fsp.readdir(dir)).sort()).toEqual(["config.json"]);
+    expect(JSON.parse(await fsp.readFile(path.join(dir, "config.json"), "utf-8")).league).toBe("B");
+  });
+});
+
+describe("the Checker's keys", () => {
+  it("reads the original's price-mode keys and drops them", async () => {
+    const { CHECKER_DEFAULTS } = await import("../src/config.ts");
+    const m = mergeSaved({ game_version: "poe1", f4_mode: "price", overlay_opacity: 0.5, currency_unit: "chaos", hotkey_scan: "F9" }, CHECKER_DEFAULTS);
+    expect(m.game_version).toBe("poe1");
+    expect(m.hotkey_scan).toBe("F4");
+    for (const k of ["f4_mode", "overlay_opacity", "currency_unit", "match_threshold"]) expect(k in m).toBe(false);
+    expect(m.f5_mod_picker).toBe(true);
+  });
+});

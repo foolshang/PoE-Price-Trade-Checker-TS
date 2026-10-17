@@ -1,6 +1,6 @@
 {
   "name": "poe-price-trade-checker-ts",
-  "version": "1.0.0-beta.6",
+  "version": "1.0.0-beta.8",
   "private": true,
   "description": "PoE Price & Trade Checker (TypeScript)",
   "workspaces": [
@@ -34,9 +34,13 @@
     "desktop:dev": "npm run dev -w @poe/filtergen",
     "desktop:build": "npm run build -w @poe/filtergen",
     "test:desktop": "npm run desktop:build && vitest run -c vitest.e2e.config.ts tests/desktop",
-    "desktop:pack": "npm run desktop:build && node tools/pack-filtergen.mjs",
-    "desktop:swap": "powershell -NoProfile -File tools/swap-exe.ps1 -Build",
-    "desktop:setup": "node node_modules/electron/install.js"
+    "desktop:pack": "npm run desktop:build && node tools/pack.mjs filtergen",
+    "desktop:swap": "powershell -NoProfile -File tools/swap-exe.ps1 -App filtergen -Build",
+    "desktop:setup": "node node_modules/electron/install.js && cd node_modules/koffi && node ./cnoke.cjs -P . -D src/koffi --prebuild --release",
+    "checker:build": "npm run build -w @poe/checker",
+    "checker:pack": "npm run checker:build && node tools/pack.mjs checker",
+    "checker:swap": "powershell -NoProfile -File tools/swap-exe.ps1 -App checker -Build",
+    "test:checker": "npm run checker:build && vitest run -c vitest.e2e.config.ts tests/checker"
   },
   "type": "module"
 }

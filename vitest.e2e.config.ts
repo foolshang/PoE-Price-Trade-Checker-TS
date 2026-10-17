@@ -2,5 +2,5 @@ import { defineConfig } from "vitest/config";
 
 // browser tests (need Chrome and apps/web/dist): npm run test:e2e
 export default defineConfig({
-  test: { include: ["tests/web/**/*.e2e.ts", "tests/desktop/**/*.e2e.ts"], testTimeout: 120000, hookTimeout: 120000, fileParallelism: false },
+  test: { include: ["tests/web/**/*.e2e.ts", "tests/desktop/**/*.e2e.ts", "tests/checker/**/*.e2e.ts"], testTimeout: 120000, hookTimeout: 120000, fileParallelism: false },
 });

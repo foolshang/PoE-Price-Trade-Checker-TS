@@ -11,7 +11,7 @@ export default tseslint.config(
   },
   {
     // the browser tests run code inside the page (window.*): they are checked by running, not by the type checker
-    files: ["tests/web/**", "tests/desktop/**"],
+    files: ["tests/web/**", "tests/desktop/**", "tests/checker/**"],
     rules: { "@typescript-eslint/ban-ts-comment": "off" },
   },
 );

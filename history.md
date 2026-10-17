@@ -5,6 +5,23 @@
 
 ---
 
+## 2026-10-18 (3) - phase 4: the Checker with F4 skill reference + F5 trade (`apps/checker`), v1.0.0-beta.8 (committed, no tag, no release)
+
+- core (all converted with byte parity against the original, 4,108 new parity cases + converted unit tests): item_parser, models, profiles,
+  base_db, mod_db, meta_db, mod_badge, trade_url, skill_ref, league routing, the F5 flow (`f5.ts`), and the Python behaviours they need
+  (`pyextra`: round / %g / float() / quote / sum; `difflib`). Dead code left out: the price-mode models, `ModValue.stat_id / value_min / value_max`,
+  `py.uniq`. `AppConfig` takes its defaults (the Checker's keep the original's keys except the price-mode ones) and saves atomically.
+- `apps/checker`: Electron main (hotkeys by `globalShortcut` with a clear message when a key is taken, F5 driver: clipboard clear ->
+  `SendInput` Ctrl+C via koffi -> poll -> parse -> popup / browser; admin hint from `SendInput`'s access-denied and the elevation of the window in front),
+  three windows with three typed bridges (main, F5 popup, F4 skill reference), config in `PoePriceTradeTS` imported once from `PoePriceTrade`.
+- Tests: Electron e2e 22 (real key presses with a text box in front, url equal to the original's python for the same item / ticks, F4, leagues,
+  config import, hotkey conflict with the running original, security); live run against the real hub and GGG; installed-exe run.
+- Measured (beta.8, installed): Setup 98.5 MB, 325 MB on disk, window in 0.7-0.9 s (original 2.6 s), 320 MB working set (original 90).
+- Not tested here (list for Winai): administrator game, borderless / fullscreen focus, the popup taking the keyboard in the game.
+- Open: the tier-ladder data (`mod_meta_*.json`) is shipped from the original's current files; converting `build_mod_meta.py` is left for phase 5.
+
+---
+
 ## 2026-10-18 (2) - phase 3 continued: installer instead of portable, v1.0.0-beta.6 (committed, no tag, no release)
 
 - Winai chose the installer because the portable exe opened in 9-10 s. electron-builder target nsis, `oneClick`, per user

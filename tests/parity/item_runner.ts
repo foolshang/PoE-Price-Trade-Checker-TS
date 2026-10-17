@@ -60,7 +60,21 @@ const badgeOf = (g: string) => once(`badge-${g}`, () => {
   return b;
 });
 
-const jsonable = (x: any): any => JSON.parse(py.dumps(x instanceof Map ? Object.fromEntries(x) : x));
+/** the original's ModValue also carries stat_id / value_min / value_max, which nothing ever reads or sets: not converted, added back here to compare the whole record */
+const legacyMod = (m: any): any => ({ stat_id: "", ...m, value_min: null, value_max: null });
+const jsonable = (x: any): any => {
+  const out = JSON.parse(py.dumps(x instanceof Map ? Object.fromEntries(x) : x));
+  const fix = (v: any): void => {
+    if (Array.isArray(v)) v.forEach(fix);
+    else if (v && typeof v === "object") {
+      if (Array.isArray(v.mods) && "mods_have_headers" in v) v.mods = v.mods.map(legacyMod);
+      if ("mod_type" in v && "group" in v && "affix" in v && !("stat_id" in v)) Object.assign(v, legacyMod(v));
+      Object.values(v).forEach(fix);
+    }
+  };
+  fix(out);
+  return out;
+};
 
 // ------------------------------------------------------------------------------------------------ skills / leagues over a fake hub
 

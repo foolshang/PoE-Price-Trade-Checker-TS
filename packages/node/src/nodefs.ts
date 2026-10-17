@@ -71,12 +71,12 @@ export class NodeFs implements FsPort {
   }
 }
 
-/** HTTP GET with the global fetch (Node >= 18, Electron). */
+/** HTTP GET with a fetch function: the global one (Node >= 18) or Electron's `net.fetch` (Chromium network stack, follows the system proxy). */
 export class NodeHttp implements HttpPort {
-  constructor(private timeoutMs = 15000) {}
+  constructor(private timeoutMs = 15000, private fetchFn: typeof fetch = fetch) {}
 
   async getText(url: string, headers: Record<string, string> = {}): Promise<string> {
-    const res = await fetch(url, { headers, signal: AbortSignal.timeout(this.timeoutMs) });
+    const res = await this.fetchFn(url, { headers, signal: AbortSignal.timeout(this.timeoutMs) });
     if (!res.ok) throw new HttpError(res.status, url);
     return new TextDecoder("utf-8", { fatal: false }).decode(await res.arrayBuffer());
   }
