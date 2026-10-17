@@ -1,0 +1,5 @@
+Item Class: Amulets
+Rarity: Rare
+Jade Amulet
+--------
+Item Level: 70

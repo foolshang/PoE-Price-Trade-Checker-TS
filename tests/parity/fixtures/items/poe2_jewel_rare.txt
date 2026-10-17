@@ -1,0 +1,11 @@
+Item Class: Jewels
+Rarity: Rare
+Grim Eye
+Emerald
+--------
+Item Level: 75
+--------
+{ Prefix Modifier "Brutal" (Tier: 2) — Damage }
+12(10-14)% increased Damage
+{ Suffix Modifier "of Haste" (Tier: 2) — Speed }
+6(5-7)% increased Attack Speed

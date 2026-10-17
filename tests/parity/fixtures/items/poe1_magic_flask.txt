@@ -1,0 +1,13 @@
+Item Class: Life Flasks
+Rarity: Magic
+Ample Divine Life Flask of Staunching
+--------
+Recovers 2000 Life over 3.00 Seconds
+--------
+Requirements:
+Level: 60
+--------
+Item Level: 84
+--------
+Reduced Amount Recovered
+Immunity to Bleeding and Corrupted Blood during Effect

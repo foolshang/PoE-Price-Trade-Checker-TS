@@ -1,0 +1,11 @@
+Item Class: Skill Gems
+Rarity: Gem
+Fireball
+--------
+Fire, Spell, Projectile, AoE
+Level: 14
+Cost: 22 Mana
+--------
+Requires: Level 40
+--------
+Launches a ball of fire.

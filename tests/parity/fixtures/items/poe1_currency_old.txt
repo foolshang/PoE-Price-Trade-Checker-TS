@@ -1,0 +1,8 @@
+Item Class: Stackable Currency
+Rarity: Currency
+Chaos Orb
+--------
+Stack Size: 20/20
+--------
+Reforges a magic or rare item with new random modifiers.
+Right click this item then left click a magic or rare item to apply it.

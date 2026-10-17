@@ -163,9 +163,6 @@ export const sortedStr = (it: Iterable<string>): string[] => [...it].sort(cmpStr
 /** `sorted(set(...))` */
 export const sortedSet = (it: Iterable<string>): string[] => sortedStr(new Set(it));
 
-/** `dict.fromkeys(items)` keys, i.e. de-duplicate keeping first occurrence */
-export const uniq = <T>(it: Iterable<T>): T[] => [...new Set(it)];
-
 /** Stable sort by a key function returning a comparable tuple. */
 export function sortedBy<T>(items: Iterable<T>, key: (x: T) => readonly (string | number)[]): T[] {
   const arr = [...items].map((x, i) => ({ x, k: key(x), i }));
@@ -177,8 +174,26 @@ export function sortedBy<T>(items: Iterable<T>, key: (x: T) => readonly (string 
 // json.dumps(obj, ensure_ascii=True, sort_keys=?, separators=?)
 // ---------------------------------------------------------------------------------------------------------------
 
+/** A Python float whose value is a whole number still prints with ".0" (40.0): JS numbers cannot tell, this wrapper can. */
+export class PyFloat {
+  constructor(public v: number) {}
+}
+
+/** `repr(float)` */
+export function pyFloatText(x: number): string {
+  if (Number.isNaN(x)) return "nan";
+  if (!Number.isFinite(x)) return x > 0 ? "inf" : "-inf";
+  const abs = Math.abs(x);
+  if (Number.isInteger(x) && abs < 1e16) return Object.is(x, -0) ? "-0.0" : x.toFixed(1);
+  return pyExpRepr(x);
+}
+
 function pyFloatRepr(x: number): string {
   if (Number.isInteger(x)) return String(x);
+  return pyExpRepr(x);
+}
+
+function pyExpRepr(x: number): string {
   // JS and Python both print the shortest round-trip digits; only the exponent notation differs.
   const abs = Math.abs(x);
   if (abs >= 1e16 || abs < 1e-4) {
@@ -231,6 +246,7 @@ export function dumps(value: unknown, opts: DumpsOptions = {}): string {
       return pyFloatRepr(v);
     }
     if (typeof v === "string") return jsonStr(v, ensureAscii);
+    if (v instanceof PyFloat) return Number.isFinite(v.v) ? pyFloatText(v.v) : Number.isNaN(v.v) ? "NaN" : v.v > 0 ? "Infinity" : "-Infinity";
     const nl = ind !== undefined ? "\n" + " ".repeat(ind * (level + 1)) : "";
     const end = ind !== undefined ? "\n" + " ".repeat(ind * level) : "";
     const sep = ind !== undefined ? isep + nl : isep;

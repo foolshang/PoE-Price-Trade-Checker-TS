@@ -417,3 +417,7 @@ def run_case(case: dict):
         return RUNNERS[case["fn"]](case["id"], case["args"])
     except Exception as e:  # noqa: BLE001  (a case that raises is part of the expected behaviour)
         return {"error": type(e).__name__}
+
+
+import item_calls  # noqa: E402
+item_calls.register(globals())

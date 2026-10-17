@@ -1,0 +1,25 @@
+Item Class: Bows
+Rarity: Rare
+Storm Gale
+Gemini Bow
+--------
+Bow
+Quality: +12% (augmented)
+Physical Damage: 130-250 (augmented)
+Critical Hit Chance: 5.00%
+Attacks per Second: 1.25 (augmented)
+--------
+Requires: Level 78, 100 Dex
+--------
+Sockets: S S S
+--------
+Item Level: 80
+--------
+{ Prefix Modifier "Vicious" (Tier: 1) — Physical, Damage }
+Adds 14(13-16) to 24(22-27) Physical Damage
+{ Prefix Modifier "Tempered" (Tier: 3) — Physical, Damage }
+84(75-89)% increased Physical Damage
+{ Suffix Modifier "of Speed" (Tier: 2) — Speed }
+18(16-19)% increased Attack Speed
+{ Suffix Modifier "of Skill" (Tier: 4) }
++3(2-4) to Level of all Projectile Skills

@@ -1,0 +1,4 @@
+Item Class: Rings
+Rarity: Rare
+--------
+Item Level: 80

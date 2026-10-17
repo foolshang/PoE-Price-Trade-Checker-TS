@@ -1,0 +1,11 @@
+Item Class: Waystones
+Rarity: Rare
+Waystone (Tier 15)
+--------
+Waystone Tier: 15
+Item Level: 79
+--------
+{ Prefix Modifier "Deadly" (Tier: 1) — Monster }
++30(25-35)% to Monster Critical Damage Bonus
+{ Suffix Modifier "of Terror" (Tier: 1) }
+20(15-25)% increased Monster Damage

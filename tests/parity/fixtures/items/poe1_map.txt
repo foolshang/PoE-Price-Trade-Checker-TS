@@ -1,0 +1,13 @@
+Item Class: Maps
+Rarity: Rare
+Plague Maze
+Cemetery Map
+--------
+Map Tier: 14
+Item Quantity: +62% (augmented)
+Monster Level: 82
+--------
+Item Level: 83
+--------
+Monsters deal 40% extra Damage as Cold
+Players have 20% less Recovery Rate of Life and Energy Shield

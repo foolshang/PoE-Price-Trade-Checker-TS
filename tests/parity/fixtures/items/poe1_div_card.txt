@@ -1,0 +1,9 @@
+Item Class: Divination Cards
+Rarity: Divination Card
+The Doctor
+--------
+Stack Size: 1/8
+--------
+Headhunter
+--------
+Move to a safe location.

@@ -1,0 +1,7 @@
+Item Class: Belts
+Rarity: Unique
+Leather Belt
+--------
+Item Level: 70
+--------
+Unidentified

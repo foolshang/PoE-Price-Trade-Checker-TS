@@ -1,0 +1,14 @@
+Item Class: Amulets
+Rarity: Rare
+Beast Charm
+Onyx Amulet
+--------
+Requirements:
+Level: 20
+--------
+Item Level: 75
+--------
++30 to Strength (implicit)
+--------
++55 to maximum Life
++36% to Lightning Resistance

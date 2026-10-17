@@ -1,0 +1,14 @@
+Item Class: Boots
+Rarity: Rare
+Doom Track
+Rawhide Boots
+--------
+Evasion Rating: 98
+--------
+Item Level: 77
+--------
+{ Enchant Modifier }
+30% increased Movement Speed (enchant)
+--------
+{ Prefix Modifier "Gazelle's" (Tier: 1) — Speed }
+35(31-35)% increased Movement Speed

@@ -1,0 +1,13 @@
+Item Class: Boots
+Rarity: Rare
+Grim Track
+Strapped Boots
+--------
+Quality: +٢٠%
+--------
+Item Level: ٨٢
+--------
+{ Prefix Modifier "Stag's" (Tier: ٢) }
++٣٥(٣٠-٣٥) to maximum Life
+{ Suffix Modifier "of Speed" (Tier: 1) }
++١٢٫٥ to Dexterity

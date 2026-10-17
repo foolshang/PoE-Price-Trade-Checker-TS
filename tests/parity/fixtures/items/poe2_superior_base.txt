@@ -1,0 +1,9 @@
+Item Class: Staves
+Rarity: Rare
+Void Song
+Superior Ashen Staff
+--------
+Item Level: 70
+--------
+{ Prefix Modifier "Brilliant" (Tier: 1) }
++112(100-120)% increased Spell Damage

@@ -1,0 +1,15 @@
+Item Class: Rings
+Rarity: Unique
+Ventor's Gamble
+Gold Ring
+--------
+Requires: Level 5
+--------
+Item Level: 81
+--------
+{ Unique Modifier — Resource, Life }
++43(40-60) to maximum Life
+{ Unique Modifier — Resistance }
+-6(-10--5)% to Fire Resistance
+{ Unique Modifier }
+19(10-40)% increased Rarity of Items found

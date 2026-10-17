@@ -1,0 +1,26 @@
+Item Class: Gloves
+Rarity: Rare
+Kraken Grip
+Eelskin Gloves
+--------
+Evasion Rating: 266 (augmented)
+--------
+Requirements:
+Level: 64
+Dex: 56
+--------
+Sockets: R-R-B-B
+--------
+Item Level: 82
+--------
+0.2% of Lightning Damage Leeched as Life (implicit)
+15% chance to Unnerve Enemies for 4 seconds on Hit (implicit)
+--------
+Adds 2 to 22 Lightning Damage to Attacks
++135 to Evasion Rating
++58 to maximum Life
+Regenerate 31.6 Life per second
++39% to Cold Resistance
++34% to Chaos Resistance
+Searing Exarch Item
+Eater of Worlds Item

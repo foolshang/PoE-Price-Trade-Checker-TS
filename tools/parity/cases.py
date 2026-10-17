@@ -559,4 +559,6 @@ def all_cases() -> dict:
         for i in range(60):
             rl += random_model_case(g, i)
         groups[f"wlrand-{g}"] = rl
+    from item_cases import item_cases
+    groups.update(item_cases())
     return groups

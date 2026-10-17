@@ -9,6 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import * as core from "../../packages/core/src/index.ts";
 import { WlModel } from "../../packages/core/src/index.ts";
+import { ITEM_CALLS, runItemCase } from "./item_runner.ts";
 
 const { py, filterCore, filterGen, filterStyle, filterWhitelist: w, wlEmbed, wlImport, wlSession, tradeNames } = core;
 
@@ -354,6 +355,8 @@ function errorName(e: unknown): string {
   return (e as Error)?.name ?? "Error";
 }
 
+Object.assign(CALLS, ITEM_CALLS);
+
 async function runCall(caseId: string, a: any): Promise<any> {
   const fn = CALLS[a.name];
   if (!fn) throw new Error(`no TS call ${a.name}`);
@@ -362,7 +365,7 @@ async function runCall(caseId: string, a: any): Promise<any> {
     const kw = a.kwargs;
     const args = [...(a.args ?? [])];
     // keyword arguments of the Python call: build_whitelist_section takes them as one object, the rest by position
-    r = a.name === "filter_gen.build_whitelist_section" ? fn(args[0], args[1], args[2], kw ?? {}) : fn(...args);
+    r = await (a.name === "filter_gen.build_whitelist_section" ? fn(args[0], args[1], args[2], kw ?? {}) : fn(...args));
   } catch (e) {
     return { error: errorName(e) };
   }
@@ -376,6 +379,7 @@ export async function runCase(c: Case): Promise<any> {
       case "wl_model": return await runWlModel(c.id, c.args);
       case "open_text": return await runOpenText(c.id, c.args);
       case "call": return await runCall(c.id, c.args);
+      case "f5": return compact(c.id, jsonable(await runItemCase(c)));
       default: throw new Error(`unknown fn ${c.fn}`);
     }
   } catch (e) {

@@ -1,0 +1,24 @@
+Item Class: Bows
+Rarity: Rare
+Havoc Fletch
+Imperial Bow
+--------
+Quality: +20% (augmented)
+Physical Damage: 160-300 (augmented)
+Attacks per Second: 1.4
+--------
+Requirements:
+Level: 68
+Dex: 212
+--------
+Item Level: 84
+--------
+{ Implicit Modifier — Damage }
++25% to Global Critical Strike Multiplier (implicit)
+--------
+{ Prefix Modifier "Merciless" (Tier: 1) — Damage, Physical, Attack }
+122(110-124)% increased Physical Damage
+{ Master Crafted Suffix Modifier "of Craft" — Speed }
+12(10-13)% increased Attack Speed (crafted)
+{ Suffix Modifier "of Skill" (Tier: 2) }
++2(2-3) to Level of Socketed Gems

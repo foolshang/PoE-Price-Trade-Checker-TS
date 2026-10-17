@@ -1,0 +1,13 @@
+Item Class: Boots
+Rarity: Rare
+Legend's Fortress Sabatons
+Fortress Sabatons
+--------
+Armour: 293 (augmented)
+--------
+Item Level: 80
+--------
+{ Prefix Modifier "Legend's" (Tier: 1) — Armour, Evasion }
+99(92-100)% increased Armour and Evasion
+{ Suffix Modifier "of Grounding" (Tier: 1) — Elemental, Lightning, Ailment }
+56(56-60)% reduced Shock duration on you

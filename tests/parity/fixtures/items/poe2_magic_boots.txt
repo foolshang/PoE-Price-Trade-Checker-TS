@@ -1,0 +1,17 @@
+Item Class: Boots
+Rarity: Magic
+Legend's Fortress Sabatons of Grounding
+--------
+Armour: 293 (augmented)
+Evasion Rating: 267 (augmented)
+--------
+Requires: Level 75, 56 Str, 56 Dex
+--------
+Sockets: S
+--------
+Item Level: 80
+--------
+{ Prefix Modifier "Legend's" (Tier: 1) — Armour, Evasion }
+99(92-100)% increased Armour and Evasion
+{ Suffix Modifier "of Grounding" (Tier: 1) — Elemental, Lightning, Ailment }
+56(56-60)% reduced Shock duration on you

@@ -1,0 +1,22 @@
+Item Class: Body Armours
+Rarity: Rare
+Dire Carapace
+Astral Plate
+--------
+Quality: +20% (augmented)
+Armour: 1092 (augmented)
+--------
+Requirements:
+Level: 62
+Str: 180
+--------
+Sockets: R-R-R-R-G-B
+--------
+Item Level: 85
+--------
++92 to maximum Life
+Regenerate 5.3 Life per second
++39% to Fire Resistance
++41% to Cold Resistance
++35% to Lightning Resistance
++12% to Chaos Resistance

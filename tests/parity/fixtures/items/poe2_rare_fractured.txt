@@ -1,0 +1,16 @@
+Item Class: Helmets
+Rarity: Rare
+Havoc Crown
+Iron Circlet
+--------
+Armour: 120
+--------
+Item Level: 79
+--------
+{ Fractured Prefix Modifier "Squire's" (Tier: 1) — Life }
++119(110-129) to maximum Life
+{ Prefix Modifier "Smith's" (Tier: 5) — Defences }
++10(8-12) to Armour
+{ Suffix Modifier "of the Whale" (Tier: 2) — Resistance }
++42(36-45)% to Cold Resistance
+Fractured Item

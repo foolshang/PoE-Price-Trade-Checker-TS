@@ -1,0 +1,11 @@
+Item Class: Wands
+Rarity: Rare
+Doom Spire
+Attuned Wand
+--------
+Item Level: 70
+--------
+{ Prefix Modifier "Cruel" (Tier: 2) }
++20(18-24) to maximum Mana
+--------
+Note: ~price 5 divine

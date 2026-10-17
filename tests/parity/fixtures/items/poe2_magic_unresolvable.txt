@@ -1,0 +1,8 @@
+Item Class: Boots
+Rarity: Magic
+Strange Quux Wibbles of the Void
+--------
+Item Level: 40
+--------
+{ Prefix Modifier "Strange" (Tier: 2) — Life }
++30(25-39) to maximum Life

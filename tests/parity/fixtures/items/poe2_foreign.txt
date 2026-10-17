@@ -1,0 +1,9 @@
+Item Class: ถุงมือ
+Rarity: Rare
+พายุคลั่ง
+ถุงมือหนัง
+--------
+Item Level: 60
+--------
+{ Prefix Modifier "โหด" (Tier: 1) }
++40 to maximum Life

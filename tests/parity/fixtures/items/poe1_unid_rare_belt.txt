@@ -1,0 +1,12 @@
+Item Class: Belts
+Rarity: Rare
+Leather Belt
+--------
+Requirements:
+Level: 3
+--------
+Item Level: 83
+--------
++25 to maximum Life (implicit)
+--------
+Unidentified

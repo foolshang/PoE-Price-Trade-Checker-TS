@@ -1,0 +1,12 @@
+Item Class: Gloves
+Rarity: Normal
+Superior Vaal Gloves
+--------
+Quality: +15% (augmented)
+Armour: 40
+--------
+Sockets: S S
+--------
+Item Level: 60
+--------
++10% to Fire Resistance (rune)

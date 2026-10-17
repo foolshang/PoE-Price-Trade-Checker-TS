@@ -1,0 +1,10 @@
+Item Class: Rings
+Rarity: Unique
+Coral Ring
+--------
+Requirements:
+Level: 1
+--------
+Item Level: 66
+--------
+Unidentified

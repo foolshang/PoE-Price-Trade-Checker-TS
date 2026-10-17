@@ -1,0 +1,18 @@
+Item Class: Rings
+Rarity: Rare
+Doom Loop
+Diamond Ring
+--------
+Requirements:
+Level: 80
+--------
+Item Level: 86
+--------
++30% to Global Critical Strike Multiplier (implicit)
+--------
++70 to maximum Life
++42% to Fire Resistance
++38% to Chaos Resistance
+16% increased Rarity of Items found
+--------
+Shaper Item

@@ -1,0 +1,9 @@
+ITEM CLASS: Rings
+RARITY: rare
+X Y
+Z
+--------
+item level: 50
+--------
+{ PREFIX MODIFIER (tier: 3) }
++5 to Strength

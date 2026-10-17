@@ -1,0 +1,10 @@
+Item Class: Jewels
+Rarity: Rare
+Dread Gaze
+Murderous Eye Jewel
+--------
+Item Level: 84
+--------
+Adds 6 to 10 Physical Damage to Attacks
+10% increased Attack Speed
++12% to Global Critical Strike Multiplier

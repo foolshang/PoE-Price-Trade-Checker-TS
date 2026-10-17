@@ -1,0 +1,14 @@
+Item Class: Shields
+Rarity: Rare
+Rune Aegis
+Hardwood Targe
+--------
+Block chance: 28%
+--------
+Item Level: 80
+--------
+{ Prefix Modifier "Crocodile's" (Tier: 2) — Armour, Life }
+38(35-45)% increased Armour
++40(35-50) to maximum Life
+{ Suffix Modifier "of the Lynx" (Tier: 1) }
++30(25-30) to Dexterity

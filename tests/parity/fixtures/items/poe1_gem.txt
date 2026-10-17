@@ -1,0 +1,11 @@
+Item Class: Support Skill Gems
+Rarity: Gem
+Added Fire Damage Support
+--------
+Support, Fire
+Level: 20
+Quality: +23% (augmented)
+Mana Multiplier: 130%
+--------
+Requirements:
+Level: 18

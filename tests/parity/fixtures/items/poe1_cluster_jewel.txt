@@ -1,0 +1,11 @@
+Item Class: Jewels
+Rarity: Rare
+Grim Whirl
+Large Cluster Jewel
+--------
+Item Level: 84
+--------
+Adds 8 Passive Skills
+2 Added Passive Skills are Jewel Sockets
+--------
+Added Small Passive Skills grant: 12% increased Armour

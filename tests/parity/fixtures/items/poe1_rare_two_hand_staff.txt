@@ -1,0 +1,11 @@
+Item Class: Staves
+Rarity: Rare
+Doom Spire
+Imperial Staff
+--------
+Item Level: 83
+--------
+{ Prefix Modifier "Tempered" (Tier: 1) }
+Adds 30 to 50 Fire Damage
+{ Prefix Modifier "Dazzling" (Tier: 3) }
+Adds 12 to 22 Fire Damage to Spells
