@@ -3,6 +3,27 @@
   "version": "0.0.0",
   "private": true,
   "description": "PoE Price & Trade Checker (TypeScript)",
-  "workspaces": ["packages/*", "apps/*"],
-  "engines": { "node": ">=22" }
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "@types/pako": "2.0.3",
+    "eslint": "10.13.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.2",
+    "vitest": "5.0.5"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint packages tests",
+    "parity:regen": "python -B tools/parity/gen_golden.py",
+    "parity:check": "python -B tools/parity/gen_golden.py --check"
+  },
+  "type": "module"
 }

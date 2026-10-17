@@ -1,0 +1,978 @@
+{
+ "tier_hubfail": {
+  "calls": [
+   [
+    "fetch_base_filter",
+    "poe2",
+    2,
+    "app/cache",
+    false
+   ],
+   [
+    "copy_sounds",
+    "game",
+    {
+     "1": false,
+     "2": false,
+     "3": false,
+     "4": false,
+     "5": false,
+     "6": false,
+     "Q": false
+    }
+   ],
+   [
+    "write_filter",
+    "game",
+    "497d2c0b8c10",
+    "4982d9531e17"
+   ]
+  ],
+  "events": [
+   "filter generated gv=poe2 league= base_tag=tagX path=<T>/game/poe-checker.filter"
+  ],
+  "file": null,
+  "file_len": 252670,
+  "file_sha256": "3e3f20e8279aa321ad7cbe61343695a162635dd5f0803e0648e7a8e4fb11305f",
+  "logs": [
+   [
+    "info",
+    "⟳ ดึง NeverSink base filter (poe2)…"
+   ],
+   [
+    "ok",
+    "✓ NeverSink base filter พร้อม (tag=tagX)"
+   ],
+   [
+    "ok",
+    "✓ เขียน filter แล้ว: <T>/game/poe-checker.filter"
+   ],
+   [
+    "ok",
+    "Filter updated — reload in game (Options → Game)"
+   ]
+  ],
+  "return": {
+   "base_tag": "tagX",
+   "filter_name": "poe-checker",
+   "mode": "tier",
+   "path": "<T>/game/poe-checker.filter"
+  },
+  "sounds": []
+ },
+ "tier_nobase_hubfail": {
+  "calls": [
+   [
+    "fetch_base_filter",
+    "poe2",
+    2,
+    "app/cache",
+    false
+   ],
+   [
+    "write_filter",
+    "game",
+    "e3b0c44298fc",
+    null
+   ]
+  ],
+  "events": [],
+  "file": null,
+  "file_len": null,
+  "file_sha256": null,
+  "logs": [
+   [
+    "info",
+    "⟳ ดึง NeverSink base filter (poe2)…"
+   ],
+   [
+    "warn",
+    "⚠ ไม่มี NeverSink base filter ให้ใช้ (GitHub ล่ม + ไม่มี cache)"
+   ],
+   [
+    "err",
+    "✗ nothing to write — no NeverSink base filter available — ไฟล์เดิมไม่ถูกแตะ"
+   ]
+  ],
+  "return": null,
+  "sounds": []
+ },
+ "tier_nobase_hubok": {
+  "calls": [
+   [
+    "fetch_base_filter",
+    "poe2",
+    2,
+    "app/cache",
+    false
+   ],
+   [
+    "write_filter",
+    "game",
+    "e3b0c44298fc",
+    null
+   ]
+  ],
+  "events": [],
+  "file": null,
+  "file_len": null,
+  "file_sha256": null,
+  "logs": [
+   [
+    "info",
+    "⟳ ดึง NeverSink base filter (poe2)…"
+   ],
+   [
+    "warn",
+    "⚠ ไม่มี NeverSink base filter ให้ใช้ (GitHub ล่ม + ไม่มี cache)"
+   ],
+   [
+    "err",
+    "✗ nothing to write — no NeverSink base filter available — ไฟล์เดิมไม่ถูกแตะ"
+   ]
+  ],
+  "return": null,
+  "sounds": []
+ },
+ "tier_poe1": {
+  "calls": [
+   [
+    "fetch_base_filter",
+    "poe1",
+    2,
+    "app/cache",
+    false
+   ],
+   [
+    "copy_sounds",
+    "game",
+    {
+     "1": false,
+     "2": false,
+     "3": false,
+     "4": false,
+     "5": false,
+     "6": false,
+     "Q": false
+    }
+   ],
+   [
+    "write_filter",
+    "game",
+    "497d2c0b8c10",
+    "32f19c7b2a74"
+   ]
+  ],
+  "events": [
+   "filter generated gv=poe1 league= base_tag=tagX path=<T>/game/poe-checker.filter"
+  ],
+  "file": null,
+  "file_len": 495324,
+  "file_sha256": "96fb7beecdf114beedb3916d07ff7cbd03359e3fff530dd643dca681b9b0d8e5",
+  "logs": [
+   [
+    "info",
+    "⟳ ดึง NeverSink base filter (poe1)…"
+   ],
+   [
+    "ok",
+    "✓ NeverSink base filter พร้อม (tag=tagX)"
+   ],
+   [
+    "ok",
+    "✓ เขียน filter แล้ว: <T>/game/poe-checker.filter"
+   ],
+   [
+    "ok",
+    "Filter updated — reload in game (Options → Game)"
+   ]
+  ],
+  "return": {
+   "base_tag": "tagX",
+   "filter_name": "poe-checker",
+   "mode": "tier",
+   "path": "<T>/game/poe-checker.filter"
+  },
+  "sounds": []
+ },
+ "tier_poe1_sounds": {
+  "calls": [
+   [
+    "fetch_base_filter",
+    "poe1",
+    2,
+    "app/cache",
+    false
+   ],
+   [
+    "copy_sounds",
+    "game",
+    {
+     "1": true,
+     "2": true,
+     "3": true,
+     "4": false,
+     "5": false,
+     "6": false,
+     "Q": false
+    }
+   ],
+   [
+    "write_filter",
+    "game",
+    "497d2c0b8c10",
+    "41a3eae7de45"
+   ]
+  ],
+  "events": [
+   "filter generated gv=poe1 league= base_tag=tagX path=<T>/game/poe-checker.filter"
+  ],
+  "file": null,
+  "file_len": 504044,
+  "file_sha256": "b15d360d35142c2e478332efd153ff4bb95b003fd43c9acbfa27dc73b9228c3c",
+  "logs": [
+   [
+    "info",
+    "⟳ ดึง NeverSink base filter (poe1)…"
+   ],
+   [
+    "ok",
+    "✓ NeverSink base filter พร้อม (tag=tagX)"
+   ],
+   [
+    "ok",
+    "✓ ใส่เสียง custom ใน 218 block ตามเลขเสียงของ NeverSink (เสียง 1: 30, เสียง 2: 60, เสียง 3: 128)"
+   ],
+   [
+    "ok",
+    "✓ เขียน filter แล้ว: <T>/game/poe-checker.filter"
+   ],
+   [
+    "ok",
+    "Filter updated — reload in game (Options → Game)"
+   ]
+  ],
+  "return": {
+   "base_tag": "tagX",
+   "filter_name": "poe-checker",
+   "mode": "tier",
+   "path": "<T>/game/poe-checker.filter"
+  },
+  "sounds": [
+   "snd.mp3"
+  ]
+ },
+ "tier_poe2": {
+  "calls": [
+   [
+    "fetch_base_filter",
+    "poe2",
+    2,
+    "app/cache",
+    false
+   ],
+   [
+    "copy_sounds",
+    "game",
+    {
+     "1": false,
+     "2": false,
+     "3": false,
+     "4": false,
+     "5": false,
+     "6": false,
+     "Q": false
+    }
+   ],
+   [
+    "write_filter",
+    "game",
+    "497d2c0b8c10",
+    "4982d9531e17"
+   ]
+  ],
+  "events": [
+   "filter generated gv=poe2 league= base_tag=tagX path=<T>/game/poe-checker.filter"
+  ],
+  "file": null,
+  "file_len": 252670,
+  "file_sha256": "3e3f20e8279aa321ad7cbe61343695a162635dd5f0803e0648e7a8e4fb11305f",
+  "logs": [
+   [
+    "info",
+    "⟳ ดึง NeverSink base filter (poe2)…"
+   ],
+   [
+    "ok",
+    "✓ NeverSink base filter พร้อม (tag=tagX)"
+   ],
+   [
+    "ok",
+    "✓ เขียน filter แล้ว: <T>/game/poe-checker.filter"
+   ],
+   [
+    "ok",
+    "Filter updated — reload in game (Options → Game)"
+   ]
+  ],
+  "return": {
+   "base_tag": "tagX",
+   "filter_name": "poe-checker",
+   "mode": "tier",
+   "path": "<T>/game/poe-checker.filter"
+  },
+  "sounds": []
+ },
+ "tier_poe2_force": {
+  "calls": [
+   [
+    "fetch_base_filter",
+    "poe2",
+    2,
+    "app/cache",
+    true
+   ],
+   [
+    "copy_sounds",
+    "game",
+    {
+     "1": false,
+     "2": false,
+     "3": false,
+     "4": false,
+     "5": false,
+     "6": false,
+     "Q": false
+    }
+   ],
+   [
+    "write_filter",
+    "game",
+    "497d2c0b8c10",
+    "4982d9531e17"
+   ]
+  ],
+  "events": [
+   "filter generated gv=poe2 league=LeagueX base_tag=tagX path=<T>/game/poe-checker.filter"
+  ],
+  "file": null,
+  "file_len": 252670,
+  "file_sha256": "3e3f20e8279aa321ad7cbe61343695a162635dd5f0803e0648e7a8e4fb11305f",
+  "logs": [
+   [
+    "info",
+    "⟳ ดึง NeverSink base filter (poe2)…"
+   ],
+   [
+    "ok",
+    "✓ NeverSink base filter พร้อม (tag=tagX)"
+   ],
+   [
+    "ok",
+    "✓ เขียน filter แล้ว: <T>/game/poe-checker.filter"
+   ],
+   [
+    "ok",
+    "Filter updated — reload in game (Options → Game)"
+   ]
+  ],
+  "return": {
+   "base_tag": "tagX",
+   "filter_name": "poe-checker",
+   "mode": "tier",
+   "path": "<T>/game/poe-checker.filter"
+  },
+  "sounds": []
+ },
+ "tier_poe2_hub_would_fail": {
+  "calls": [
+   [
+    "fetch_base_filter",
+    "poe2",
+    2,
+    "app/cache",
+    false
+   ],
+   [
+    "copy_sounds",
+    "game",
+    {
+     "1": false,
+     "2": false,
+     "3": false,
+     "4": false,
+     "5": false,
+     "6": false,
+     "Q": false
+    }
+   ],
+   [
+    "write_filter",
+    "game",
+    "497d2c0b8c10",
+    "4982d9531e17"
+   ]
+  ],
+  "events": [
+   "filter generated gv=poe2 league= base_tag=tagX path=<T>/game/poe-checker.filter"
+  ],
+  "file": null,
+  "file_len": 252670,
+  "file_sha256": "3e3f20e8279aa321ad7cbe61343695a162635dd5f0803e0648e7a8e4fb11305f",
+  "logs": [
+   [
+    "info",
+    "⟳ ดึง NeverSink base filter (poe2)…"
+   ],
+   [
+    "ok",
+    "✓ NeverSink base filter พร้อม (tag=tagX)"
+   ],
+   [
+    "ok",
+    "✓ เขียน filter แล้ว: <T>/game/poe-checker.filter"
+   ],
+   [
+    "ok",
+    "Filter updated — reload in game (Options → Game)"
+   ]
+  ],
+  "return": {
+   "base_tag": "tagX",
+   "filter_name": "poe-checker",
+   "mode": "tier",
+   "path": "<T>/game/poe-checker.filter"
+  },
+  "sounds": []
+ },
+ "tier_poe2_sounds": {
+  "calls": [
+   [
+    "fetch_base_filter",
+    "poe2",
+    0,
+    "app/cache",
+    false
+   ],
+   [
+    "copy_sounds",
+    "game",
+    {
+     "1": true,
+     "2": true,
+     "3": false,
+     "4": false,
+     "5": false,
+     "6": false,
+     "Q": false
+    }
+   ],
+   [
+    "write_filter",
+    "game",
+    "497d2c0b8c10",
+    "97a02c8464b5"
+   ]
+  ],
+  "events": [
+   "filter generated gv=poe2 league= base_tag=tagX path=<T>/game/poe-checker.filter"
+  ],
+  "file": null,
+  "file_len": 254110,
+  "file_sha256": "cb90f66d4695db215e21f724670ecf983a0a06289e1cc355968fd3c1223ef4ec",
+  "logs": [
+   [
+    "info",
+    "⟳ ดึง NeverSink base filter (poe2)…"
+   ],
+   [
+    "ok",
+    "✓ NeverSink base filter พร้อม (tag=tagX)"
+   ],
+   [
+    "ok",
+    "✓ ใส่เสียง custom ใน 36 block ตามเลขเสียงของ NeverSink (เสียง 1: 14, เสียง 2: 22)"
+   ],
+   [
+    "ok",
+    "✓ เขียน filter แล้ว: <T>/game/poe-checker.filter"
+   ],
+   [
+    "ok",
+    "Filter updated — reload in game (Options → Game)"
+   ]
+  ],
+  "return": {
+   "base_tag": "tagX",
+   "filter_name": "poe-checker",
+   "mode": "tier",
+   "path": "<T>/game/poe-checker.filter"
+  },
+  "sounds": [
+   "snd.mp3"
+  ]
+ },
+ "tier_write_oserr": {
+  "calls": [
+   [
+    "fetch_base_filter",
+    "poe2",
+    2,
+    "app/cache",
+    false
+   ],
+   [
+    "copy_sounds",
+    "game",
+    {
+     "1": false,
+     "2": false,
+     "3": false,
+     "4": false,
+     "5": false,
+     "6": false,
+     "Q": false
+    }
+   ],
+   [
+    "write_filter",
+    "game",
+    "497d2c0b8c10",
+    "4982d9531e17"
+   ]
+  ],
+  "events": [],
+  "file": null,
+  "file_len": null,
+  "file_sha256": null,
+  "logs": [
+   [
+    "info",
+    "⟳ ดึง NeverSink base filter (poe2)…"
+   ],
+   [
+    "ok",
+    "✓ NeverSink base filter พร้อม (tag=tagX)"
+   ],
+   [
+    "err",
+    "✗ เขียน filter ลงโฟลเดอร์ไม่ได้: <T>/game\n   Windows อาจบล็อกการเขียน (Controlled Folder Access / Ransomware protection) — อนุญาต โปรแกรมนี้ ใน Windows Security → Ransomware protection หรือเลือก Game folder override เป็นโฟลเดอร์อื่น\n   ([Errno 13] denied)"
+   ]
+  ],
+  "return": null,
+  "sounds": []
+ },
+ "tier_write_valueerr": {
+  "calls": [
+   [
+    "fetch_base_filter",
+    "poe2",
+    2,
+    "app/cache",
+    false
+   ],
+   [
+    "copy_sounds",
+    "game",
+    {
+     "1": false,
+     "2": false,
+     "3": false,
+     "4": false,
+     "5": false,
+     "6": false,
+     "Q": false
+    }
+   ],
+   [
+    "write_filter",
+    "game",
+    "497d2c0b8c10",
+    "4982d9531e17"
+   ]
+  ],
+  "events": [],
+  "file": null,
+  "file_len": null,
+  "file_sha256": null,
+  "logs": [
+   [
+    "info",
+    "⟳ ดึง NeverSink base filter (poe2)…"
+   ],
+   [
+    "ok",
+    "✓ NeverSink base filter พร้อม (tag=tagX)"
+   ],
+   [
+    "err",
+    "✗ nothing — ไฟล์เดิมไม่ถูกแตะ"
+   ]
+  ],
+  "return": null,
+  "sounds": []
+ },
+ "wl_cats_excl": {
+  "calls": [
+   [
+    "get_prices",
+    "poe2/prices/latest.json"
+   ],
+   [
+    "write_filter",
+    "game",
+    "39655f7841f3",
+    null
+   ]
+  ],
+  "events": [
+   "whitelist filter generated gv=poe2 items=4 path=<T>/game/poe-checker-whitelist.filter"
+  ],
+  "file": "# === PoE Checker - Whitelist (show only) ===\nShow\n    BaseType == \"Adept Rune\" \"Chaos Orb\" \"Divine Orb\" \"Exalted Orb\"\n    SetFontSize 45\n    SetTextColor 255 255 255 255\n    SetBorderColor 255 200 0 255\n    SetBackgroundColor 75 50 0 255\n    PlayAlertSound 6 300\n    MinimapIcon 0 Yellow Star\n    PlayEffect Yellow\n\n# hide everything else\nHide\n",
+  "file_len": 345,
+  "file_sha256": "39655f7841f3ca1d1408b6fdfbbb0fc809238589bb42f8638712888277a58a54",
+  "logs": [
+   [
+    "ok",
+    "✓ filter โหมดโชว์เฉพาะ (4 รายการ) → <T>/game/poe-checker-whitelist.filter"
+   ],
+   [
+    "ok",
+    "Filter updated — reload in game (Options → Game)"
+   ]
+  ],
+  "return": {
+   "count": 4,
+   "filter_name": "poe-checker-whitelist",
+   "mode": "whitelist",
+   "path": "<T>/game/poe-checker-whitelist.filter"
+  },
+  "sounds": []
+ },
+ "wl_cats_hubfail": {
+  "calls": [
+   [
+    "get_prices",
+    "poe2/prices/latest.json"
+   ],
+   [
+    "write_filter",
+    "game",
+    "d8107b23abd3",
+    null
+   ]
+  ],
+  "events": [
+   "whitelist filter generated gv=poe2 items=1 path=<T>/game/poe-checker-whitelist.filter"
+  ],
+  "file": "# === PoE Checker - Whitelist (show only) ===\n# gold\nShow\n    BaseType == \"Gold\"\n    SetFontSize 45\n    SetTextColor 255 255 255 255\n    SetBorderColor 255 200 0 255\n    SetBackgroundColor 75 50 0 255\n    PlayAlertSound 6 300\n    MinimapIcon 0 Yellow Star\n    PlayEffect Yellow\n\n# hide everything else\nHide\n",
+  "file_len": 307,
+  "file_sha256": "d8107b23abd3468b57d88aaad64d83defee4a787ee73ee91018597f314483b22",
+  "logs": [
+   [
+    "warn",
+    "⚠ ดึง hub ไม่ได้ ใช้เฉพาะ currency/ชื่อที่ติ๊ก: hub down"
+   ],
+   [
+    "ok",
+    "✓ filter โหมดโชว์เฉพาะ (1 รายการ) → <T>/game/poe-checker-whitelist.filter"
+   ],
+   [
+    "ok",
+    "Filter updated — reload in game (Options → Game)"
+   ]
+  ],
+  "return": {
+   "count": 1,
+   "filter_name": "poe-checker-whitelist",
+   "mode": "whitelist",
+   "path": "<T>/game/poe-checker-whitelist.filter"
+  },
+  "sounds": []
+ },
+ "wl_cats_hubfail_only": {
+  "calls": [
+   [
+    "get_prices",
+    "poe2/prices/latest.json"
+   ]
+  ],
+  "events": [],
+  "file": null,
+  "file_len": null,
+  "file_sha256": null,
+  "logs": [
+   [
+    "warn",
+    "⚠ ดึง hub ไม่ได้ ใช้เฉพาะ currency/ชื่อที่ติ๊ก: hub down"
+   ],
+   [
+    "warn",
+    "⚠ โหมดโชว์เฉพาะ: ยังไม่ได้เลือกอะไร — ไม่ generate"
+   ]
+  ],
+  "return": null,
+  "sounds": []
+ },
+ "wl_empty": {
+  "calls": [],
+  "events": [],
+  "file": null,
+  "file_len": null,
+  "file_sha256": null,
+  "logs": [
+   [
+    "warn",
+    "⚠ โหมดโชว์เฉพาะ: ยังไม่ได้เลือกอะไร — ไม่ generate"
+   ]
+  ],
+  "return": null,
+  "sounds": []
+ },
+ "wl_gem_poe1": {
+  "calls": [
+   [
+    "get_prices",
+    "poe1/prices/latest.json"
+   ],
+   [
+    "write_filter",
+    "game",
+    "591cdbb01462",
+    null
+   ]
+  ],
+  "events": [
+   "whitelist filter generated gv=poe1 items=5 path=<T>/game/poe-checker-whitelist.filter"
+  ],
+  "file": "# === PoE Checker - Whitelist (show only) ===\nShow\n    BaseType == \"Chaos Orb\" \"Divine Orb\" \"Exalted Orb\"\n    SetFontSize 45\n    SetTextColor 255 255 255 255\n    SetBorderColor 255 200 0 255\n    SetBackgroundColor 75 50 0 255\n    PlayAlertSound 6 300\n    MinimapIcon 0 Yellow Star\n    PlayEffect Yellow\n\n# typed names (contains match, any rarity)\nShow\n    BaseType \"Fireball\" \"Vaal Grace\"\n    SetFontSize 45\n    SetTextColor 0 255 255 255\n    SetBorderColor 0 255 255 255\n    SetBackgroundColor 0 50 60 255\n    PlayAlertSound 2 300\n    MinimapIcon 0 Cyan Star\n    PlayEffect Cyan\n\n# hide everything else\nHide\n",
+  "file_len": 609,
+  "file_sha256": "591cdbb01462b7c28662d4a562b1baaf285d645747eb07bf0ede12935cc02169",
+  "logs": [
+   [
+    "ok",
+    "✓ filter โหมดโชว์เฉพาะ (5 รายการ) → <T>/game/poe-checker-whitelist.filter"
+   ],
+   [
+    "ok",
+    "Filter updated — reload in game (Options → Game)"
+   ]
+  ],
+  "return": {
+   "count": 5,
+   "filter_name": "poe-checker-whitelist",
+   "mode": "whitelist",
+   "path": "<T>/game/poe-checker-whitelist.filter"
+  },
+  "sounds": []
+ },
+ "wl_gem_poe2": {
+  "calls": [
+   [
+    "write_filter",
+    "game",
+    "6b583fce5304",
+    null
+   ]
+  ],
+  "events": [
+   "whitelist filter generated gv=poe2 items=6 path=<T>/game/poe-checker-whitelist.filter"
+  ],
+  "file": "# === PoE Checker - Whitelist (show only) ===\n# gold (stack >= 10)\nShow\n    BaseType == \"Gold\"\n    StackSize >= 10\n    SetFontSize 45\n    SetTextColor 255 255 255 255\n    SetBorderColor 255 200 0 255\n    SetBackgroundColor 75 50 0 255\n    PlayAlertSound 6 300\n    MinimapIcon 0 Yellow Star\n    PlayEffect Yellow\n\n# typed names (contains match, Normal/Magic)\nShow\n    BaseType \"Heavy Belt\"\n    Rarity Normal Magic\n    SetFontSize 45\n    SetTextColor 0 255 255 255\n    SetBorderColor 0 255 255 255\n    SetBackgroundColor 0 50 60 255\n    PlayAlertSound 2 300\n    MinimapIcon 0 Cyan Star\n    PlayEffect Cyan\n\n# typed names (contains match, any rarity)\nShow\n    BaseType \"Sapphire\"\n    SetFontSize 45\n    SetTextColor 0 255 255 255\n    SetBorderColor 0 255 255 255\n    SetBackgroundColor 0 50 60 255\n    PlayAlertSound 2 300\n    MinimapIcon 0 Cyan Star\n    PlayEffect Cyan\n\n# uncut gem: Uncut Skill Gem (GemLevel >= 15)\nShow\n    BaseType \"Uncut Skill Gem\"\n    GemLevel >= 15\n    SetFontSize 45\n    SetTextColor 255 255 255 255\n    SetBorderColor 60 220 120 255\n    SetBackgroundColor 10 50 25 255\n    PlayAlertSound 1 300\n    MinimapIcon 0 Green Star\n    PlayEffect Green\n\n# uncut gem: Uncut Spirit Gem (GemLevel >= 20)\nShow\n    BaseType \"Uncut Spirit Gem\"\n    GemLevel >= 20\n    SetFontSize 45\n    SetTextColor 255 255 255 255\n    SetBorderColor 60 220 120 255\n    SetBackgroundColor 10 50 25 255\n    PlayAlertSound 1 300\n    MinimapIcon 0 Green Star\n    PlayEffect Green\n\n# all uniques\nShow\n    Rarity Unique\n    SetFontSize 45\n    SetTextColor 175 96 37 255\n    SetBorderColor 175 96 37 255\n    SetBackgroundColor 50 30 10 255\n    PlayAlertSound 3 300\n    MinimapIcon 0 Brown Star\n    PlayEffect Brown\n\n# hide everything else\nHide\n",
+  "file_len": 1729,
+  "file_sha256": "6b583fce53043211a9475fee680090cd773e6fd46a05aada6aa6aa2e25259ce6",
+  "logs": [
+   [
+    "ok",
+    "✓ filter โหมดโชว์เฉพาะ (6 รายการ) → <T>/game/poe-checker-whitelist.filter"
+   ],
+   [
+    "ok",
+    "Filter updated — reload in game (Options → Game)"
+   ]
+  ],
+  "return": {
+   "count": 6,
+   "filter_name": "poe-checker-whitelist",
+   "mode": "whitelist",
+   "path": "<T>/game/poe-checker-whitelist.filter"
+  },
+  "sounds": []
+ },
+ "wl_gold": {
+  "calls": [
+   [
+    "write_filter",
+    "game",
+    "d8107b23abd3",
+    null
+   ]
+  ],
+  "events": [
+   "whitelist filter generated gv=poe2 items=1 path=<T>/game/poe-checker-whitelist.filter"
+  ],
+  "file": "# === PoE Checker - Whitelist (show only) ===\n# gold\nShow\n    BaseType == \"Gold\"\n    SetFontSize 45\n    SetTextColor 255 255 255 255\n    SetBorderColor 255 200 0 255\n    SetBackgroundColor 75 50 0 255\n    PlayAlertSound 6 300\n    MinimapIcon 0 Yellow Star\n    PlayEffect Yellow\n\n# hide everything else\nHide\n",
+  "file_len": 307,
+  "file_sha256": "d8107b23abd3468b57d88aaad64d83defee4a787ee73ee91018597f314483b22",
+  "logs": [
+   [
+    "ok",
+    "✓ filter โหมดโชว์เฉพาะ (1 รายการ) → <T>/game/poe-checker-whitelist.filter"
+   ],
+   [
+    "ok",
+    "Filter updated — reload in game (Options → Game)"
+   ]
+  ],
+  "return": {
+   "count": 1,
+   "filter_name": "poe-checker-whitelist",
+   "mode": "whitelist",
+   "path": "<T>/game/poe-checker-whitelist.filter"
+  },
+  "sounds": []
+ },
+ "wl_gold25": {
+  "calls": [
+   [
+    "write_filter",
+    "game",
+    "5eb6a01951db",
+    null
+   ]
+  ],
+  "events": [
+   "whitelist filter generated gv=poe2 items=1 path=<T>/game/poe-checker-whitelist.filter"
+  ],
+  "file": "# === PoE Checker - Whitelist (show only) ===\n# gold (stack >= 25)\nShow\n    BaseType == \"Gold\"\n    StackSize >= 25\n    SetFontSize 45\n    SetTextColor 255 255 255 255\n    SetBorderColor 255 200 0 255\n    SetBackgroundColor 75 50 0 255\n    PlayAlertSound 6 300\n    MinimapIcon 0 Yellow Star\n    PlayEffect Yellow\n\n# hide everything else\nHide\n",
+  "file_len": 341,
+  "file_sha256": "5eb6a01951dba60a3177c4cf995ea18ba1fa0f976e0c294f2476b9a4f39f2e41",
+  "logs": [
+   [
+    "ok",
+    "✓ filter โหมดโชว์เฉพาะ (1 รายการ) → <T>/game/poe-checker-whitelist.filter"
+   ],
+   [
+    "ok",
+    "Filter updated — reload in game (Options → Game)"
+   ]
+  ],
+  "return": {
+   "count": 1,
+   "filter_name": "poe-checker-whitelist",
+   "mode": "whitelist",
+   "path": "<T>/game/poe-checker-whitelist.filter"
+  },
+  "sounds": []
+ },
+ "wl_gold_bad": {
+  "calls": [
+   [
+    "write_filter",
+    "game",
+    "d8107b23abd3",
+    null
+   ]
+  ],
+  "events": [
+   "whitelist filter generated gv=poe2 items=1 path=<T>/game/poe-checker-whitelist.filter"
+  ],
+  "file": "# === PoE Checker - Whitelist (show only) ===\n# gold\nShow\n    BaseType == \"Gold\"\n    SetFontSize 45\n    SetTextColor 255 255 255 255\n    SetBorderColor 255 200 0 255\n    SetBackgroundColor 75 50 0 255\n    PlayAlertSound 6 300\n    MinimapIcon 0 Yellow Star\n    PlayEffect Yellow\n\n# hide everything else\nHide\n",
+  "file_len": 307,
+  "file_sha256": "d8107b23abd3468b57d88aaad64d83defee4a787ee73ee91018597f314483b22",
+  "logs": [
+   [
+    "ok",
+    "✓ filter โหมดโชว์เฉพาะ (1 รายการ) → <T>/game/poe-checker-whitelist.filter"
+   ],
+   [
+    "ok",
+    "Filter updated — reload in game (Options → Game)"
+   ]
+  ],
+  "return": {
+   "count": 1,
+   "filter_name": "poe-checker-whitelist",
+   "mode": "whitelist",
+   "path": "<T>/game/poe-checker-whitelist.filter"
+  },
+  "sounds": []
+ },
+ "wl_unique": {
+  "calls": [
+   [
+    "write_filter",
+    "game",
+    "1e6f6af586f7",
+    null
+   ]
+  ],
+  "events": [
+   "whitelist filter generated gv=poe2 items=1 path=<T>/game/poe-checker-whitelist.filter"
+  ],
+  "file": "# === PoE Checker - Whitelist (show only) ===\n# all uniques\nShow\n    Rarity Unique\n    SetFontSize 45\n    SetTextColor 175 96 37 255\n    SetBorderColor 175 96 37 255\n    SetBackgroundColor 50 30 10 255\n    PlayAlertSound 3 300\n    MinimapIcon 0 Brown Star\n    PlayEffect Brown\n\n# hide everything else\nHide\n",
+  "file_len": 306,
+  "file_sha256": "1e6f6af586f7cb978d8aa76605ab3b9fa1e4c96d7c2f3188b835854417dc1345",
+  "logs": [
+   [
+    "ok",
+    "✓ filter โหมดโชว์เฉพาะ (1 รายการ) → <T>/game/poe-checker-whitelist.filter"
+   ],
+   [
+    "ok",
+    "Filter updated — reload in game (Options → Game)"
+   ]
+  ],
+  "return": {
+   "count": 1,
+   "filter_name": "poe-checker-whitelist",
+   "mode": "whitelist",
+   "path": "<T>/game/poe-checker-whitelist.filter"
+  },
+  "sounds": []
+ },
+ "wl_write_exc": {
+  "calls": [
+   [
+    "write_filter",
+    "game",
+    "d8107b23abd3",
+    null
+   ]
+  ],
+  "events": [],
+  "file": null,
+  "file_len": null,
+  "file_sha256": null,
+  "logs": [
+   [
+    "err",
+    "✗ generate ล้มเหลว: x"
+   ]
+  ],
+  "return": null,
+  "sounds": []
+ },
+ "wl_write_oserr": {
+  "calls": [
+   [
+    "write_filter",
+    "game",
+    "d8107b23abd3",
+    null
+   ]
+  ],
+  "events": [],
+  "file": null,
+  "file_len": null,
+  "file_sha256": null,
+  "logs": [
+   [
+    "err",
+    "✗ เขียน filter ลงโฟลเดอร์ไม่ได้: <T>/game\n   Windows อาจบล็อกการเขียน (Controlled Folder Access / Ransomware protection) — อนุญาต โปรแกรมนี้ ใน Windows Security → Ransomware protection หรือเลือก Game folder override เป็นโฟลเดอร์อื่น\n   ([Errno 9] boom)"
+   ]
+  ],
+  "return": null,
+  "sounds": []
+ }
+}

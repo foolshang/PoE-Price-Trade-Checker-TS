@@ -6,7 +6,7 @@ repo at v0.13.5, local experiments); estimates are marked as estimates.
 | Phase | What | Status |
 |---|---|---|
 | 0 | Skeleton repo, survey of the original, this plan | done 2026-10-17 (waiting for Winai's decisions, section F) |
-| 1 | `packages/core`: filter logic converted + byte parity against Python | not started |
+| 1 | `packages/core`: filter logic converted + byte parity against Python | done 2026-10-17, not committed as a release (see docs/PHASE1.md) |
 | 2 | Web page on core TS (no Pyodide), staged under `/ts/` | not started |
 | 3 | Filter Generator on Electron | not started |
 | 4 | F4 skill reference + F5 trade (hotkeys, Ctrl+C, clipboard) | not started |

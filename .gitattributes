@@ -4,3 +4,7 @@
 *.png binary
 *.wav binary
 *.mp3 binary
+tests/parity/fixtures/** -text
+tests/parity/golden/** -text
+tests/parity/cases/** -text
+packages/core/data/** -text

@@ -1,0 +1,7 @@
+{
+ "cases": 1491,
+ "commit": "c9c57524c3325e99be38347eaf50193bd6ed777d",
+ "dirty": false,
+ "python": "3.12.10",
+ "version": "0.13.5"
+}

@@ -58,14 +58,23 @@
 8. ไฟล์ local-only (`dist/`, `dist_new/`, `release-out/`, `.parity-cache/`, `node_modules/`) อยู่ใน `.gitignore`
    ไม่ commit
 
+## คำสั่งหลัก
+
+- `npm test` (vitest ทั้งหมด ~2 นาที ไม่ต้องใช้ Python) · `npm run typecheck` · `npm run lint`
+- `npm run parity:check` รัน Python เดิมใหม่เทียบกับ golden ที่ commit ไว้ (ต้องมี Python + ของเดิม; ~3 นาที) —
+  Winai แจ้งว่าของเดิมแก้บั๊ก → รัน `npm run parity:regen` แล้วดู diff ของ golden ก่อนแก้ TS ให้ตรง
+- รายละเอียดระบบ parity และสถานะการแปลง: `docs/PHASE1.md`
+
 ## ความเข้ากันได้กับของเดิม (ต้องรักษา)
 
-- อ่าน `%LOCALAPPDATA%\PoePriceTrade\config.json` เดิม (merge เฉพาะ key ที่รู้จัก, `utf-8-sig`, dict-default merge
-  key-by-key) รวม `filter_gen` และ cache/ไฟล์ rules เดิมในโฟลเดอร์นั้น ไม่ทำลายถ้า Winai รันของเดิมคู่กัน
+- config ของใหม่อยู่ที่ `%LOCALAPPDATA%\PoePriceTradeTS` (แยกจากของเดิม) นำเข้าจาก `%LOCALAPPDATA%\PoePriceTrade\config.json`
+  เดิมครั้งเดียว (กติกา merge เดิม: เฉพาะ key ที่รู้จัก, `utf-8-sig`, dict-default merge key-by-key) **ห้ามเขียนไฟล์ในโฟลเดอร์
+  ของเดิม** (ของเดิมทิ้ง key ที่ไม่รู้จักตอนบันทึก)
 - เปิดไฟล์ `.filter` ที่ของเดิมสร้างและมีค่าฝัง (`# poe-checker-config:`) กลับมาแก้ได้ + อ่าน v1/v2 เก่า
   (`wl_import`)
 - ไฟล์เสียง/โฟลเดอร์เกม (`Documents\My Games\Path of Exile[ 2]`) ใช้ต่อ — กติกา copy เสียงเดิม (ชื่อเดิม,
   `#`/`;` → `_`, ห้ามเขียนทับเงียบๆ)
+- license = MIT (Copyright (c) 2026 foolshang) · branch = `master` · เวอร์ชัน `v1.0.0-beta.N` → `v1.0.0`
 - `session.dpapi` (POESESSID) ไม่ใช้ในของใหม่ (ของเดิมก็ไม่ใช้แล้ว)
 
 ## สไตล์คำสั่ง shell
