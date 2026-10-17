@@ -1,0 +1,113 @@
+name: Deploy web to GitHub Pages
+
+# Builds the TypeScript web page (apps/web) and publishes ONLY the built files to the gh-pages branch of the public repo,
+# served at https://foolshang.github.io/PoE-Filter-Generator/.
+#   - first run: the old (Pyodide) page at the root of gh-pages is moved to /legacy/ (never overwritten once it exists)
+#   - every run: the root web files are replaced by this build; any other file in gh-pages is left alone
+# Run by hand only (workflow_dispatch); it is not tied to a tag yet. How to go back: docs/DEPLOY.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build and prepare the commit, print the file lists, but do not push'
+        type: boolean
+        default: true
+
+env:
+  PUBLIC_REPO: foolshang/PoE-Filter-Generator
+  SITE_URL: https://foolshang.github.io/PoE-Filter-Generator
+
+jobs:
+  deploy-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - run: npm ci
+
+      # a list that shrank by more than 20% (or a failed download) is not written: the committed snapshot stays and the log says so
+      - name: Refresh trade names snapshot
+        shell: bash
+        run: |
+          if npm run names:refresh; then
+            echo "names snapshot refreshed"
+          else
+            echo "::warning::trade names snapshot not refreshed (shrank by more than 20% or download failed) - the committed snapshot is deployed"
+          fi
+
+      - name: Build the web page
+        run: npm run web:build
+
+      - name: Check the version inside the build
+        shell: bash
+        run: |
+          ver=$(node -p "require('./package.json').version")
+          echo "repo version: $ver (the page reports web-$ver)"
+          grep -rqF "web-$ver" apps/web/dist/assets/*.js || { echo "::error::the build does not contain 'web-$ver'"; exit 1; }
+          test -f apps/web/dist/index.html || { echo "::error::no index.html in the build"; exit 1; }
+          echo "ver=$ver" >> "$GITHUB_ENV"
+
+      - name: Prepare gh-pages (legacy move + new root)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          set -eu
+          git clone -q --branch gh-pages "https://x-access-token:${GH_TOKEN}@github.com/${PUBLIC_REPO}.git" pages
+          cd pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          echo "== gh-pages before (top level) =="; ls -A | grep -v '^.git$'
+          echo "== gh-pages before (all files) =="; git ls-files | sort > ../before.txt; wc -l < ../before.txt
+
+          OLD_WEB=".nojekyll app.js data glue.py index.html js py style.css"   # the files of the old Pyodide page
+          if [ ! -d legacy ]; then
+            # first time only: the root must still be the old page, otherwise something is not as expected
+            [ -f glue.py ] && [ -d py ] || { echo "::error::no /legacy/ and the root is not the old page - not touching gh-pages"; exit 1; }
+            mkdir legacy
+            for f in $OLD_WEB; do [ -e "$f" ] && git mv "$f" "legacy/$f"; done
+            echo "old page moved to /legacy/"
+          else
+            echo "/legacy/ exists - left as it is"
+          fi
+
+          # the files that belong to a web page at the root (old or new): replaced by this build
+          rm -rf app.js data glue.py index.html js py style.css assets
+          cp -r ../apps/web/dist/. .
+          touch .nojekyll
+          git add -A
+          git status --short | head -50
+          git diff --cached --stat | tail -1
+          git commit -q -m "web TS ${ver}" || echo "nothing to commit"
+          git ls-files | sort > ../after.txt
+          echo "== files removed from gh-pages ==" ; comm -23 ../before.txt ../after.txt | grep -v '^legacy/' || true
+          echo "== files added to gh-pages ==" ; comm -13 ../before.txt ../after.txt | head -60
+
+      - name: Publish
+        if: ${{ !inputs.dry_run }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          cd pages
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${PUBLIC_REPO}.git" gh-pages
+
+      # Pages needs a minute or two to publish
+      - name: Verify the live site
+        if: ${{ !inputs.dry_run }}
+        shell: bash
+        run: |
+          for i in $(seq 1 30); do
+            html=$(curl -fsS -H 'Cache-Control: no-cache' "$SITE_URL/?t=$(date +%s)" 2>/dev/null) || html=""
+            js=$(echo "$html" | grep -o 'assets/index-[A-Za-z0-9_-]*\.js' | head -1)
+            if [ -n "$js" ] && curl -fsS "$SITE_URL/$js" | grep -qF "web-$ver"; then echo "site is live: $SITE_URL/ (web-$ver)"; exit 0; fi
+            echo "try $i: not yet"; sleep 10
+          done
+          echo "::error::$SITE_URL did not serve web-$ver after 5 minutes"
+          exit 1

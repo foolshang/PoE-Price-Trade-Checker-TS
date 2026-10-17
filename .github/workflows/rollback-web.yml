@@ -1,0 +1,47 @@
+name: Roll the web back to the old page
+
+# Puts the old (Pyodide) page, kept in /legacy/ of gh-pages, back at the root. /legacy/ itself stays, so the new page can be
+# deployed again with "Deploy web to GitHub Pages". Run by hand only. See docs/DEPLOY.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type ROLLBACK to put the old page back at the root'
+        required: true
+
+env:
+  PUBLIC_REPO: foolshang/PoE-Filter-Generator
+  SITE_URL: https://foolshang.github.io/PoE-Filter-Generator
+
+jobs:
+  rollback:
+    if: ${{ inputs.confirm == 'ROLLBACK' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Swap the root
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          set -eu
+          git clone -q --branch gh-pages "https://x-access-token:${GH_TOKEN}@github.com/${PUBLIC_REPO}.git" pages
+          cd pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          [ -f legacy/glue.py ] && [ -d legacy/py ] || { echo "::error::/legacy/ does not hold the old page - nothing done"; exit 1; }
+          rm -rf app.js data glue.py index.html js py style.css assets
+          cp -r legacy/. .
+          git add -A
+          git commit -q -m "web rollback to the old page" || echo "nothing to commit"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${PUBLIC_REPO}.git" gh-pages
+
+      - name: Verify the live site
+        shell: bash
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS -H 'Cache-Control: no-cache' "$SITE_URL/?t=$(date +%s)" | grep -q 'pyodide'; then echo "old page is live: $SITE_URL/"; exit 0; fi
+            echo "try $i: not yet"; sleep 10
+          done
+          echo "::error::the old page is not served after 5 minutes"
+          exit 1
