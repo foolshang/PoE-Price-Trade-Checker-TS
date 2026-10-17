@@ -1,6 +1,6 @@
 # Phase 4 - the Checker: F4 skill reference + F5 trade (`apps/checker`)
 
-Status: built as a one-click installer (`dist-checker\PoE-Price-Trade-Checker-TS-Setup-<version>.exe`) and tested here; waiting for
+Status: built as a one-click installer (`dist-checker\PoE-Price-Trade-Checker-TS-Setup-<version>.exe`, now v1.0.0-beta.9) and tested here; waiting for
 Winai's test in the game. **No release, no tag** (decided by Winai: nothing is released until every phase is done; then one release replaces
 the original - Filter Generator and Checker together). Title bar: `PoE Price & Trade Checker (TypeScript) v<version>`.
 
@@ -11,7 +11,7 @@ action, the settings window (F8), the league dropdown refinements. The main wind
 
 | | |
 |---|---|
-| **F5** | clears the clipboard, presses Ctrl+C in the window in front (Win32 `SendInput` through koffi), waits up to 1.2 s for the item, parses it, fixes a magic item's base from the meta, infers prefix / suffix when the clipboard has no `{ Modifier }` headers, then either opens the trade page (unique / unidentified / `f5_mod_picker` off) or shows the **mod popup** (rare / magic): tick the mods, type min / max, Enter / Search -> the browser opens the search. The clipboard is cleared again (like the original). |
+| **F5** | presses the copy keys in the window in front (see the round-fix below; Win32 `SendInput` through koffi), waits up to 1.2 s for the item, parses it, fixes a magic item's base from the meta, infers prefix / suffix when the clipboard has no `{ Modifier }` headers, then either opens the trade page (unique / unidentified / `f5_mod_picker` off) or shows the **mod popup** (rare / magic): tick the mods, type min / max, Enter / Search -> the browser opens the search. The player's clipboard is put back (round-fix). |
 | **F4** | the skill reference window (always; the original's price-scan mode is gone): type a skill, pick it, level bracket, mods per slot, passives. Data from the hub, loaded at every open, schema versions checked. |
 | **Leagues** | the hub's `index.json` -> main / hardcore / events in the dropdown; auto-pick main (or hardcore when `prefer_hardcore`); the choice is saved. |
 | **Hotkeys** | `F4`, `F5`, `Ctrl+Alt+Q` (from the config; the old `F9` becomes `F4`). A key another program holds is named in the Status and in `log.txt` with what to do (close the original Checker). F8 (settings) comes with the settings window. |
@@ -30,6 +30,28 @@ apps/checker/src/renderer/           index (main window), picker, skillref pages
 tools/parity/item_calls.py, item_cases.py, f5_expect.py     the original side of the parity cases / the end-to-end expectations
 tests/parity/item_runner.ts          the TypeScript side;  tests/checker/                  the Electron tests
 ```
+
+## Round-fix (beta.9): how F5 copies
+
+Ideas taken from Exiled-Exchange-2 (commit cca3066) and Awakened PoE Trade (commit 3188208); **all code is our own - nothing was
+copied** (no function, no table, no native module). The only thing cross-checked against EE2 is the localized first line of an item
+("Item Class" / "Rarity" in each game language), which is game data, not code; our table is in `packages/core/src/item_lang.ts`.
+
+| | |
+|---|---|
+| **PoE2 keys** | Ctrl + the key of "show advanced item descriptions" + C. The key is read (read only, never written) from `<Documents>\My Games\Path of Exile 2\poe2_production_Config.ini`, `[ACTION_KEYS] show_advanced_item_descriptions=<virtual key> [1 Shift / 2 Ctrl / 3 Alt]` (`game_keys.ts`). Unreadable / unbound -> Alt, and `log.txt` + the Status say so. |
+| **PoE1 keys** | Ctrl+C. The `{ Modifier }` header presence is logged on every F5 (Status + `debug`); without headers `infer_affixes` still runs. |
+| **Release** | modifier down -> C down / up -> ~10 ms -> modifiers up in reverse (`native.ts sendCopyChord`). Keys of the player's own hotkey: a chord key already held is not pressed or released again (Ctrl+F5), another held modifier is released first (Shift+F5), so the game never sees Shift+Ctrl+C. |
+| **Clipboard** | the player's text (or picture) is kept; cleared first only when it is an old item text (so the new one is recognised); put back when the item has arrived or after the 1.2 s wait (50 ms poll). Config `f5_restore_clipboard` (default true); false = emptied at the end like the original. |
+| **Language** | first line of another game language -> "F5 รองรับเกมภาษาอังกฤษเท่านั้น (ตั้งภาษาในเกมเป็น English)", no parse, no trade, no popup. Full Thai = post-release (PLAN.md P5). |
+| **Popup** | opens where the mouse was when the key was pressed, not where it is when the item has been read. |
+
+Tests (round-fix): unit `tests/checker/copy.test.ts` (ini parsing, key chord, clipboard cases with a fake clipboard) and
+`packages/core/test/item_lang.test.ts`; e2e I / J / K / L in `tests/checker/checker.e2e.ts`: the key events the box in front really saw
+(PoE1, PoE2 with Alt / `82 2` / `17` in the ini and with no ini; Ctrl+F5 and Shift+F5 hotkeys; the C-up to modifier-up gap), no Ctrl / Alt / Shift
+left down after F5 (`GetAsyncKeyState`), clipboard restored (success / time out / restore off), 10 languages -> the message with no trade page
+or popup or error, the popup near the first mouse position, the ini byte-identical after F5. Known limit of the test: the box does not see the
+player's own Ctrl-up, so for Ctrl+F5 the test checks only what the program does (one Ctrl-down, none of its own Ctrl-up).
 
 ## Parity with the original (byte for byte)
 
@@ -71,7 +93,7 @@ Open: converting `build_mod_meta.py` (the data is refreshed by hand today, as in
 
 ## Measured (installed, throw-away LOCALAPPDATA)
 
-| | new Checker (beta.8) | original Checker (Python exe) |
+| | new Checker (beta.8, size unchanged in beta.9) | original Checker (Python exe) |
 |---|---|---|
 | file to hand out | Setup 98.5 MB (103,323,206 bytes) | exe 28.7 MB |
 | on disk | 325 MB | 28.7 MB |
@@ -84,3 +106,5 @@ Open: converting `build_mod_meta.py` (the data is refreshed by hand today, as in
 desecrated, fractured) -> popup -> the trade page opens right, badges right; F4 window; borderless / fullscreen not thrown out by the
 popups; keys not clashing; the league right (main / hardcore / event); the popup opens near the mouse and takes the keyboard (Enter / Esc);
 a game started as Administrator gives the warning.
+
+Round-fix list: the Status shows the key chord used (`F5 (Ctrl+Alt+C)`) and whether the item text had `{ Modifier }` headers (PoE1 and PoE2); the popup opens where the mouse was at the key press; no Ctrl / Alt stuck after F5 (also with Ctrl+F5 / Shift+F5 as the hotkey); the clipboard has your own text again after F5; an item copied from a non-English client gives the English-only message.

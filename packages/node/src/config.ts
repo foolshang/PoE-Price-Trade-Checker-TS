@@ -140,5 +140,6 @@ export const CHECKER_DEFAULTS: Record<string, any> = {
   mod_badge_archetype: "all",
   close_action: "minimize",
   f5_mod_picker: true,
+  f5_restore_clipboard: true, // F5 puts back what was on the clipboard before it copied the item
   filter_gen: structuredClone(DEFAULTS.filter_gen),
 };

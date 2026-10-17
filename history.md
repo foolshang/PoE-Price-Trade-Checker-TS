@@ -5,6 +5,18 @@
 
 ---
 
+## 2026-10-18 (4) - phase 4 round-fix: how F5 copies, v1.0.0-beta.9 (committed, no tag, no release)
+
+- Ideas from EE2 (cca3066) and APT (3188208), **written from scratch - no code copied** (only the localized first lines of an item were
+  cross-checked against EE2's table; those are game strings). PoE2 sends Ctrl + the game's "show advanced item descriptions" key + C
+  (key read from `poe2_production_Config.ini`, read only; Alt + a log line when unreadable); PoE1 Ctrl+C with a log line on `{ Modifier }`
+  headers; modifiers released ~10 ms after C; keys of the player's own hotkey handled (Ctrl+F5 / Shift+F5); the player's clipboard is
+  restored (`f5_restore_clipboard`); non-English item text -> English-only message; the popup opens at the mouse position of the key press.
+- New: `core/item_lang.ts`, `checker/main/{game_keys,item_copy}.ts`; `native.ts` `sendCopyChord` replaces `sendCtrlC`.
+- Tests: copy.test.ts (24), item_lang.test.ts (14), e2e 45 (23 new: real key sequences, stuck keys, clipboard, 10 languages, popup position).
+  A leftover INSTALLED Checker (beta.8) held F5 and made nearly every e2e case fail until it was closed - close the running Checker before `test:checker`.
+- PLAN.md P5: hotkey clash rules for the settings window, full Thai support is post-release work.
+
 ## 2026-10-18 (3) - phase 4: the Checker with F4 skill reference + F5 trade (`apps/checker`), v1.0.0-beta.8 (committed, no tag, no release)
 
 - core (all converted with byte parity against the original, 4,108 new parity cases + converted unit tests): item_parser, models, profiles,

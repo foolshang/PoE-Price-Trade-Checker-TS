@@ -28,7 +28,8 @@ function altTap() {
 
 export async function openTextBox(file, title) {
   const ready = path.join(os.tmpdir(), `pfg-box-${process.pid}-${Date.now()}.ready`);
-  const proc = spawn("powershell", ["-NoProfile", "-STA", "-File", path.join(import.meta.dirname, "textbox.ps1"), file, title, ready], { stdio: "ignore", windowsHide: true });
+  const keyLog = ready.replace(/\.ready$/, ".keys");
+  const proc = spawn("powershell", ["-NoProfile", "-STA", "-File", path.join(import.meta.dirname, "textbox.ps1"), file, title, ready, keyLog], { stdio: "ignore", windowsHide: true });
   let hwnd = null;
   for (let i = 0; i < 100 && !hwnd; i++) {
     await sleep(100);
@@ -53,18 +54,40 @@ export async function openTextBox(file, title) {
   }
   return {
     title,
+    /** the key events the box saw since it was ready: [{ms, kind: "D"|"U", vk}] */
+    keys() {
+      let text = "";
+      try { text = fs.readFileSync(keyLog, "utf-8"); } catch { return []; }
+      const all = text.split(/\r?\n/).filter(Boolean).map((l) => { const [ms, kind, vk] = l.split(" "); return { ms: parseFloat(ms), kind, vk: parseInt(vk, 10) }; });
+      let from = 0;
+      all.forEach((e, i) => { if (e.kind === "U" && e.vk === 27) from = i + 1; }); // after the Esc tap that leaves the menu mode
+      return all.slice(from);
+    },
     async close() {
       try { execFileSync("taskkill", ["/F", "/PID", String(proc.pid), "/T"], { stdio: "ignore" }); } catch { /* gone */ }
     },
   };
 }
 
-const VK = { F4: 0x73, F5: 0x74, Q: 0x51, CTRL: 0x11, ALT: 0x12 };
+const VK = { F4: 0x73, F5: 0x74, Q: 0x51, CTRL: 0x11, ALT: 0x12, SHIFT: 0x10 };
 /** a real key press (down, up) - the hotkeys of the program are system-wide, so they react to it */
-export async function pressKey(name, mods = []) {
+export async function pressKey(name, mods = [], { holdMs = 0 } = {}) {
   for (const m of mods) keybd_event(VK[m], 0, 0, 0);
   keybd_event(VK[name], 0, 0, 0);
   await sleep(40);
   keybd_event(VK[name], 0, 2, 0);
+  await sleep(holdMs); // (the modifiers stay down while the program reacts)
   for (const m of [...mods].reverse()) keybd_event(VK[m], 0, 2, 0);
+}
+
+const GetAsyncKeyState = user32.func("int16 __stdcall GetAsyncKeyState(int vk)");
+/** the modifier keys that are down right now (Shift, Ctrl, Alt, Win) */
+export function modifiersDown() {
+  return [0x10, 0x11, 0x12, 0x5b, 0x5c].filter((vk) => GetAsyncKeyState(vk) < 0);
+}
+
+const SetCursorPos = user32.func("bool __stdcall SetCursorPos(int x, int y)");
+/** move the mouse pointer (screen pixels) */
+export function setCursor(x, y) {
+  return SetCursorPos(x, y);
 }

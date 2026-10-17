@@ -11,13 +11,15 @@ import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { promises as fsp } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { baseDb, f5, hubClient, league as leagueMod, metaDb, modBadge, modDb, profiles, py, pyextra, skillRef, tradeUrl } from "@poe/core";
+import { baseDb, f5, hubClient, itemLang, league as leagueMod, metaDb, modBadge, modDb, profiles, py, pyextra, skillRef, tradeUrl } from "@poe/core";
 const { PyFloat } = py;
 type PyFloat = InstanceType<typeof PyFloat>;
 import type { HttpPort, models } from "@poe/core";
 import { AppConfig, CHECKER_DEFAULTS, NodeFs, NodeHttp, importOldConfig } from "@poe/node";
 import type { GameId, MainInit, PickerFilter, SkillDetail, Tag } from "../shared/api.ts";
-import { foregroundElevated, selfElevated, sendCtrlC } from "./native.ts";
+import { copyChord, keyName, readAdvancedKey } from "./game_keys.ts";
+import { copyItemText } from "./item_copy.ts";
+import { foregroundElevated, selfElevated, sendCopyChord } from "./native.ts";
 import { pickerInit } from "./picker_data.ts";
 
 declare const __APP_VERSION__: string;
@@ -154,27 +156,61 @@ const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms)
 const ADMIN_MSG = "⚠ Windows ไม่ให้โปรแกรมนี้ส่งปุ่ม Ctrl+C ไปที่เกม — เกมน่าจะรันแบบ Administrator: เปิดเกมแบบปกติ " +
   "หรือรันโปรแกรมนี้แบบ Administrator เหมือนเกม";
 
+/** the Documents folder of the player (the game's settings are under it); POE_CHECKER_DOCUMENTS = a different one, for tests */
+const documentsDir = (): string => process.env.POE_CHECKER_DOCUMENTS || app.getPath("documents");
+
+const NOT_ENGLISH_MSG = "⚠ F5 รองรับเกมภาษาอังกฤษเท่านั้น (ตั้งภาษาในเกมเป็น English)";
+
+/** the keys that copy an item for this game, and a line for the Status saying which (PoE2: the player's own advanced key) */
+async function copyKeys(gv: GameId): Promise<{ chord: number[]; label: string }> {
+  if (gv !== "poe2") return { chord: copyChord(gv, []), label: "Ctrl+C" };
+  const adv = await readAdvancedKey(documentsDir());
+  if (adv.source === "default") fileLog("WARNING", adv.note);
+  const chord = copyChord(gv, adv.keys);
+  return { chord, label: [...chord, 0x43].map(keyName).join("+") + (adv.source === "default" ? " (ค่าเริ่มต้น)" : "") };
+}
+
 async function onF5(): Promise<void> {
   if (f5Busy) return;
   f5Busy = true;
+  const pressPoint = screen.getCursorScreenPoint(); // the popup goes where the mouse was when the key was pressed
   try {
-    await clipboard.writeText(""); // 1 reset first - never read an old value
-    const sent = sendCtrlC();
-    let text = "";
-    for (let i = 0; i < 24; i++) { // wait until the game has written the new item (~1.2 s)
-      await wait(50);
-      const cur = (await clipboard.readText()) || "";
-      if (cur.includes("Item Class:") || cur.includes("Rarity:")) {
-        text = cur;
-        break;
-      }
-    }
+    const gv = game;
+    const { chord, label } = await copyKeys(gv);
+    const copied = await copyItemText({
+      snapshot: async () => {
+        const text = (await clipboard.readText()) || "";
+        // no text but a picture on the clipboard: keep the picture, so the copy does not cost the player it
+        let image: unknown = null;
+        try {
+          if (!text && (await clipboard.has("image/png"))) image = await clipboard.read();
+        } catch { /* not readable: the text (empty) is what is kept */ }
+        return { text, image };
+      },
+      restore: async (snap) => {
+        if (snap.image) await clipboard.write(snap.image as Electron.ClipboardItem[]);
+        else await clipboard.writeText(snap.text);
+      },
+      writeText: (t) => clipboard.writeText(t),
+      readText: () => clipboard.readText(),
+      send: () => sendCopyChord(chord),
+      sleep: wait,
+    }, { restore: cfgBool("f5_restore_clipboard", true) });
+    const text = copied.text;
     if (!text) {
-      if (sent.blocked) say(ADMIN_MSG, "warn");
+      if (copied.sent.blocked) say(ADMIN_MSG, "warn");
       else if (selfElevated() === false && foregroundElevated() === true) say(ADMIN_MSG, "warn");
       else say("⚠ ชี้ที่ item แล้วกด F5 อีกครั้ง", "warn");
       return;
     }
+    if (copied.lang !== "en") {
+      debugEvent(`F5 item text in ${copied.lang}: not English`);
+      say(NOT_ENGLISH_MSG, "warn");
+      return;
+    }
+    const headers = itemLang.hasModifierHeaders(text);
+    say(`ℹ F5 (${label}): ข้อความ item ${headers ? "มี" : "ไม่มี"}หัวข้อ { Modifier }`, "dim");
+    debugEvent(`F5 copy keys=${label} headers=${headers}`);
     try {
       await fsp.mkdir(debugDir, { recursive: true });
       await fsp.writeFile(path.join(debugDir, "last_raw_item.txt"), text, "utf-8");
@@ -189,11 +225,10 @@ async function onF5(): Promise<void> {
       say("⚠ อ่าน item ไม่ได้", "warn");
       return;
     }
-    await clipboard.writeText(""); // 2 reset at the end
     if (result.kind === "picker") {
       debugEvent(`F5 picker '${result.item.item_name}' rarity=${result.item.rarity} mods=${result.rows.length} resolved=${result.rows.filter((r) => r.statId).length}`);
       say(`🧩 เลือก mod: ${result.item.item_name}`, "info");
-      openPicker(result);
+      openPicker(result, pressPoint);
       return;
     }
     debugEvent(`F5 '${result.item.item_name}' rarity=${result.item.rarity} base='${result.item.base_type}' url=${result.url.slice(0, 80)}`);
@@ -258,7 +293,7 @@ function clamp(v: number, lo: number, hi: number): number {
 }
 
 // ---- picker
-interface PickerSession { rows: f5.PickerRow[]; item: models.ParsedItem }
+interface PickerSession { rows: f5.PickerRow[]; item: models.ParsedItem; pressPoint: Electron.Point }
 let pickerSession: PickerSession | null = null;
 
 function closePicker(): void {
@@ -268,9 +303,9 @@ function closePicker(): void {
   if (w && !w.isDestroyed()) w.destroy();
 }
 
-function openPicker(result: Extract<f5.F5Result, { kind: "picker" }>): void {
+function openPicker(result: Extract<f5.F5Result, { kind: "picker" }>, pressPoint: Electron.Point): void {
   closePicker();
-  pickerSession = { rows: result.rows, item: result.item };
+  pickerSession = { rows: result.rows, item: result.item, pressPoint };
   const win = createToolWindow("เลือก mod", "picker.cjs", "picker.html");
   pickerWin = win;
   win.on("closed", () => {
@@ -282,9 +317,8 @@ function openPicker(result: Extract<f5.F5Result, { kind: "picker" }>): void {
   win.webContents.once("did-finish-load", () => win.webContents.send("picker:init", pickerInit(result)));
 }
 
-function placeAtCursor(win: BrowserWindow, size: { width: number; height: number }): void {
+function placeAtPoint(win: BrowserWindow, size: { width: number; height: number }, pt: Electron.Point): void {
   win.setContentSize(Math.ceil(size.width), Math.ceil(size.height));
-  const pt = screen.getCursorScreenPoint();
   const disp = screen.getDisplayNearestPoint(pt).bounds;
   const [w, h] = win.getSize();
   win.setPosition(clamp(pt.x + 16, disp.x, disp.x + disp.width - w - 8), clamp(pt.y - Math.floor(h / 2), disp.y, disp.y + disp.height - h - 8));
@@ -399,7 +433,7 @@ function setupIpc(): void {
 
   ipcMain.on("picker:ready", (e, size: { width: number; height: number }) => {
     if (!isFrom(e, pickerWin) || !pickerWin || !size || !(size.width > 0) || !(size.height > 0)) return;
-    placeAtCursor(pickerWin, size);
+    placeAtPoint(pickerWin, size, pickerSession?.pressPoint ?? screen.getCursorScreenPoint());
     showFocused(pickerWin);
   });
   ipcMain.on("picker:search", (e, filters: unknown) => {

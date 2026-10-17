@@ -9,7 +9,7 @@ repo at v0.13.5, local experiments); estimates are marked as estimates.
 | 1 | `packages/core`: filter logic converted + byte parity against Python | done 2026-10-17, not committed as a release (see docs/PHASE1.md) |
 | 2 | Web page on core TS (no Pyodide), live at the site root (old page in `/legacy/`) | done 2026-10-17 (docs/PHASE2.md, docs/DEPLOY.md); Winai tested the live page |
 | 3 | Filter Generator on Electron | built as a one-click installer and tested 2026-10-18 (v1.0.0-beta.6), waiting for Winai's test; auto-update (electron-updater), a no-install zip and README / release asset names are decided when the release is prepared (docs/PHASE3.md) |
-| 4 | F4 skill reference + F5 trade (hotkeys, Ctrl+C, clipboard) | built and tested 2026-10-18 (v1.0.0-beta.8), waiting for Winai in the game (docs/PHASE4.md) |
+| 4 | F4 skill reference + F5 trade (hotkeys, Ctrl+C, clipboard) | built and tested 2026-10-18; copy round-fix 2026-10-18 (v1.0.0-beta.9), waiting for Winai in the game (docs/PHASE4.md) |
 | 5 | Checker complete, replaces the original | not started |
 
 ## C. Project structure (proposal)
@@ -122,6 +122,19 @@ logs `version + build timestamp` first (CLAUDE.md rule 5).
 
 Total about 37-52 developer-days. Phases 1-3 give a shippable Filter Generator and web page before the Checker work
 starts (the Checker's filter page reuses phase 2-3 output).
+
+## P5. Notes carried into phase 5 and after (from the phase-4 copy round-fix)
+
+1. **Settings window (F8) - hotkey rules.** The hotkey fields refuse a key that clashes with the game or with editing keys, and refuse
+   duplicates between the app's own hotkeys (F4 / F5 / F8 / quit). Forbidden: `Ctrl+C`, `Ctrl+V`, `Ctrl+A`, `Ctrl+F`, `Ctrl+Enter`,
+   `Home`, `Delete`, `Enter`, the arrow keys (and `Ctrl+C`-style combos of any key the game's detailed copy uses: the chord F5 sends is
+   Ctrl [+ the game's advanced-description key] + C). Show the reason next to the field, keep the old value.
+2. **Item text in other game languages (post-release work).** F5 is English only: a copy whose first line is another language's
+   "Item Class" / "Rarity" (Russian, French, German, Portuguese, Spanish, Thai, Korean, Chinese, Japanese) gets the message
+   "F5 รองรับเกมภาษาอังกฤษเท่านั้น (ตั้งภาษาในเกมเป็น English)" and is not parsed. Full Thai (and other language) support needs the
+   localized stat / base / item class tables and the trade site's language; it is **after the release**, not in phase 5. Known limit: an
+   uncut gem in Thai / Simplified Chinese keeps the English word "Rarity:" on its first line, so it cannot be told from English there.
+3. **Clipboard restore** (`f5_restore_clipboard`, default on) belongs in the settings window as a checkbox.
 
 ## R. Risks found while surveying (details for the phases)
 

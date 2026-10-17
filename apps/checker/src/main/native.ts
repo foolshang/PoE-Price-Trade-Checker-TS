@@ -1,13 +1,15 @@
 /**
- * The few Win32 calls F5 needs, through koffi (no native build step): SendInput for Ctrl+C, and the check whether the window in
- * front runs with more rights than this program (Windows then drops our keystrokes: UIPI).
+ * The few Win32 calls F5 needs, through koffi (no native build step): SendInput for the copy chord (Ctrl [+ the advanced key] + C), which
+ * keys are held down right now, and the check whether the window in front runs with more rights than this program (Windows then drops
+ * our keystrokes: UIPI).
  */
 import koffi from "koffi";
 
 const INPUT_KEYBOARD = 1;
 const KEYEVENTF_KEYUP = 0x0002;
-const VK_CONTROL = 0x11;
 const VK_C = 0x43;
+const MODIFIERS = [0x10, 0x11, 0x12, 0x5b, 0x5c]; // Shift, Ctrl, Alt, left / right Win
+const RELEASE_DELAY_MS = 10; // the modifiers are let go a little after C: the game has been seen to drop a release that comes at once
 const ERROR_ACCESS_DENIED = 5;
 const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
 const TOKEN_QUERY = 0x0008;
@@ -15,6 +17,7 @@ const TOKEN_ELEVATION = 20; // TokenElevation
 
 interface Api {
   SendInput(n: number, inputs: unknown[], size: number): number;
+  GetAsyncKeyState(vk: number): number;
   GetForegroundWindow(): unknown;
   GetWindowThreadProcessId(hwnd: unknown, pid: Buffer): number;
   OpenProcess(access: number, inherit: boolean, pid: number): unknown;
@@ -39,6 +42,7 @@ function load(): Api {
   const HANDLE = koffi.pointer("HANDLE", koffi.opaque());
   api = {
     SendInput: user32.func("uint32 __stdcall SendInput(uint32 cInputs, INPUT *pInputs, int cbSize)") as Api["SendInput"],
+    GetAsyncKeyState: user32.func("int16 __stdcall GetAsyncKeyState(int vk)") as Api["GetAsyncKeyState"],
     GetForegroundWindow: user32.func("HANDLE __stdcall GetForegroundWindow()") as Api["GetForegroundWindow"],
     GetWindowThreadProcessId: user32.func("uint32 __stdcall GetWindowThreadProcessId(HANDLE hwnd, _Out_ uint32 *pid)") as unknown as Api["GetWindowThreadProcessId"],
     OpenProcess: kernel32.func("HANDLE __stdcall OpenProcess(uint32 access, bool inherit, uint32 pid)") as Api["OpenProcess"],
@@ -56,19 +60,43 @@ const key = (vk: number, up: boolean) => ({
 });
 
 export interface SendResult {
-  /** how many of the 4 key events Windows accepted */
+  /** how many key events Windows accepted of how many were sent */
   sent: number;
+  total: number;
   /** true when Windows refused because the target runs with more rights (UIPI) */
   blocked: boolean;
 }
 
-/** Ctrl down, C down, C up, Ctrl up - the same four events the original sent with keybd_event. */
-export function sendCtrlC(): SendResult {
+/** The modifier keys that are physically down right now (virtual-key codes). */
+export function heldModifiers(): number[] {
   const a = load();
-  const events = [key(VK_CONTROL, false), key(VK_C, false), key(VK_C, true), key(VK_CONTROL, true)];
-  const sent = a.SendInput(events.length, events, inputSize);
-  const err = sent < events.length ? koffi.errno() : 0;
-  return { sent, blocked: sent < events.length && err === ERROR_ACCESS_DENIED };
+  return MODIFIERS.filter((vk) => a.GetAsyncKeyState(vk) < 0);
+}
+
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Press `chord` (virtual-key codes, in order) together with C: chord down, C down, C up, a short wait, chord up in reverse.
+ *  - a chord key the player is already holding (the hotkey was pressed with it) is not pressed or released again;
+ *  - another modifier the player is holding (Shift in Shift+F5) is released first, so the game does not see Shift+Ctrl+C.
+ */
+export async function sendCopyChord(chord: number[]): Promise<SendResult> {
+  const a = load();
+  const held = new Set(heldModifiers());
+  const stray = [...held].filter((vk) => !chord.includes(vk));
+  const press = chord.filter((vk) => !held.has(vk));
+  let sent = 0, total = 0, denied = false;
+  const run = (events: ReturnType<typeof key>[]): void => {
+    if (!events.length) return;
+    const n = a.SendInput(events.length, events, inputSize);
+    sent += n;
+    total += events.length;
+    if (n < events.length && koffi.errno() === ERROR_ACCESS_DENIED) denied = true;
+  };
+  run([...stray.map((vk) => key(vk, true)), ...press.map((vk) => key(vk, false)), key(VK_C, false), key(VK_C, true)]);
+  await sleep(RELEASE_DELAY_MS);
+  run([...press].reverse().map((vk) => key(vk, true)));
+  return { sent, total, blocked: sent < total && denied };
 }
 
 function elevationOf(proc: unknown): boolean | null {

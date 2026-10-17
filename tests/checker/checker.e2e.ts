@@ -16,7 +16,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { CHECKER_DIR, launch, sandbox, wait, ROOT } from "../desktop/harness.mjs";
 import { fakeInternet, fixtureData } from "../desktop/stubs.mjs";
-import { openTextBox, pressKey, foregroundTitle } from "./win.mjs";
+import { openTextBox, pressKey, foregroundTitle, modifiersDown, setCursor } from "./win.mjs";
 import { pickerRowText, defaultChecked } from "../../apps/checker/src/shared/picker_text.ts";
 
 const exe = process.env.PFG_CHECKER_EXE;
@@ -439,11 +439,190 @@ describe("H) the real key press path", () => {
     extra.push(() => box.close());
     expect(foregroundTitle()).toBe("PFG-TEST-BOX-S");
     const native = await import("../../apps/checker/src/main/native.ts");
-    const r = native.sendCtrlC();
-    expect(r).toEqual({ sent: 4, blocked: false });
+    const r = await native.sendCopyChord([0x11]);
+    expect(r).toEqual({ sent: 4, total: 4, blocked: false });
     await wait(400);
     const clip = execFileSync("powershell", ["-NoProfile", "-Command", "Get-Clipboard -Raw"], { encoding: "utf-8", windowsHide: true });
     expect(clip.trim()).toBe(fs.readFileSync(f, "utf-8").trim());
     expect(native.selfElevated()).toBe(false);
   }, 120000);
+});
+
+// ---------------------------------------------------------------------------------------------- the copy round-fix
+const clipboardNow = () => execFileSync("powershell", ["-NoProfile", "-Command", "Get-Clipboard -Raw"], { encoding: "utf-8", windowsHide: true }).trim();
+const setClipboard = (v) => execFileSync("powershell", ["-NoProfile", "-Command", `Set-Clipboard -Value '${v}'`], { windowsHide: true });
+const F5_VK = 0x74;
+const writeIni = (sbx, line) => {
+  const dir = path.join(sbx.docs, "My Games", "Path of Exile 2");
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, "poe2_production_Config.ini"), "﻿[ACTION_KEYS]\r\n" + line + "\r\n", "utf-8");
+};
+/** the key events (other than F5 itself) the box saw: "D17 D67 U67 U17" */
+const seq = (box) => box.keys().filter((e) => e.vk !== F5_VK).map((e) => e.kind + e.vk);
+const statusHas = (page, re, timeout = 20000) => page.waitForFunction((s) => new RegExp(s).test(document.querySelector("#log").innerText), re.source, { timeout });
+
+async function copyRun({ game, ini, cfg, item = "poe1_rare_noheader", hotkey }) {
+  const sbx = sandbox();
+  if (ini !== undefined) writeIni(sbx, ini);
+  const { app, page } = await start(sbx, { game, cfg: { ...(cfg ?? {}), ...(hotkey ? { hotkey_trade: hotkey.spec } : {}) } });
+  const box = await openTextBox(path.join(ITEMS, item + ".txt"), "PFG-TEST-BOX-" + Math.random().toString(36).slice(2, 7));
+  extra.push(() => box.close());
+  const [key, ...rest] = hotkey ? hotkey.press : ["F5"];
+  await pressKey(key, rest, { holdMs: hotkey ? 700 : 0 });
+  await statusHas(page, /ข้อความ item (มี|ไม่มี)หัวข้อ/);
+  await wait(300);
+  return { sbx, app, page, box };
+}
+
+describe("I) the copy keys (round-fix: PoE1 Ctrl+C, PoE2 Ctrl+<advanced key>+C, released ~10 ms after C)", () => {
+  it("PoE1: Ctrl down, C down, C up, Ctrl up; no stuck keys; the header log line says 'ไม่มี' for a no-header item", async () => {
+    const { page, box } = await copyRun({ game: "poe1" });
+    expect(seq(box)).toEqual(["D17", "D67", "U67", "U17"]);
+    const ev = box.keys().filter((e) => e.vk !== F5_VK);
+    expect(ev[3].ms - ev[2].ms).toBeGreaterThanOrEqual(3); // (the release comes ~10 ms after C; the box's own clock jitters a few ms)
+    expect(modifiersDown()).toEqual([]);
+    const log = await logText(page);
+    expect(log).toContain("F5 (Ctrl+C): ข้อความ item ไม่มีหัวข้อ { Modifier }");
+  }, 180000);
+
+  it("PoE1: an item with { Modifier } headers is logged as 'มี'", async () => {
+    const { page } = await copyRun({ game: "poe1", item: "poe1_header_driven" });
+    expect(await logText(page)).toContain("ข้อความ item มีหัวข้อ { Modifier }");
+  }, 180000);
+
+  it.each([
+    ["the key the game's ini names (Alt)", "show_advanced_item_descriptions=18", ["D17", "D18", "D67", "U67", "U18", "U17"], "F5 \\(Ctrl\\+Alt\\+C\\)"],
+    ["a key with a modifier in the ini (Ctrl+R)", "show_advanced_item_descriptions=82 2", ["D17", "D82", "D67", "U67", "U82", "U17"], "F5 \\(Ctrl\\+R\\+C\\)"],
+    ["the ini naming Ctrl itself", "show_advanced_item_descriptions=17", ["D17", "D67", "U67", "U17"], "F5 \\(Ctrl\\+C\\)"],
+  ])("PoE2, %s", async (_n, line, want, label) => {
+    const { page, box } = await copyRun({ game: "poe2", ini: line, item: "poe2_rare_ring" });
+    expect(seq(box)).toEqual(want);
+    expect(modifiersDown()).toEqual([]);
+    expect(await logText(page)).toMatch(new RegExp(label));
+  }, 180000);
+
+  it("PoE2 with no readable ini: Alt is used and the log says so", async () => {
+    const { sbx, page, box } = await copyRun({ game: "poe2", item: "poe2_rare_ring" });
+    expect(seq(box)).toEqual(["D17", "D18", "D67", "U67", "U18", "U17"]);
+    expect(await logText(page)).toContain("(ค่าเริ่มต้น)");
+    expect(fs.readFileSync(path.join(sbx.checkerDir, "log.txt"), "utf-8")).toContain("อ่านไฟล์ตั้งค่าของ PoE2 ไม่ได้");
+    expect(modifiersDown()).toEqual([]);
+  }, 180000);
+
+  it("the ini is never written", async () => {
+    const sbx = sandbox();
+    writeIni(sbx, "show_advanced_item_descriptions=18");
+    const ini = path.join(sbx.docs, "My Games", "Path of Exile 2", "poe2_production_Config.ini");
+    const before = [sha(fs.readFileSync(ini)), fs.statSync(ini).mtimeMs];
+    const { page } = await start(sbx, { game: "poe2" });
+    const box = await openTextBox(path.join(ITEMS, "poe2_rare_ring.txt"), "PFG-TEST-BOX-I");
+    extra.push(() => box.close());
+    await pressKey("F5");
+    await statusHas(page, /ข้อความ item/);
+    expect([sha(fs.readFileSync(ini)), fs.statSync(ini).mtimeMs]).toEqual(before);
+    expect(fs.readdirSync(path.dirname(ini))).toEqual(["poe2_production_Config.ini"]);
+  }, 180000);
+
+  it("hotkey Ctrl+F5: Ctrl is already down, so the program does not press or release it; Ctrl is still the player's afterwards", async () => {
+    const { box } = await copyRun({ game: "poe1", hotkey: { spec: "Ctrl+F5", press: ["F5", "CTRL"] } });
+    await wait(900); // (the player lets go of Ctrl last)
+    const s = box.keys().filter((e) => e.vk !== F5_VK).map((e) => e.kind + e.vk);
+    // (the box sees the player's own Ctrl down first, then the program's C; the program adds no second Ctrl down and no Ctrl up before the player's)
+
+    expect(s.filter((x) => x === "D17")).toHaveLength(1);
+    expect(s.indexOf("D67")).toBeGreaterThan(s.indexOf("D17"));
+    expect(s.indexOf("U17") === -1 || s.indexOf("U17") > s.indexOf("U67")).toBe(true); // (the program never lets go of the player's Ctrl)
+    expect(modifiersDown()).toEqual([]);
+  }, 180000);
+
+  it("hotkey Shift+F5: Shift is let go before Ctrl+C (the game never sees Shift+Ctrl+C)", async () => {
+    const { box } = await copyRun({ game: "poe1", hotkey: { spec: "Shift+F5", press: ["F5", "SHIFT"] } });
+    const s = box.keys().filter((e) => e.vk !== F5_VK).map((e) => e.kind + e.vk);
+    expect(s.indexOf("U16")).toBeGreaterThanOrEqual(0);
+    expect(s.indexOf("U16")).toBeLessThan(s.indexOf("D67"));
+    expect(modifiersDown()).toEqual([]);
+  }, 180000);
+});
+
+describe("J) the player's clipboard", () => {
+  it("success: the player's text is back after the item is read", async () => {
+    setClipboard("PLAYER-CLIP-1");
+    const { page } = await copyRun({ game: "poe1" });
+    await page.waitForTimeout(200);
+    expect(clipboardNow()).toBe("PLAYER-CLIP-1");
+  }, 180000);
+
+  it("time out (nothing selected): the player's text is back too", async () => {
+    setClipboard("PLAYER-CLIP-2");
+    const sbx = sandbox();
+    const { page } = await start(sbx, { game: "poe1" });
+    const f = path.join(os.tmpdir(), "pfg-empty2.txt");
+    fs.writeFileSync(f, "");
+    const box = await openTextBox(f, "PFG-TEST-BOX-T");
+    extra.push(() => box.close());
+    await pressKey("F5");
+    await statusHas(page, /ชี้ที่ item แล้วกด F5/);
+    expect(clipboardNow()).toBe("PLAYER-CLIP-2");
+  }, 180000);
+
+  it("f5_restore_clipboard:false -> emptied at the end, like the original", async () => {
+    setClipboard("PLAYER-CLIP-3");
+    const { page } = await copyRun({ game: "poe1", cfg: { f5_restore_clipboard: false } });
+    await page.waitForTimeout(200);
+    expect(clipboardNow()).toBe("");
+  }, 180000);
+});
+
+const OTHER_LANGUAGES = {
+  thai: "ชนิดไอเทม: แหวน\nRarity: Rare\nลำดับ\n--------\nระดับไอเทม: 80",
+  russian: "Класс предмета: Кольца\nРедкость: Редкий\nПример\n--------\nУровень предмета: 80",
+  french: "Classe d'objet: Anneaux\nRareté: Rare\nExemple\n--------\nNiveau d'objet: 80",
+  german: "Gegenstandsklasse: Ringe\nSeltenheit: Selten\nBeispiel\n--------\nGegenstandsstufe: 80",
+  portuguese: "Classe do Item: Anéis\nRaridade: Raro\nExemplo\n--------\nNível do Item: 80",
+  spanish: "Clase de objeto: Anillos\nRareza: Raro\nEjemplo\n--------\nNivel de objeto: 80",
+  korean: "아이템 종류: 반지\n희귀도: 희귀\n예시\n--------\n아이템 레벨: 80",
+  chinese_trad: "物品種類: 戒指\n稀有度: 稀有\n範例\n--------\n物品等級: 80",
+  chinese_simp: "物品类别: 戒指\n稀有度: 稀有\n示例\n--------\n物品等级: 80",
+  japanese: "アイテムクラス: リング\nレアリティ: レア\n例\n--------\nアイテムレベル: 80",
+};
+
+describe("K) item text in another game language", () => {
+  for (const [name, text] of Object.entries(OTHER_LANGUAGES)) {
+    it(`${name}: says F5 is English only; no trade page, no popup, no crash`, async () => {
+      setClipboard("PLAYER-CLIP-L");
+      const sbx = sandbox();
+      const { app, page } = await start(sbx, { game: "poe1" });
+      const f = path.join(os.tmpdir(), `pfg-lang-${name}.txt`);
+      fs.writeFileSync(f, text, "utf-8");
+      const box = await openTextBox(f, "PFG-TEST-BOX-L" + name.length);
+      extra.push(() => box.close());
+      await pressKey("F5");
+      await statusHas(page, /F5 รองรับเกมภาษาอังกฤษเท่านั้น \(ตั้งภาษาในเกมเป็น English\)/);
+      await wait(500);
+      expect(await openedUrls(app)).toEqual([]);
+      expect(app.windows().some((w) => w.url().includes("picker.html"))).toBe(false);
+      expect(page.errors).toEqual([]);
+      expect(await logText(page)).not.toContain("หัวข้อ { Modifier }");
+      expect(clipboardNow()).toBe("PLAYER-CLIP-L");
+    }, 180000);
+  }
+});
+
+describe("L) the popup opens where the mouse was when F5 was pressed", () => {
+  it("not where it is a moment later", async () => {
+    const sbx = sandbox();
+    const { app } = await start(sbx, { game: "poe2" });
+    const box = await openTextBox(path.join(ITEMS, "poe2_rare_ring.txt"), "PFG-TEST-BOX-M");
+    extra.push(() => box.close());
+    setCursor(300, 300);
+    await wait(100);
+    await pressKey("F5");
+    setCursor(1500, 800); // (moved away at once, before the item has been read)
+    const w = await windowWith(app, "picker.html");
+    await w.waitForSelector(".p-row, .p-head");
+    const b = await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().includes("picker.html")).getBounds());
+    const near = (a, c) => Math.abs(a - c);
+    expect(near(b.x, 300)).toBeLessThan(near(b.x, 1500));
+    expect(b.x).toBeLessThan(900);
+  }, 180000);
 });
