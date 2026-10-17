@@ -1,7 +1,7 @@
 # Phase 3 - the Filter Generator on Electron (`apps/filtergen`)
 
-Status: built (`dist\PoE-Filter-Generator-TS.exe`, v1.0.0-beta.3) and tested here; waiting for Winai's test on the real game
-folders. **No release, no tag.** Title bar: `PoE1 & PoE2 Filter Generator (TypeScript) v<version>`.
+Status: built as a one-click installer (`dist\PoE-Filter-Generator-TS-Setup-<version>.exe`, now v1.0.0-beta.6; the first build was a
+portable exe, dropped because it opened in 9-10 s) and tested here; waiting for Winai's test on the real game folders. **No release, no tag.** Title bar: `PoE1 & PoE2 Filter Generator (TypeScript) v<version>`.
 
 ## What it is
 
@@ -33,6 +33,7 @@ apps/filtergen/src/shared/api.ts       the typed surface (DesktopApi)
 apps/filtergen/src/renderer/           main.ts (the desktop platform), desktop_folder.ts (FS over IPC), index.html (CSP)
 packages/node/src/config.ts            AppConfig (the original's merge rules) + the one-time import
 tools/pack-filtergen.mjs, swap-exe.ps1, measure-exe.ps1
+tests/desktop/installer.mjs            install over a running version / uninstall / reinstall on this machine (run by hand)
 tests/desktop/                         desktop.e2e.ts (Playwright _electron), guard.test.ts, fake internet, certs (test only)
 ```
 
@@ -64,37 +65,47 @@ A failed write (EPERM / EACCES / EBADF / ENOENT) shows the original's Thai messa
 write, *allow `<exe name>` in Windows Security → Ransomware protection or choose a Game folder override*, and the system's text.
 Nothing of the system is changed. Tested with a read-only target file (same EPERM).
 
-## Build
+## Build and install
 
-`npm run desktop:build` (electron-vite: main / preload CJS, renderer) · `npm run desktop:pack` (electron-builder portable ->
-`dist\PoE-Filter-Generator-TS.exe`, version = root `package.json`) · `npm run desktop:swap` (= `tools\swap-exe.ps1 -Build`: close the
-old exe, build, start the new one, check the title bar) · `npm run test:desktop`.
+`npm run desktop:build` (electron-vite: main / preload CJS, renderer) · `npm run desktop:pack` (electron-builder, target **nsis**,
+`oneClick`, per user -> `dist\PoE-Filter-Generator-TS-Setup-<version>.exe`; version = root `package.json`) · `npm run desktop:swap`
+(= `tools\swap-exe.ps1 -Build`: close the old program, build, silent install over the old one, start the installed program,
+check the title bar and that it runs from the installed folder) · `npm run test:desktop`.
 Electron's own download script does not run under npm's new script policy: run `npm run desktop:setup` once after `npm install`.
 
-## Measured (this machine, a throw-away LOCALAPPDATA, 3 runs)
+- Installs to `%LOCALAPPDATA%\Programs\PoE-Filter-Generator-TS` (no admin rights), Start menu + Desktop shortcut "PoE Filter Generator
+  (TypeScript)", an entry in Windows Settings -> Apps. The installer closes a running copy before it replaces files; a new version
+  installs over the old one without uninstalling.
+- Uninstall (Settings -> Apps, or `Uninstall PoE-Filter-Generator-TS.exe`) removes the program, the shortcuts and the registry entry only.
+  `%LOCALAPPDATA%\PoeFilterGenTS` (settings, cache, sounds) and the game folders are never removed.
+- A silent install (`/S`) does not start the program afterwards (the interactive one-click install does); `swap-exe.ps1` starts it.
+- The Controlled Folder Access message names the full path of the installed exe, so that is what the player allows in Windows Security.
+- The install folder name comes from the package name: the packer sets `extraMetadata.name` (otherwise it was `@poefiltergen`).
+- The portable target and its splash image were removed (nothing else used them).
 
-| | new (Electron, beta.3) | original (Python exe, v0.13.5) |
-|---|---|---|
-| exe size | **88.2 MB** (PLAN estimate 85-105 MB) | 11.5 MB |
-| start, exe -> window | **9.3-10.6 s** (portable exe unpacks ~320 MB every start) | 2.0 s (3.6 s the first time) |
-| start of the unpacked app (`win-unpacked`), -> window | 0.8 s | - |
-| memory 6 s after start | 382 MB working set (shared pages counted per process) / 225 MB private bytes, 5 processes | 68 MB / 34 MB, 2 processes |
+## Measured (this machine, a throw-away LOCALAPPDATA, 4 runs)
 
-The size is inside the estimate; **start time and memory are much worse than the original.** Where the time goes: the NSIS portable
-stub unpacks every start (`unpackDirName` does not change that); LZMA decoding is about half (`compression: store` -> 322 MB exe,
-4.7-6.6 s warm), the rest is writing 320 MB (Defender scans it). A splash image (`build/splash.bmp`) is shown while it unpacks.
-Levers, from cheapest: (1) ship the unpacked folder as a zip or a NSIS installer (unpacks once, 0.8 s start, but it is not one file);
-(2) a small launcher that unpacks once into `%LOCALAPPDATA%\PoeFilterGenTS\app-<version>` and starts from there (one file, slow only
-the first time; ~1 day of work, needs Winai's decision); (3) drop `dxcompiler.dll`, `dxil.dll`, SwiftShader / Vulkan (~32 MB,
-about 10 %, small risk on machines without a GPU); (4) memory: Electron's floor is ~250-300 MB working set; only the lever
-`--disable-gpu`-style flags or a smaller renderer (not planned) would change it.
+| | installed (beta.6) | portable exe (beta.3, dropped) | original (Python exe, v0.13.5) |
+|---|---|---|---|
+| file to hand out | Setup **98.1 MB** | 88.2 MB | 11.5 MB |
+| install time (silent, this machine) | 10-18 s fresh, 21 s over a running copy | - | - |
+| size on disk after install | 322 MB | (unpacks 322 MB to TEMP at every start) | 11.5 MB |
+| start, program -> window | **0.8 s** (every run, first included) | 9.3-10.6 s | 2.0 s (3.6 s the first time) |
+| memory 6 s after start | 358 MB working set (shared pages counted per process) / 223 MB private, 4 processes | 382 / 225 MB, 5 processes | 68 / 34 MB, 2 processes |
+
+Start is now faster than the original; memory is still ~5x the original (Electron's floor, ~250-300 MB working set; no lever planned).
+
+## Not done in this round (decide when the release is prepared)
+
+Automatic updates (electron-updater), a zip that needs no install next to the installer, README / release asset names.
 
 ## Tested here
 
 See the phase report. Suites: `npm test` (1,936), `tsc` strict, eslint, `parity:check` (1,451 cases), web `ui.mjs` (119) and web
-e2e (39), desktop e2e (39, also against the packaged `win-unpacked` exe).
+e2e (39), desktop e2e (39, run against the INSTALLED exe), `tests/desktop/installer.mjs` (21 checks: install over a running older
+version, settings survive, uninstall keeps `PoeFilterGenTS` / `PoeFilterGen` / game folders, reinstall).
 
 ## Needs Winai
 
 Open the exe: write into the real `Documents\My Games` for both games, open an old filter, sounds (the ones the original copied
-earlier), load the filter in PoE1 and PoE2, the settings imported from the original, start speed and smoothness; decide the start-time lever above.
+earlier), load the filter in PoE1 and PoE2, the settings imported from the original, start speed and smoothness.

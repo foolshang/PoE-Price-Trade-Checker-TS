@@ -48,7 +48,8 @@ function log(level: string, msg: string): void {
 }
 log("INFO", `PoE Filter Generator v${VERSION} started (frozen=${app.isPackaged}) build=${__BUILD_TIME__}`);
 
-const exeName = path.basename(process.env.PORTABLE_EXECUTABLE_FILE || process.execPath);
+// the CFA message names the exe that has to be allowed: the full path of the installed program
+const exeName = process.execPath;
 const nodeFs = new NodeFs();
 
 /** The network of the main process is Chromium's (net.fetch): it follows the system proxy settings like a browser does. */

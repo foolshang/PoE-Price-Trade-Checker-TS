@@ -1,5 +1,5 @@
 // Shared helpers of the desktop tests: a throw-away LOCALAPPDATA + Documents, launching the app (from the build output, or an
-// unpacked / portable exe), and a network stub for the main process (it fetches, the page does not).
+// installed program), and a network stub for the main process (it fetches, the page does not).
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";

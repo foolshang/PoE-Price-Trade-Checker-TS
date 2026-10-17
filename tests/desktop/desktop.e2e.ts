@@ -313,13 +313,15 @@ describe("F) writing fails: Controlled Folder Access", () => {
     const target = path.join(dir, "blocked.filter");
     fs.writeFileSync(target, "x");
     fs.chmodSync(target, 0o444); // a read-only file refuses the write with EPERM, like a blocked folder
-    const { page } = await start(sbx, { cfg: { filter_name_tier: "blocked" } });
+    const { app, page } = await start(sbx, { cfg: { filter_name_tier: "blocked" } });
     await page.click("#tab-ns");
     await page.click("#btn-generate-tier");
     await page.waitForFunction(() => /Controlled Folder Access/.test(document.querySelector("#log").innerText));
     const log = await page.locator("#log").innerText();
     expect(log).toContain("เขียน filter ลงโฟลเดอร์ไม่ได้");
     expect(log).toContain("Ransomware protection");
+    const execPath = await app.evaluate(() => process.execPath);
+    expect(log).toContain(execPath); // names the exe that has to be allowed (the installed one)
     expect(log).toContain("Game folder override");
     expect(await page.locator("#result").isHidden()).toBe(true);
     expect(fs.readFileSync(target, "utf-8")).toBe("x");

@@ -8,7 +8,7 @@ repo at v0.13.5, local experiments); estimates are marked as estimates.
 | 0 | Skeleton repo, survey of the original, this plan | done 2026-10-17 (waiting for Winai's decisions, section F) |
 | 1 | `packages/core`: filter logic converted + byte parity against Python | done 2026-10-17, not committed as a release (see docs/PHASE1.md) |
 | 2 | Web page on core TS (no Pyodide), live at the site root (old page in `/legacy/`) | done 2026-10-17 (docs/PHASE2.md, docs/DEPLOY.md); Winai tested the live page |
-| 3 | Filter Generator on Electron | built and tested 2026-10-18 (v1.0.0-beta.3), waiting for Winai's test of the exe; start-time lever undecided (docs/PHASE3.md) |
+| 3 | Filter Generator on Electron | built as a one-click installer and tested 2026-10-18 (v1.0.0-beta.6), waiting for Winai's test; auto-update (electron-updater), a no-install zip and README / release asset names are decided when the release is prepared (docs/PHASE3.md) |
 | 4 | F4 skill reference + F5 trade (hotkeys, Ctrl+C, clipboard) | not started |
 | 5 | Checker complete, replaces the original | not started |
 

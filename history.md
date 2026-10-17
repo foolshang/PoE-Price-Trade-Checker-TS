@@ -5,6 +5,22 @@
 
 ---
 
+## 2026-10-18 (2) - phase 3 continued: installer instead of portable, v1.0.0-beta.6 (committed, no tag, no release)
+
+- Winai chose the installer because the portable exe opened in 9-10 s. electron-builder target nsis, `oneClick`, per user
+  (`%LOCALAPPDATA%\Programs\PoE-Filter-Generator-TS`), Start menu + Desktop shortcut, uninstall keeps `PoeFilterGenTS` and the game folders.
+  Portable target, its splash image and `PORTABLE_EXECUTABLE_FILE` removed. `swap-exe.ps1`: close old -> build -> silent install over -> start the
+  installed program -> check the title bar and the path. The CFA message now names the installed exe's full path.
+- Measured: Setup 98.1 MB, install 10-21 s, 322 MB on disk, **start 0.8 s** (portable 9.3-10.6 s, original 2.0 s), memory 358 / 223 MB (original 68 / 34).
+- Tested: desktop e2e 39/39 against the installed exe; `tests/desktop/installer.mjs` 21/21 (install over a running older version, settings
+  identical, uninstall leaves `PoeFilterGenTS`, `PoeFilterGen` and game folders, reinstall); npm test 1,936, parity:check ok, tsc strict, eslint,
+  web ui.mjs 119 and e2e 39.
+- Found on the way: the install folder was named `@poefiltergen` (from the scoped package name) -> the packer sets `extraMetadata.name`.
+  A silent install does not relaunch the program (by design of NSIS); the tests/swap script start it.
+- Deferred (PLAN.md): auto-update, no-install zip, README / release names.
+
+---
+
 ## 2026-10-18 - phase 3: Filter Generator on Electron (`apps/filtergen`), v1.0.0-beta.3 (committed, no tag, no release)
 
 - `packages/ui` got one seam (`platform.ts`: network, names, store backend, game folder, desktop-only rows); the web page is unchanged

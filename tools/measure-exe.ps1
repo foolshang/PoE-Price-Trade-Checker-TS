@@ -1,8 +1,7 @@
 # Start time and memory of an exe, in a throw-away LOCALAPPDATA (nothing of the real machine is touched):
 #   powershell -File tools\measure-exe.ps1 -Exe <path> -TitlePart "Filter Generator" [-Runs 3]
 # "window" = from starting the process until a top-level window with the title appears. Memory = the sum of the private
-# working sets (WorkingSetMB, shared pages counted once per process) and private bytes (PrivateMB) of the whole process tree 6 seconds after the window appeared. Every run is a fresh start; the first one of a
-# portable exe also unpacks itself (cold), the next ones reuse the unpacked files (warm).
+# working sets (WorkingSetMB, shared pages counted once per process) and private bytes (PrivateMB) of the whole process tree 6 seconds after the window appeared. Every run is a fresh start of the exe.
 param(
   [Parameter(Mandatory = $true)][string]$Exe,
   [string]$TitlePart = "Filter Generator",
