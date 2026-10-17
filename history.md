@@ -5,6 +5,14 @@
 
 ---
 
+## 2026-10-17 (5) - deploy retried: still 403; patch for the original's deploy job written (not applied)
+
+- Second deploy run (16:05 UTC, after `RELEASE_TOKEN` was updated at 16:05:22): same 403 on push; gh-pages unchanged (25 files).
+- `docs/legacy-deploy.patch`: proposed change to the original's `deploy-web.yml` (write only `legacy/`, normal push, no force,
+  verify against `/legacy/`). Not applied; the original repo is untouched and must not be tagged until it is applied.
+
+---
+
 ## 2026-10-17 (4) - web deploy workflows; first real deploy stopped (403 on push)
 
 - Added `.github/workflows/deploy-web.yml` (manual; first run moves the old page to `/legacy/`, then replaces the root web
