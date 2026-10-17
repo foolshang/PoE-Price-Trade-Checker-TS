@@ -40,7 +40,8 @@ jobs:
         shell: bash
         run: |
           for i in $(seq 1 30); do
-            if curl -fsS -H 'Cache-Control: no-cache' "$SITE_URL/?t=$(date +%s)" | grep -q 'pyodide'; then echo "old page is live: $SITE_URL/"; exit 0; fi
+            page=$(curl -fsS -H 'Cache-Control: no-cache' "$SITE_URL/?t=$(date +%s)" 2>/dev/null) || page=""
+            if grep -q 'pyodide' <<<"$page"; then echo "old page is live: $SITE_URL/"; exit 0; fi
             echo "try $i: not yet"; sleep 10
           done
           echo "::error::the old page is not served after 5 minutes"

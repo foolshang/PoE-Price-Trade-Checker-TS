@@ -115,7 +115,9 @@ jobs:
             if [ "$status" = "built" ] || [ "$status" = "unknown" ]; then
               html=$(curl -fsS -H 'Cache-Control: no-cache' "$SITE_URL/?t=$(date +%s)" 2>/dev/null) || html=""
               js=$(echo "$html" | grep -o 'assets/index-[A-Za-z0-9_-]*\.js' | head -1)
-              if [ -n "$js" ] && curl -fsS "$SITE_URL/$js" | grep -qF "web-$ver"; then echo "site is live: $SITE_URL/ (web-$ver)"; exit 0; fi
+              # (into a variable first: `curl | grep -q` fails under pipefail when grep quits early)
+              body=$(curl -fsS "$SITE_URL/$js" 2>/dev/null) || body=""
+              if [ -n "$js" ] && grep -qF "web-$ver" <<<"$body"; then echo "site is live: $SITE_URL/ (web-$ver)"; exit 0; fi
             fi
             sleep 20
           done
