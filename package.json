@@ -1,6 +1,6 @@
 {
   "name": "poe-price-trade-checker-ts",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.3",
   "private": true,
   "description": "PoE Price & Trade Checker (TypeScript)",
   "workspaces": [
@@ -29,8 +29,14 @@
     "web:dev": "npm run dev -w @poe/web",
     "web:build": "npm run build -w @poe/web",
     "web:local": "cd apps/web && vite build --mode localhost --outDir dist-local && vite preview --outDir dist-local --host 127.0.0.1",
-    "test:e2e": "npm run web:build && vitest run -c vitest.e2e.config.ts",
-    "test:ui": "npm run web:build && node tests/web/ui.mjs"
+    "test:e2e": "npm run web:build && vitest run -c vitest.e2e.config.ts tests/web",
+    "test:ui": "npm run web:build && node tests/web/ui.mjs",
+    "desktop:dev": "npm run dev -w @poe/filtergen",
+    "desktop:build": "npm run build -w @poe/filtergen",
+    "test:desktop": "npm run desktop:build && vitest run -c vitest.e2e.config.ts tests/desktop",
+    "desktop:pack": "npm run desktop:build && node tools/pack-filtergen.mjs",
+    "desktop:swap": "powershell -NoProfile -File tools/swap-exe.ps1 -Build",
+    "desktop:setup": "node node_modules/electron/install.js"
   },
   "type": "module"
 }

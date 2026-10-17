@@ -7,6 +7,7 @@ import { K } from "./api.ts";
 import { nsLast } from "./data.ts";
 import { h } from "./dom.ts";
 import { sounds } from "./files.ts";
+import { platform } from "./platform.ts";
 import { Ctx } from "./state.ts";
 import { openStyleDialog } from "./style_editor.ts";
 
@@ -61,6 +62,7 @@ export const tabNs = {
       h("div", { class: "section" }, "Alert sounds:"),
       ...NUMS.map(soundRow),
       this.tag,
+      ...(platform().nsExtras?.(ctx.cfg, () => ctx.changed()) ?? []),
       h("div", { class: "actions" }, btnGen, btnRefresh));
   },
 

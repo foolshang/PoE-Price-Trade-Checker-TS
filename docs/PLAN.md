@@ -7,8 +7,8 @@ repo at v0.13.5, local experiments); estimates are marked as estimates.
 |---|---|---|
 | 0 | Skeleton repo, survey of the original, this plan | done 2026-10-17 (waiting for Winai's decisions, section F) |
 | 1 | `packages/core`: filter logic converted + byte parity against Python | done 2026-10-17, not committed as a release (see docs/PHASE1.md) |
-| 2 | Web page on core TS (no Pyodide), staged under `/ts/` | built and tested 2026-10-17, waiting for Winai on localhost; not deployed (see docs/PHASE2.md) |
-| 3 | Filter Generator on Electron | not started |
+| 2 | Web page on core TS (no Pyodide), live at the site root (old page in `/legacy/`) | done 2026-10-17 (docs/PHASE2.md, docs/DEPLOY.md); Winai tested the live page |
+| 3 | Filter Generator on Electron | built and tested 2026-10-18 (v1.0.0-beta.3), waiting for Winai's test of the exe; start-time lever undecided (docs/PHASE3.md) |
 | 4 | F4 skill reference + F5 trade (hotkeys, Ctrl+C, clipboard) | not started |
 | 5 | Checker complete, replaces the original | not started |
 
@@ -101,9 +101,9 @@ logs `version + build timestamp` first (CLAUDE.md rule 5).
 1. Releases keep going through `foolshang/PoE-Filter-Generator` (public repo, GitHub Pages, `RELEASE_TOKEN`). The TS
    repo's workflow publishes there, like the original's `release.yml` (tag must match the version in `package.json`;
    a tag with `-` is a prerelease and never "Latest").
-2. **Web:** the Pyodide page stays at the site root. The TS page is published to `/ts/` (same origin, so settings and
-   folder handles are shared and can be tested by Winai on his real data). When Winai approves, `/ts/` becomes the
-   root and the old build moves to `/legacy/` for a few releases.
+2. **Web (decided by Winai, the `/ts/` step was skipped):** the TypeScript page is at the site root of
+   `foolshang.github.io/PoE-Filter-Generator/` and the old Pyodide page lives in `/legacy/` (same origin, so settings and
+   folder handles are shared). Deploy / rollback: `docs/DEPLOY.md`. The original repo's deploy job writes `/legacy/` only.
 3. **Exe:** TS builds are published as `v1.0.0-beta.N` prereleases with asset name `PoE-Filter-Generator-TS.exe`; the
    title bar says "(TypeScript)". At cut-over `v1.0.0` becomes Latest with the usual asset name, the README is updated,
    the old exe stays downloadable from its release.

@@ -3,6 +3,7 @@
  * Google Cloud Storage, CORS set for this site), the real item names (the snapshot shipped with the page:
  * data/trade_names_<game>.json), the gem list (poe1). The localStorage keys are the ones the Pyodide page used.
  */
+import { platform } from "./platform.ts";
 import { S } from "./state.ts";
 import { readJson, store } from "./storage.ts";
 
@@ -15,15 +16,19 @@ const KEY_NS = "poeFilterGen.ns.";
 const NS_CHECK_HOURS = 24;
 const hubCache: Record<string, { data: any; at: number }> = {};
 
-export async function fetchText(url: string, label: string): Promise<string> {
-  let resp: Response;
+export async function fetchText(url: string, label: string, headers?: Record<string, string>): Promise<string> {
+  let res: { ok: boolean; status: number; text: string };
   try {
-    resp = await fetch(url);
+    if (/^https?:/i.test(url)) res = await platform().getText(url, headers); // the network: the platform decides how
+    else { // a file shipped with the page
+      const r = await fetch(url);
+      res = { ok: r.ok, status: r.status, text: r.ok ? await r.text() : "" };
+    }
   } catch (e) {
     throw new Error(`${label} fetch failed (${url}): ${(e as Error).message || e}`);
   }
-  if (!resp.ok) throw new Error(`${label} HTTP ${resp.status}: ${url}`);
-  return resp.text();
+  if (!res.ok) throw new Error(`${label} HTTP ${res.status}: ${url}`);
+  return res.text;
 }
 
 /** the hub's prices of a game (kept 5 minutes, like the hub's own cache header) */
@@ -47,6 +52,13 @@ export async function getHub(g: string): Promise<any> {
  * (data/trade_names_<game>.json, made by `npm run names:refresh`). Returns {names, from} or null.
  */
 export async function getNames(g: string, base = "./"): Promise<{ names: string[]; from: string } | null> {
+  const better = platform().getNames;
+  if (better) {
+    try {
+      const live = await better(g);
+      if (live && live.length >= 500) return { names: live, from: "live" };
+    } catch { /* the snapshot below */ }
+  }
   try {
     const list = JSON.parse(await fetchText(`${base}data/trade_names_${g}.json`, "names snapshot"));
     if (!Array.isArray(list) || list.length < 500) throw new Error("too few names");
@@ -73,11 +85,10 @@ export async function getGemNames(g: string): Promise<string[]> {
 export const nsLast = (g: string): { tag?: string; checked_at?: string } => readJson(`${KEY_NS}last.${g}`, {});
 const nsTextKey = (g: string, tag: string, s: number): string => `${KEY_NS}text.${g}|${tag}|${s}`;
 
-async function nsLatestTag(g: string): Promise<string | null> {
+export async function nsLatestTag(g: string): Promise<string | null> {
   try {
-    const resp = await fetch(S.api.nsLatestUrl(g), { headers: { Accept: "application/vnd.github+json" } });
-    if (!resp.ok) return null;
-    return (await resp.json()).tag_name || null;
+    const text = await fetchText(S.api.nsLatestUrl(g), "neversink release", { Accept: "application/vnd.github+json" });
+    return JSON.parse(text).tag_name || null;
   } catch {
     return null;
   }

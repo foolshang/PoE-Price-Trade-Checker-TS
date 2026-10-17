@@ -71,6 +71,9 @@
 - เว็บ: `npm run web:local` (build + เสิร์ฟที่ http://127.0.0.1:4173/ พร้อม proxy hub เพราะ hub ยอมแค่ origin ของ Pages) ·
   `npm run web:dev` (5173) · `npm run web:build` · `npm run test:e2e` · `npm run test:ui` · `npm run names:refresh`
 - `node tools/unused-exports.mjs` หา export ที่ไม่มีใครใช้ (ตัวตั้งต้นของกฎ 6c)
+- Desktop (Filter Generator): `npm run desktop:build` · `desktop:pack` (→ `dist/PoE-Filter-Generator-TS.exe`) · `desktop:swap`
+  (ปิดตัวเก่า → build → เปิดใหม่ → เช็ค title bar ตามกฎข้อ 3) · `test:desktop` · `desktop:setup` (ครั้งแรกหลัง npm install: ดาวน์โหลด Electron)
+  · `powershell -File tools/measure-exe.ps1 -Exe <exe>` วัดเวลาเปิด/RAM
 - รายละเอียดระบบ parity และสถานะการแปลง: `docs/PHASE1.md` · เฟส 2 (เว็บ): `docs/PHASE2.md`
 
 ## ความเข้ากันได้กับของเดิม (ต้องรักษา)

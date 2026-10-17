@@ -1,4 +1,12 @@
 import "./style.css";
-export { boot, hooks } from "./app.ts";
+export { boot, hooks, flushConfig } from "./app.ts";
 export type { BootOptions } from "./app.ts";
-export { APP_VERSION } from "./api.ts";
+export { APP_VERSION, setAppVersion } from "./api.ts";
+export { setPlatform, platform } from "./platform.ts";
+export type { Platform, Controls, HttpResult } from "./platform.ts";
+export { setStoreBackend, store, KEY_CFG, KEY_GAME } from "./storage.ts";
+export type { StoreBackend } from "./storage.ts";
+export { FS, sounds, useFolderBackend, sha256Hex } from "./files.ts";
+export { nsLatestTag } from "./data.ts";
+export { S } from "./state.ts";
+export { h } from "./dom.ts";

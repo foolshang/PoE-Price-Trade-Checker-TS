@@ -7,6 +7,7 @@ import { fetchBase, getHub, getNames } from "./data.ts";
 import { $, $$, debounce, h, log, logAll, saveBlob } from "./dom.ts";
 import { FS, Download, packDownload, sounds, writeToFolder } from "./files.ts";
 import { openFilter } from "./open_filter.ts";
+import { platform } from "./platform.ts";
 import { SHELL_HTML } from "./shell.ts";
 import { Ctx, S } from "./state.ts";
 import { KEY_GAME, loadCfg, saveCfg, store } from "./storage.ts";
@@ -42,6 +43,11 @@ function collectCfg(mode?: string): Record<string, any> {
   return cfg;
 }
 const persist = debounce(() => saveCfg(collectCfg()), 250);
+let booted = false;
+/** Save what is in the boxes now (a shell that is about to close calls this). */
+export function flushConfig(): void {
+  if (booted) saveCfg(collectCfg());
+}
 const changed = (): void => {
   tabNs.refreshQ(S.cfg);
   tabNs.refreshSounds();
@@ -68,7 +74,7 @@ async function loadLists(force: boolean): Promise<void> {
   if (g !== game) return; // the game was switched while loading
   S.data = { hub, base, baseTag: tag, names, namesFrom: from };
   logAll(S.api.wlLoad(hub, base || "", names));
-  if (from) log(`รายชื่อไอเท็มจริง: จาก snapshot ที่มากับหน้านี้${tag ? ` · NeverSink ${tag}` : ""}`, "info");
+  if (from) log(`รายชื่อไอเท็มจริง: ${from === "snapshot" ? "จาก snapshot ที่มากับหน้านี้" : "จากข้อมูล trade ของ GGG"}${tag ? ` · NeverSink ${tag}` : ""}`, "info");
   tabWl.reload();
   tabNs.showTag(game);
 }
@@ -159,7 +165,7 @@ async function generate(mode: "tier" | "whitelist", refresh: boolean): Promise<v
     if (res!.status === "none") { log("⚠ ยังไม่ได้เลือกอะไร — ไม่ generate", "warn"); return; }
     if (res!.status !== "ok") { log("✗ สร้าง filter ไม่สำเร็จ", "err"); return; }
     log(res!.mode === "whitelist" ? `✓ filter โหมดโชว์เฉพาะ (${res!.count} รายการ)` : "✓ สร้าง filter แล้ว", "ok");
-    await deliver(res!, name);
+    if (await deliver(res!, name)) await platform().afterGenerate?.({ mode: res!.mode as string, game, name, baseTag: res!.base_tag ?? null });
   } catch (e: any) {
     log(`✗ ${e.message || e}`, "err");
   } finally {
@@ -167,27 +173,33 @@ async function generate(mode: "tier" | "whitelist", refresh: boolean): Promise<v
   }
 }
 
-async function deliver(res: { text?: string; copies?: [string, string][]; sounds?: Record<string, string> }, name: string): Promise<void> {
+/** true when the filter was handed over (written to the folder / offered for download) */
+async function deliver(res: { text?: string; copies?: [string, string][]; sounds?: Record<string, string> }, name: string): Promise<boolean> {
   lastText = res.text as string;
   const fileName = `${name}.filter`;
   if (FS.ready) {
     try {
-      if (await FS.exists(fileName) && !window.confirm(`จะเขียนทับไฟล์ ${fileName} ในโฟลเดอร์ ${FS.name}\nด้วยค่าที่ตั้งอยู่ตอนนี้ — ต้องการต่อหรือไม่?`)) {
+      if (!FS.desktop && await FS.exists(fileName) && !window.confirm(`จะเขียนทับไฟล์ ${fileName} ในโฟลเดอร์ ${FS.name}\nด้วยค่าที่ตั้งอยู่ตอนนี้ — ต้องการต่อหรือไม่?`)) {
         log("ยกเลิกการเขียนทับ — ไม่ได้เขียนไฟล์", "warn");
-        return;
+        return false;
       }
       const written = await writeToFolder(res, name);
       log(`✓ เขียนลงโฟลเดอร์ ${FS.name}: ${written.join(", ")}`, "ok");
       log("Filter updated — reload in game (Options → Game)", "ok");
       showResult(null, `เขียนลงโฟลเดอร์ "${FS.name}" แล้ว: ${written.join(", ")}`);
-      return;
+      return true;
     } catch (e: any) {
+      if (FS.desktop) { // no download to fall back to: the message says why (and what to do about Controlled Folder Access)
+        log(String(e && e.message ? e.message : e), "err");
+        return false;
+      }
       log(`⚠ เขียนลงโฟลเดอร์ไม่ได้ (${e.message || e}) — ใช้ดาวน์โหลดแทน`, "warn");
     }
   }
   lastDownload = packDownload(res.text as string, name, res.sounds || {});
   log("Filter ready — ดาวน์โหลดแล้ววางในโฟลเดอร์เกม", "ok");
   showResult(lastDownload, null);
+  return true;
 }
 
 function showResult(dl: Download | null, written: string | null): void {
@@ -225,6 +237,8 @@ async function openFile(file: File): Promise<void> {
   tabWl.reload();
   tabNs.refreshSounds();
   showTab("whitelist");
+  await platform().adoptOpenedDir?.(game); // (desktop) Generate writes back next to the opened file
+  refreshFolder();
   persist();
 }
 
@@ -275,6 +289,7 @@ function askFolderName(g: string, picked: string): Promise<"again" | "keep" | "c
 }
 
 function refreshFolder(): void {
+  if (FS.desktop) return refreshDesktopFolder();
   const box = $("#folder-box");
   box.hidden = !FS.supported;
   if (!FS.supported) return;
@@ -287,6 +302,20 @@ function refreshFolder(): void {
   const odd = FS.state !== "none" && !FS.nameOk(game, FS.name);
   $("#folder-hint").textContent = `Chrome / Edge: เลือกโฟลเดอร์ ${DIRS[game]} แล้วโปรแกรมเขียน .filter และไฟล์เสียงลงไปให้เลย`
     + (odd ? ` · โฟลเดอร์ที่ใช้อยู่ชื่อ "${FS.name}" ไม่ใช่ "${FS.folderName(game)}" (ใช้ต่อได้)` : "");
+}
+
+/** The desktop shell writes straight into the game's folder: the box names it and offers "Browse…" (the folder override). */
+function refreshDesktopFolder(): void {
+  $("#folder-box").hidden = false;
+  const name = $("#folder-name");
+  name.textContent = `${FS.name} — เขียนไฟล์ลงที่นี่โดยตรง`;
+  name.className = "ok-text";
+  $("#btn-folder").textContent = "Browse…";
+  $("#btn-folder-grant").hidden = true;
+  const btn = $("#btn-folder-forget");
+  btn.textContent = "ใช้โฟลเดอร์มาตรฐาน";
+  btn.hidden = !S.cfg[`game_dir_${game}`];
+  $("#folder-hint").textContent = `ปกติ ${DIRS[game]} (Documents ที่ Windows ใช้จริง) — Game folder override: กด Browse… เพื่อเลือกโฟลเดอร์อื่น`;
 }
 
 // ---------------------------------------------------------------- tabs / game
@@ -321,10 +350,13 @@ export async function boot(root: HTMLElement, opts: BootOptions = {}): Promise<v
   root.innerHTML = SHELL_HTML;
   if (opts.title) $("#app-title").textContent = opts.title;
   $("#ver").textContent = `เวอร์ชัน ${APP_VERSION}`;
+  platform().onShell?.(log);
   (window as any).PFG = { api: S.api, FS, hooks, sounds, store, state: S };
 
   await sounds.load();
   S.cfg = loadCfg();
+  const saved = store.get(KEY_GAME);
+  await platform().beforeStart?.(saved === "poe1" ? "poe1" : "poe2");
   const ctx: Ctx = {
     cfg: S.cfg, changed, generate, openFile, gotoNsTab: () => showTab("tier"), reloadLists: () => loadLists(true), game: () => game,
     // "เปิด filter…": the folder's list / the file picker; `fallback` is the plain file input. Nothing may fail silently here: a
@@ -368,4 +400,6 @@ export async function boot(root: HTMLElement, opts: BootOptions = {}): Promise<v
   const g = store.get(KEY_GAME);
   showTab(S.cfg.last_tab === "whitelist" ? "whitelist" : "tier");
   await setGame(g === "poe1" || g === "poe2" ? g : "poe2");
+  booted = true;
+  platform().onReady?.({ game: () => game, generate, log, cfg: () => S.cfg });
 }

@@ -6,8 +6,21 @@
 
 const mem = new Map<string, string>();
 
+/** Where the keys live when it is not localStorage (the desktop shell keeps them in its own files, see platform.ts). */
+export interface StoreBackend {
+  get(k: string): string | null;
+  set(k: string, v: string): boolean;
+  del(k: string): void;
+  keys(): string[];
+}
+let backend: StoreBackend | null = null;
+export function setStoreBackend(b: StoreBackend): void {
+  backend = b;
+}
+
 export const store = {
   get(k: string): string | null {
+    if (backend) return backend.get(k);
     try {
       const v = localStorage.getItem(k);
       if (v !== null) return v;
@@ -15,6 +28,7 @@ export const store = {
     return mem.has(k) ? mem.get(k)! : null;
   },
   set(k: string, v: string, keepInMemory = true): boolean {
+    if (backend) return backend.set(k, v);
     if (keepInMemory) mem.set(k, v);
     try {
       localStorage.setItem(k, v);
@@ -24,10 +38,12 @@ export const store = {
     }
   },
   del(k: string): void {
+    if (backend) return backend.del(k);
     mem.delete(k);
     try { localStorage.removeItem(k); } catch { /* blocked */ }
   },
   keys(): string[] {
+    if (backend) return backend.keys();
     try { return Object.keys(localStorage); } catch { return []; }
   },
 };

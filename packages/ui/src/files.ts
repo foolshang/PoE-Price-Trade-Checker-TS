@@ -66,6 +66,11 @@ const sameName = (a: unknown, b: unknown): boolean => String(a || "").trim().toL
 const w = window as any;
 
 export const FS = {
+  /** true when the folder is the game's folder on disk (the desktop shell); false in a browser (a handle the player picked) */
+  desktop: false,
+  /** the desktop shell: a file picker that returns the chosen file (null = cancelled); `pickedDir` = its folder */
+  pickFile: undefined as undefined | (() => Promise<File | null>),
+  pickedDir: "",
   supported: typeof w.showDirectoryPicker === "function",
   handle: null as any,
   /** none | granted | prompt (remembered, permission must be confirmed) */
@@ -167,6 +172,11 @@ export const FS = {
     return out;
   },
 };
+
+/** The desktop shell swaps the folder implementation (same members) for one that talks to its main process. */
+export function useFolderBackend(impl: object): void {
+  Object.defineProperties(FS, Object.getOwnPropertyDescriptors(impl));
+}
 
 // ---- download (when no folder is connected, or the browser cannot write to one) ----
 export interface Download { kind: "filter" | "zip"; filename: string; mime: string; bytes: Uint8Array; names?: string[] }

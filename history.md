@@ -5,6 +5,24 @@
 
 ---
 
+## 2026-10-18 - phase 3: Filter Generator on Electron (`apps/filtergen`), v1.0.0-beta.3 (committed, no tag, no release)
+
+- `packages/ui` got one seam (`platform.ts`: network, names, store backend, game folder, desktop-only rows); the web page is unchanged
+  (ui.mjs 119/119, web e2e 39/39). `apps/filtergen`: main / preload / renderer, `packages/node/src/config.ts` (AppConfig + one-time import
+  from `PoeFilterGen`, the original's files only read). Build: electron-vite + electron-builder portable `dist\PoE-Filter-Generator-TS.exe`;
+  `tools/swap-exe.ps1`, `pack-filtergen.mjs`, `measure-exe.ps1`.
+- Tested: desktop e2e 39 (Playwright `_electron`, fake internet through Chromium host rules; also on the packaged `win-unpacked` exe):
+  golden bytes of the original for 2 games x 2 tabs, start-up/title/log files, config import (hash + mtime of the old files unchanged),
+  5 old filters, sounds (copy, `#`/`;`, same content, name clash asks, the original's paths), Controlled Folder Access message (EPERM),
+  folder override, update check, single instance, security (no node in the page, name/URL guards, CSP, navigation). `npm test` 1,936,
+  parity:check ok, tsc strict, eslint clean.
+- Measured: exe 88.2 MB (estimate 85-105); start 9.3-10.6 s (original 2 s) because the portable exe unpacks ~320 MB every start;
+  382 MB working set / 225 MB private (original 68 / 34). Levers and the decision needed: `docs/PHASE3.md`.
+- Also: web deploy workflows' verify step fixed (`curl | grep -q` under pipefail); PLAN.md phase 2 = done.
+- Open: Winai's test of the exe in the game folders; decision on the start-time lever.
+
+---
+
 ## 2026-10-17 (7) - original's deploy job patched; verify step waits for the Pages build
 
 - Original repo (c.f. its history.md): `deploy-web.yml` now writes only `legacy/` (commit 26e29f6, no tag). A manual run

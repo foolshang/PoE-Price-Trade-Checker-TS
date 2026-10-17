@@ -11,7 +11,11 @@ export type Msg = [string, string];
 
 declare const __APP_VERSION__: string;
 /** recorded in the embedded settings; the page shows it too (bug reports) */
-export const APP_VERSION = "web-" + (typeof __APP_VERSION__ === "string" ? __APP_VERSION__ : "dev");
+export let APP_VERSION = "web-" + (typeof __APP_VERSION__ === "string" ? __APP_VERSION__ : "dev");
+/** a shell with another name for itself (the desktop app records its plain version) */
+export function setAppVersion(v: string): void {
+  APP_VERSION = v;
+}
 
 /** the values the UI needs to draw its controls */
 export const K = {

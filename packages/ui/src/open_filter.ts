@@ -42,11 +42,11 @@ export interface OpenFilterOpts {
 export async function openFilter(opts: OpenFilterOpts): Promise<void> {
   const { game, openFile, fallback, log } = opts;
   const id = `poe-open-${game}`;
-  if (!canPick()) return fallback();
+  if (!FS.desktop && !canPick()) return fallback();
   const finish = async (file: File | null): Promise<void> => { if (file) await openFile(file); };
   const pick = async (startIn: unknown): Promise<void> => {
     try {
-      await finish(await pickFile(startIn, id));
+      await finish(FS.pickFile ? await FS.pickFile() : await pickFile(startIn, id));
     } catch (e: any) {
       if (aborted(e)) return;
       log(`⚠ เปิดตัวเลือกไฟล์ไม่ได้: ${e.message || e}`, "warn");
