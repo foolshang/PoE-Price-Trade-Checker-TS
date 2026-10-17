@@ -9,3 +9,5 @@ release-out/
 coverage/
 playwright-report/
 test-results/
+dist-local/
+dist-tools/

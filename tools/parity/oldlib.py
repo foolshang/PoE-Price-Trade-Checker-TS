@@ -363,6 +363,8 @@ def _summary(sm):
         v = getattr(sm, f.name)
         if f.name in ("tablet_block", "map_block", "gold_block"):
             d[f.name] = None if v is None else {"title": v.title, "kind": v.kind, "conds": jsonable(v.conds), "style": v.style}
+        elif f.name == "gear":  # only the block types matter now (the rest fed the equipment lists, which are gone)
+            d["gear_types"] = [t[0] for t in v]
         elif f.name == "gem_blocks":
             d[f.name] = [{"title": b.title, "kind": b.kind, "conds": jsonable(b.conds), "style": b.style} for b in v]
         else:

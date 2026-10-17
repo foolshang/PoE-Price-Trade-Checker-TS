@@ -28,12 +28,6 @@ export const pyStrip = (s: string): string => s.replace(LSTRIP_RE, "").replace(R
 export const pyLstrip = (s: string): string => s.replace(LSTRIP_RE, "");
 export const pyRstrip = (s: string): string => s.replace(RSTRIP_RE, "");
 
-/** `s.rstrip(chars)` with an explicit character set. */
-export function rstripChars(s: string, chars: string): string {
-  let end = s.length;
-  while (end > 0 && chars.includes(s[end - 1])) end--;
-  return s.slice(0, end);
-}
 
 /** `s.split(None, maxsplit)` */
 export function splitWs(s: string, maxsplit = -1): string[] {
@@ -95,7 +89,6 @@ export function truthy(v: unknown): boolean {
 
 export const isDict = (v: unknown): v is Record<string, any> =>
   v !== null && typeof v === "object" && !Array.isArray(v) && !(v instanceof Map) && !(v instanceof Set);
-export const isList = (v: unknown): v is any[] => Array.isArray(v);
 
 const hasOwn = (o: object, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k);
 /** `d.get(key)` on a plain object (own keys only, so "constructor" is not a method). */

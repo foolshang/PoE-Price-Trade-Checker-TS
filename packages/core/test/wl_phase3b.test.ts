@@ -162,21 +162,6 @@ describe("A2: stack-size minimums", () => {
   });
 });
 
-describe("B: block labels", () => {
-  it("gear block labels read like the condition summaries", () => {
-    const base = data("poe1")[1];
-    const labels: string[] = [];
-    for (const e of w.gearSequence("poe1", base)) {
-      if (e[0] === "copy" && e[4] === "Show") {
-        labels.push(w.blockLabel(e[2] as string, e[5].filter((l) => l.trim() && !["SetFontSize", "SetTextColor", "SetBorderColor", "SetBackgroundColor", "PlayAlertSound", "PlayEffect", "MinimapIcon", "DisableDropSound", "CustomAlertSound", "CustomAlertSoundOptional"].includes(l.split(/\s+/)[0])).map((l) => "    " + l.trim())));
-      }
-    }
-    expect(labels.some((l) => l.includes("แหวน"))).toBe(true);
-    expect(labels.some((l) => l.includes("ilvl ≥"))).toBe(true);
-    expect(labels.some((l) => l.startsWith("   ") || l.trim() === "")).toBe(false);
-  });
-});
-
 // ---------------------------------------------------------------------------- D2: nothing the player unticks comes back (model level)
 
 const fullStyle = () => ({ text: [10, 20, 30, 40], border: [50, 60, 70, 255], bg: [1, 2, 3, 0], size: 33,

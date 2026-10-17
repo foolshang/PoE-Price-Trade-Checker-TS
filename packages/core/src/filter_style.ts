@@ -17,19 +17,11 @@ export const SOUND_IDS = Array.from({ length: 16 }, (_, i) => i + 1);
 export const FONT_MIN = 18, FONT_MAX = 45;
 export const VOLUME_MAX = 300;
 export const DEFAULT_VOLUME = 300;
-export const AUDIO_EXTENSIONS = [".mp3", ".wav", ".ogg"];
 export const PARTS = ["text", "border", "bg", "size", "icon", "effect", "sound"];
 /** filter keywords each part writes (what "off" removes from a base look) */
 export const PART_KEYWORDS: Record<string, string[]> = {
   text: ["SetTextColor"], border: ["SetBorderColor"], bg: ["SetBackgroundColor"], size: ["SetFontSize"],
   icon: ["MinimapIcon"], effect: ["PlayEffect"], sound: ["PlayAlertSound", "CustomAlertSound", "CustomAlertSoundOptional"],
-};
-
-/** rough sRGB values of the filter's colour names, for the editor preview only */
-export const COLOR_RGB: Record<string, [number, number, number]> = {
-  Red: [255, 40, 40], Green: [40, 200, 60], Blue: [60, 100, 255], Brown: [150, 90, 40],
-  White: [255, 255, 255], Yellow: [255, 220, 40], Cyan: [40, 220, 220], Grey: [160, 160, 160],
-  Orange: [255, 140, 30], Pink: [255, 130, 190], Purple: [170, 70, 220],
 };
 
 const clamp = (lo: number, hi: number, x: number): number => Math.max(lo, Math.min(hi, x));

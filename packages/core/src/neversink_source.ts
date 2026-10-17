@@ -7,8 +7,6 @@ import { FsPort, HttpPort } from "./ports.ts";
 import { Log, dumps, noopLog, truthy } from "./py.ts";
 
 export const REPO = filterCore.NEVERSINK_REPO;
-export const LEVELS = filterCore.LEVELS;
-export const DEFAULT_STRICTNESS = 2; // Semi-Strict
 export const HEADERS: Record<string, string> = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
 };
@@ -21,8 +19,6 @@ export interface NeverSinkEnv {
   nowMs: () => number;
   warn?: Log;
 }
-
-export const filename = filterCore.neversinkFilename;
 
 export async function getLatestTag(game: string, env: Pick<NeverSinkEnv, "http" | "warn">): Promise<string | null> {
   if (!Object.prototype.hasOwnProperty.call(REPO, game)) return null;

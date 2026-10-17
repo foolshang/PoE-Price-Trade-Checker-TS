@@ -12,17 +12,6 @@ export const HEADERS: Record<string, string> = {
   Accept: "application/json",
 };
 
-/**
- * An entry's price in chaos from a hub prices payload (SPEC 8.1): the hub's `chaos_value` when present, else `value`
- * when `value_currency` is chaos, else 0 - never a guess.
- */
-export function hubChaosValue(entry: Record<string, any>): number {
-  const chaos = entry.chaos_value;
-  if (chaos !== null && chaos !== undefined) return Number(chaos);
-  if (entry.value_currency === "chaos") return Number(truthy(entry.value) ? entry.value : 0);
-  return 0;
-}
-
 export interface LeagueFiles {
   main: { league: string | null; path: string };
   hardcore: { league: string; path: string } | null;

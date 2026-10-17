@@ -92,18 +92,6 @@ export function soundIdOf(body: string[]): string | null {
   return null;
 }
 
-/** {PlayAlertSound id: number of Show blocks that play it} of a NeverSink filter. */
-export function soundBlockCounts(baseText: string): Record<string, number> {
-  const lines = baseText.split("\n");
-  const out = new Map<string, number>();
-  for (const b of parseBlocks(lines)) {
-    if (b.blockType !== "Show") continue;
-    const i = soundIdOf(lines.slice(b.start + 1, b.end));
-    if (i !== null) out.set(i, (out.get(i) ?? 0) + 1);
-  }
-  return Object.fromEntries(out);
-}
-
 /**
  * [new_text, {slot: blocks changed}]. `soundMap` = {"1".."6": file name or null}. Every Show block whose PlayAlertSound id
  * belongs to a slot with a file gets that file as CustomAlertSoundOptional.

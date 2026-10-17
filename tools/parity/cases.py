@@ -398,7 +398,6 @@ def call_cases() -> list:
         c("filter_gen.sound_id_of", body)
     for g in GAMES:
         for base in ("s2", "base"):
-            c("filter_gen.sound_block_counts", f"fx:ns_{g}_{base}")
             c("filter_gen.apply_numbered_sounds", f"fx:ns_{g}_{base}", {"1": "a.mp3", "4": "d e.wav"})
             c("filter_gen.apply_numbered_sounds", f"fx:ns_{g}_{base}", {"1": "a", "2": "b", "3": "c", "4": "d", "5": "e", "6": "f", "7": "g", "Q": "q"})
             c("filter_gen.apply_numbered_sounds", f"fx:ns_{g}_{base}", {"1": None, "2": ""})
@@ -494,7 +493,6 @@ def call_cases() -> list:
         for base in ("s2", "base"):
             ref = f"fx:ns_{g}_{base}"
             c("w.default_tiers", ref)
-            c("w.ladder_names", ref)
             c("w.known_names", ref)
             c("w.start_tiers", ref)
             c("w.stack_info", ref)
@@ -504,7 +502,6 @@ def call_cases() -> list:
             c("w.neversink_quest_lines", ref)
             c("w.default_tier_lines", ref)
             c("w.universe", g, f"fx:hub_{g}", ref)
-            c("filter_gen.sound_block_counts", ref)
         c("w.universe", g, None, f"fx:ns_{g}_s2")
         c("w.unique_entries", f"fx:hub_{g}")
         c("w.sound_requests", {"wl_tier_style": {"S": {"sound": {"kind": "file", "file": "s.mp3"}}, "G": {"sound": {"kind": "file", "file": "g.mp3"}},
@@ -522,15 +519,6 @@ def call_cases() -> list:
             c("w.gear_group_of", g, ty)
             c("w.type_category", g, ty)
     c("w.universe", "poe2", "fx:hub_poe2", "")
-    for ty, conds in [("t", []), ("t", ["    Rarity Rare", "    Class == \"Rings\"", "    ItemLevel >= 82"]), ("t", ["    Rarity >= Rare", "    Class \"Bows\" \"Wands\""]),
-                      ("t", ["    Rarity Normal Magic Rare", "    Class == \"Body Armours\" \"Boots\"", "    ItemLevel >= 70", "    ItemLevel <= 80"]),
-                      ("t", ["    Rarity Normal Magic", "    Class == \"Life Flasks\" \"Mana Flasks\" \"Tinctures\"", "    ItemLevel < 30"]),
-                      ("t", ["    BaseType == \"A\" \"B\" \"C\"", "    AreaLevel <= 30", "    Quality >= 10", "    HasInfluence Shaper", "    Corrupted True", "    Identified True"]),
-                      ("t", ["    Class \"Bows\" \"Spears\" \"Rings\"", "    BaseType \"X\"", "    HasExplicitMod \"x\"", "    TransfiguredGem True", "    AlwaysShow True", "    FracturedItem False"]),
-                      ("t", ["    Class \"Skill Gems\" \"Support Gems\" \"Skill Gems\"", "    GemLevel >= 20"]), ("t", ["    ItemLevel >= 5"]), ("t", ["    ItemLevel <= 5"]),
-                      ("t", ["    ItemLevel > 5"]), ("t", ["    ItemLevel"]), ("t", ["    Rarity"]), ("t", ["    Rarity Unique"]), ("t", ["    Rarity < Unique Rare"]),
-                      ("t", ["    Class"]), ("t", ["    Class \"A\" \"B\" \"C\" \"D\""]), ("t", ["Rarity Magic Rare"]), ("t", ["  \tClass == \"Charms\" "])]:
-        c("w.block_label", ty, conds)
 
     # ---- wl_embed
     cfgs = [{}, {"wl_v2": True}, {"wl_v2": True, "wl_tier_format": 2, "wl_item_tier_poe2": {"Chaos Orb": "S", "é": "A"}, "unknown": 1},
@@ -559,9 +547,6 @@ def call_cases() -> list:
         c("wl_import.guess_game", text)
 
     # ---- hub / names / python behaviour
-    for e in [{}, {"chaos_value": 2.5}, {"chaos_value": None, "value": 5, "value_currency": "chaos"}, {"value": 5.0, "value_currency": "chaos"}, {"value": 5.0, "value_currency": "exalted"},
-              {"value": None, "value_currency": "chaos"}, {"chaos_value": 0}, {"chaos_value": "3.5"}, {"value": "7", "value_currency": "chaos"}]:
-        c("hub_client.hub_chaos_value", e)
     for p in [None, {}, {"result": None}, {"result": [{"entries": [{"name": "a", "type": "b"}, {"text": "c"}, {"name": ""}, {"name": 5}]}, {"entries": None}, {}]}, {"result": [{"entries": [{"name": "dup"}, {"type": "dup"}]}]}]:
         c("trade_names.names_from_payload", p)
     return out

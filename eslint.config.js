@@ -1,12 +1,17 @@
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["**/node_modules/**", "**/dist/**", "tests/parity/golden/**"] },
+  { ignores: ["**/node_modules/**", "**/dist/**", "**/dist-*/**", "tests/parity/golden/**"] },
   ...tseslint.configs.recommended,
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrors: "none" }],
     },
+  },
+  {
+    // the browser tests run code inside the page (window.*): they are checked by running, not by the type checker
+    files: ["tests/web/**"],
+    rules: { "@typescript-eslint/ban-ts-comment": "off" },
   },
 );

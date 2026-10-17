@@ -20,7 +20,6 @@ export const TABLET_CATEGORY = w.TABLET_CATEGORY;
 export const FLASK_CATEGORY = w.FLASK_CATEGORY;
 export const EQUIP_CATEGORY = w.EQUIP_CATEGORY;
 export const UNIQUE = w.UNIQUE_CATEGORY;
-export const GEAR_PREFIX = w.GEAR_PREFIX;
 export const STYLE_LABELS = ["S", "A", "B", "C", "G", "Tablet", "Map", "Gem"];
 export const RARITIES = ["Normal", "Magic", "Rare", "Unique"];
 export const DEFAULT_CUSTOM_TIER = "B"; // a row set "myself" starts every rarity at B (NeverSink is the "default" mode, not a choice)
@@ -40,9 +39,6 @@ const pop = (o: Record<string, any>, k: string): any => {
   delete o[k];
   return v;
 };
-
-/** What the list shows after a name: S / A / B / C, D for hidden, and Tablet for a tablet nobody tiered. */
-export const tierLabel = (tier: string): string => (tier === w.TABLET_DEFAULT ? "Tablet" : tier);
 
 export interface Row {
   key: string; // what the setters take (item name / unique name / class / group id)
@@ -139,7 +135,6 @@ export class WlModel {
   _defaults = new Map<string, string>();
   _stackDefaults = new Map<string, [number, string]>();
   _stackable = new Set<string>();
-  _gearItems: w.GearListed[] = [];
   _entries: [string, string][] = [];
   _uniqueDefaults = new Map<string, string>();
   _defaultLines: Record<string, string[]> = {};
@@ -166,7 +161,6 @@ export class WlModel {
     this._names = w.universe(this.game, hub, this.base_text);
     [this._defaults, this._stackDefaults] = w.startTiers(this.base_text);
     this._stackable = w.stackInfo(this.base_text)[1];
-    this._gearItems = this.base_text ? w.gearBlockItems(this.game, this.base_text) : [];
     this._uniqueDefaults = w.uniqueBaseDefaults(this.base_text);
     const real = new Set([...w.knownNames(this.base_text), ...this.extra_names]);
     this._entries = w.uniqueEntries(hub).filter(([, b]) => real.has(b) && !w.badName(b));
@@ -182,15 +176,13 @@ export class WlModel {
     return this.categories().map(([c]) => c);
   }
 
-  /** The lists that appeared after v0.10.2: the name categories and the generic-gem group. */
+  /** The lists that appeared after v0.10.2: the name categories. */
   private _newListIds(): string[] {
-    return [...(w.NAMED_CATEGORIES[this.game] ?? []).map(([c]) => c),
-      ...w.NEW_GEAR_GROUPS.filter((g) => w.listedGearGroups(this.game).some(([x]) => x === g)).map((g) => w.gearCat(g))];
+    return (w.NAMED_CATEGORIES[this.game] ?? []).map(([c]) => c);
   }
 
   /** [store, key] of what the player's setting for a list is made of. */
   private _listRows(lst: string): [Cfg, string][] {
-    if (WlModel.isGear(lst)) return this._gearKeys(lst).map((k) => [this.block_tier, k]);
     return this._namesOf(lst).map((n) => [this.item_tier, n]);
   }
 
@@ -204,7 +196,7 @@ export class WlModel {
   private _clearList(lst: string): void {
     for (const [st, k] of this._listRows(lst)) delete st[k];
     delete this.cat_tier[lst];
-    if (!WlModel.isGear(lst)) for (const n of this._namesOf(lst)) delete this.item_stack[n];
+    for (const n of this._namesOf(lst)) delete this.item_stack[n];
   }
 
   /** Lists newer than the settings hold values the player never chose (see the Python docstring). */
@@ -277,13 +269,7 @@ export class WlModel {
     }
     m.item_stack = {};
     for (const [k, v] of Object.entries(orEmpty(fg[`wl_item_stack_${g}`]))) m.item_stack[String(k)] = count(v);
-    // the old equipment settings (one tier per group / for all gear) become the gear categories' tiers
-    const legacyGroups = orEmpty(fg[`wl_gear_tier_${g}`]);
-    const whole = pop(m.cat_tier, w.GEAR_CATEGORY);
-    for (const [gid] of w.listedGearGroups(g)) {
-      const tier = inAll(get(legacyGroups, gid)) ? get(legacyGroups, gid) : whole;
-      if (inAll(tier) && !has(m.cat_tier, w.gearCat(gid))) m.cat_tier[w.gearCat(gid)] = tier;
-    }
+    delete m.cat_tier[w.GEAR_CATEGORY]; // the old "all equipment" tier: gear is NeverSink's blocks now
     m.tier_style = {};
     for (const [k, v] of Object.entries(orEmpty(fg.wl_tier_style))) {
       if (STYLE_LABELS.includes(k) && isDict(v)) m.tier_style[k] = filterStyle.normalizeStyle(v);
@@ -345,7 +331,7 @@ export class WlModel {
     const removed: string[] = [];
     const names: Record<string, string> = {};
     for (const [gid, n] of w.GEAR_GROUPS[g] ?? []) names[gid] = n;
-    const cut = Object.keys(names).filter((gid) => !(w.GEAR_LISTED[g] ?? []).includes(gid));
+    const cut = Object.keys(names);
     for (const gid of cut) {
       if (pop(this.cat_tier, w.gearCat(gid)) !== undefined) removed.push(gid !== w.FLASK_GROUP ? names[gid] : "Flask / Charm (ทั้งหมวด)");
     }
@@ -428,19 +414,9 @@ export class WlModel {
     out.push([w.OTHER_CATEGORY, "อื่นๆ (NeverSink จัด tier ให้)"]);
     out.push([UNIQUE, "Unique"]);
     if (this.game === "poe2") out.push([TABLET_CATEGORY, "Tablet"]);
-    for (const [gid, name] of w.listedGearGroups(this.game)) out.push([w.gearCat(gid), name]); // gear groups listed block by block
     if (w.rarityRows(this.game).length) out.push([FLASK_CATEGORY, w.FLASK_LABEL[this.game]]);
     if (w.equipClasses(this.game).length) out.push([EQUIP_CATEGORY, w.EQUIP_LABEL]);
     return out;
-  }
-
-  static isGear(cat: string): boolean {
-    return cat.startsWith(GEAR_PREFIX);
-  }
-
-  private _gearKeys(cat: string): string[] {
-    const gid = cat.slice(GEAR_PREFIX.length);
-    return this._gearItems.filter(([, g]) => g === gid).map(([k]) => k);
   }
 
   private _namesOf(cat: string): string[] {
@@ -463,18 +439,6 @@ export class WlModel {
   rows(cat: string, query = ""): Row[] {
     const q = pyStrip(query || "").toLowerCase();
     const out: Row[] = [];
-    if (WlModel.isGear(cat)) {
-      const gid = cat.slice(GEAR_PREFIX.length);
-      const groupTier = w.gearTiers(this.game, this.cfg())[gid];
-      const blockTiers = w.gearBlockTiers(this.game, this.cfg(), this._gearItems);
-      for (const [key, g, ty, , conds] of this._gearItems) {
-        if (g !== gid) continue;
-        const label = w.blockLabel(ty as string, conds);
-        if (q && !label.toLowerCase().includes(q)) continue;
-        out.push(mkRow(key, label, blockTiers[key], groupTier, has(this.block_tier, key)));
-      }
-      return out;
-    }
     if (cat === FLASK_CATEGORY || cat === EQUIP_CATEGORY) return out; // no list: rows with their own controls
     if (cat === UNIQUE) {
       const [, conflicts] = w.resolveUniqueTiers(this.game, this.cfg(), this._entries, this._uniqueDefaults);
@@ -508,7 +472,6 @@ export class WlModel {
   // ------------------------------------------------------------------ setters
 
   private _store(cat: string): Cfg {
-    if (WlModel.isGear(cat)) return this.block_tier;
     return cat === UNIQUE ? this.unique_tier : this.item_tier;
   }
 
@@ -627,10 +590,7 @@ export class WlModel {
   /** Every row of the category to `tier`; rows the player set one by one are cleared. */
   setCategory(cat: string, tier: string): void {
     if (!inAll(tier)) return;
-    if (WlModel.isGear(cat)) {
-      this.cat_tier[cat] = tier;
-      for (const k of this._gearKeys(cat)) delete this.block_tier[k];
-    } else if (cat === UNIQUE) {
+    if (cat === UNIQUE) {
       this.cat_tier[cat] = tier;
       for (const k of Object.keys(this._store(cat))) delete this._store(cat)[k];
     } else if (cat === FLASK_CATEGORY || cat === EQUIP_CATEGORY) {
@@ -645,10 +605,7 @@ export class WlModel {
 
   /** Back to NeverSink's values for the whole category. */
   resetCategory(cat: string): void {
-    if (WlModel.isGear(cat)) {
-      delete this.cat_tier[cat];
-      for (const k of this._gearKeys(cat)) delete this.block_tier[k];
-    } else if (cat === UNIQUE) {
+    if (cat === UNIQUE) {
       delete this.cat_tier[cat];
       for (const k of Object.keys(this._store(cat))) delete this._store(cat)[k];
     } else if (cat === FLASK_CATEGORY) {
@@ -734,7 +691,6 @@ export class WlModel {
     }
     if (!truthy(fg.whitelist_unique_all)) catTier[UNIQUE] = HIDE;
     if (game === "poe2" && !cats.has("Fragment")) catTier[TABLET_CATEGORY] = HIDE;
-    for (const [gid] of w.listedGearGroups(game)) catTier[w.gearCat(gid)] = HIDE; // the old whitelist had no equipment
     const updates: Cfg = { [`wl_cat_tier_${game}`]: catTier, [`wl_item_tier_${game}`]: itemTier, [`wl_converted_${game}`]: true,
       wl_tier_format: w.TIER_FORMAT };
     const notes = ["แปลง whitelist เดิมเข้าแบบใหม่แล้ว: หมวดที่ไม่ได้ติ๊ก = tier D (ซ่อน), ชื่อที่เอาออก = D, " +

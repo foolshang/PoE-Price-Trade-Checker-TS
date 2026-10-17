@@ -461,16 +461,6 @@ Show # $type->rareid $tier->any
     expect(hit).toContain("Rarity Normal");
   });
 
-  it.each([["poe1", POE1], ["poe2", POE2]] as const)("real filters: tier names are not gear base types (%s)", (game, base) => {
-    const hubd = { currency: [], items: snapshot(`hub_${game}.json.gz`).items };
-    const res = w.buildWhitelistFilter(game, {}, base, hubd, "", null, new Set<string>(snapshot(`trade_names_${game}.json.gz`)));
-    const shown = new Set([...res.tiers].filter(([, t]) => "SAB".includes(t)).map(([n]) => n));
-    const gear = new Set<string>();
-    for (const [, , conds] of w.gearBlocks(game, base)) for (const c of conds) if (c.trim().startsWith("BaseType")) quoted(c).forEach((n) => gear.add(n));
-    const overlap = [...shown].filter((n) => gear.has(n));
-    expect(overlap.filter((n) => /(Orb|Scrap|Whetstone)$/.test(n))).toEqual([]);
-  });
-
   it("a D name stays hidden before special classes and tablets keep the tablet style", () => {
     const hubd = hub(["Essence of Hatred", "Essence", null], ["Ritual Tablet", "Fragment", null], ["Tablet Unique X", "UniqueTablet", "Ritual Tablet"]);
     const cfg = { wl_cat_tier_poe2: { Essence: "D", Fragment: "A" } };

@@ -1,6 +1,6 @@
 {
   "name": "poe-price-trade-checker-ts",
-  "version": "0.0.0",
+  "version": "1.0.0-beta.1",
   "private": true,
   "description": "PoE Price & Trade Checker (TypeScript)",
   "workspaces": [
@@ -14,6 +14,7 @@
     "@types/node": "26.6.5",
     "@types/pako": "2.0.3",
     "eslint": "10.13.0",
+    "playwright": "^1.64.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.71.2",
     "vitest": "5.0.5"
@@ -21,9 +22,15 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json",
-    "lint": "eslint packages tests",
+    "lint": "eslint packages apps tests tools",
     "parity:regen": "python -B tools/parity/gen_golden.py",
-    "parity:check": "python -B tools/parity/gen_golden.py --check"
+    "parity:check": "python -B tools/parity/gen_golden.py --check",
+    "names:refresh": "rolldown tools/refresh-names-main.ts -d dist-tools --platform node -f esm && node dist-tools/refresh-names-main.js",
+    "web:dev": "npm run dev -w @poe/web",
+    "web:build": "npm run build -w @poe/web",
+    "web:local": "cd apps/web && vite build --mode localhost --outDir dist-local && vite preview --outDir dist-local --host 127.0.0.1",
+    "test:e2e": "npm run web:build && vitest run -c vitest.e2e.config.ts",
+    "test:ui": "npm run web:build && node tests/web/ui.mjs"
   },
   "type": "module"
 }

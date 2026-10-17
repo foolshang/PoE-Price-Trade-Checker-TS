@@ -10,7 +10,7 @@ import * as filterGen from "./filter_gen.ts";
 import type { Block } from "./filter_gen.ts";
 import * as filterStyle from "./filter_style.ts";
 import { PY_S, cmpStr, cmpTuple, get, intOr, isDict, pyInt, pyLstrip, pyRstrip, pyStrip, sortedBy, sortedSet,
-  sortedStr, splitAll, splitWs, truthy, uniq, PyError, pyStr } from "./py.ts";
+  sortedStr, splitWs, truthy, PyError, pyStr } from "./py.ts";
 
 const S = PY_S;
 const re = (src: string, flags = ""): RegExp => new RegExp(src, flags);
@@ -32,9 +32,6 @@ export const SPECIAL_CLASSES: Record<string, string[]> = {
     "Wombgifts", "Chart", "Pieces"],
   poe2: ["Pinnacle Keys", "Vault Keys", "Expedition Logbook"],
 };
-export const NEW_GEAR_GROUPS = ["gems"];
-export const SPECIAL_BASE: Record<string, string[]> = { poe1: ["Runegraft", "Vial of"], poe2: [] };
-export const BASE_PREFIX = "BaseType:";
 export const NAMED_CATEGORIES: Record<string, [string, string[]][]> = {
   poe1: [["Runegraft", ["runesgrafts"]], ["Vial", ["vials"]], ["Corpse", ["corpses"]], ["Wombgift", ["exotic->wombgifts"]],
     ["Relic", ["artefact->sanctifiedrelics"]]],
@@ -63,7 +60,6 @@ export const GEAR_GROUPS: Record<string, [string, string, string][]> = {
     ["salvage", "Salvage (Quality/Sockets)", "B"], ["alwaysshow", "ของที่เกมบังคับโชว์ (AlwaysShow)", "B"],
   ],
 };
-export const GEAR_LISTED: Record<string, string[]> = { poe1: [], poe2: [] };
 export const FLASK_GROUP = "flask";
 export const FLASK_CATEGORY = "flaskcharm";
 export const RARITY_CHOICES = ["Normal", "Magic"];
@@ -101,7 +97,6 @@ export const equipGroups = (game: string): [string, string, string[]][] =>
   (EQUIP_GROUPS[game] ?? []).map(([g, n, c]) => [g, n, [...c]]);
 export const equipClasses = (game: string): string[] => (EQUIP_GROUPS[game] ?? []).flatMap(([, , cs]) => cs);
 
-export const LEGACY_RARITY_KEY = "wl_rarity_tier";
 const GEAR_NOT = ["exoticmap", "exotic->wombgifts", "currency"];
 const sw = (t: string, prefixes: string[]): boolean => prefixes.some((p) => t.startsWith(p));
 const GEAR_RULES: Record<string, [string, (t: string) => boolean][]> = {
@@ -133,8 +128,6 @@ const GEAR_RULES: Record<string, [string, (t: string) => boolean][]> = {
     ["alwaysshow", (t) => t === "special->alwaysshow"],
   ],
 };
-const NOT_CONDITION = new Set([...STYLE_TOKENS, "DisableDropSound", "CustomAlertSound", "CustomAlertSoundOptional"]);
-
 export const gearCat = (gid: string): string => GEAR_PREFIX + gid;
 
 export function gearGroupOf(game: string, ty: string | null | undefined): string | null {
@@ -143,153 +136,43 @@ export function gearGroupOf(game: string, ty: string | null | undefined): string
   return null;
 }
 
-export const listedGearGroups = (game: string): [string, string, string][] =>
-  (GEAR_GROUPS[game] ?? []).filter((g) => (GEAR_LISTED[game] ?? []).includes(g[0]));
-
 export const rarityRows = (game: string): [string, string, string[]][] => [...(RARITY_ROWS[game] ?? [])];
 
 const FALLBACK_TYPES = ["runesgrafts", "vials"];
 
 function copyReason(game: string, ty: string | null, classes: string[], hasNames: boolean): string | null {
   const gid = gearGroupOf(game, ty);
-  if (gid && !(GEAR_LISTED[game] ?? []).includes(gid)) return gid;
+  if (gid) return gid;
   const special = new Set(SPECIAL_CLASSES[game] ?? []);
   if (classes.some((c) => special.has(c))) return "special";
   if (sw(ty ?? "", FALLBACK_TYPES) && !hasNames) return "special";
   return null;
 }
 
-export type GearListed = [string, string, string | null, string | null, string[]]; // key, gid, ty, tag, conds
-export type GearEntry =
-  | ["listed", GearListed]
-  | ["copy", string, string | null, string | null, string, string[]];
-
 const CLASS_LINE = re(`^[${S}]*Class\\b`);
 
-/** NeverSink's blocks the whitelist file takes over, in file order. */
-export function gearSequence(game: string, baseText: string): GearEntry[] {
+/** NeverSink's blocks the whitelist file takes over, in file order: [reason, type, tag, block kind, body]. */
+export type GearCopy = [string, string | null, string | null, string, string[]];
+
+export function gearSequence(game: string, baseText: string): GearCopy[] {
   const [lines, blocks] = scan(baseText);
-  const out: GearEntry[] = [];
-  const seen = new Map<string, number>();
+  const out: GearCopy[] = [];
   for (const b of blocks) {
     const [ty, tag] = filterGen.headerTags(lines, b);
     const body = lines.slice(b.start + 1, b.end);
     const classes = body.filter((l) => CLASS_LINE.test(l)).flatMap((l) => filterGen.findQuoted(l));
     const reason = copyReason(game, ty, classes, exactNames(lines, b).length > 0);
-    if (reason) {
-      let end = body.length;
-      while (end && (!pyStrip(body[end - 1]) || pyLstrip(body[end - 1]).startsWith("#"))) end--;
-      out.push(["copy", reason, ty, tag, b.blockType, body.slice(0, end).map(pyRstrip)]);
-      continue;
-    }
-    const gid = gearGroupOf(game, ty);
-    if (!gid || b.blockType !== "Show") continue;
-    const conds: string[] = [];
-    for (const l of body) {
-      const t = pyStrip(l);
-      if (t && !t.startsWith("#") && !NOT_CONDITION.has(splitWs(t, 1)[0])) conds.push("    " + t);
-    }
-    // `Continue` blocks only decorate (size / colour tweaks) and carry on to later blocks: not a selection
-    if (conds.length && !conds.some((c) => pyStrip(c) === "Continue")) {
-      const k = `${ty}\u0000${tag ?? ""}`;
-      const n = (seen.get(k) ?? 0) + 1;
-      seen.set(k, n);
-      out.push(["listed", [`${pyStr(ty)}|${tag || ""}|${n}`, gid, ty, tag, conds]]);
-    }
+    if (!reason) continue;
+    let end = body.length;
+    while (end && (!pyStrip(body[end - 1]) || pyLstrip(body[end - 1]).startsWith("#"))) end--;
+    out.push([reason, ty, tag, b.blockType, body.slice(0, end).map(pyRstrip)]);
   }
   return out;
-}
-
-export const gearBlockItems = (game: string, baseText: string): GearListed[] =>
-  gearSequence(game, baseText).filter((e): e is ["listed", GearListed] => e[0] === "listed").map((e) => e[1]);
-
-export const gearBlocks = (game: string, baseText: string): [string, string | null, string[]][] =>
-  gearBlockItems(game, baseText).map(([, gid, ty, , conds]) => [gid, ty, conds]);
-
-const WEAPON_CLASSES = new Set(["Bows", "Claws", "Daggers", "One Hand Axes", "One Hand Maces", "One Hand Swords", "Rune Daggers",
-  "Sceptres", "Staves", "Thrusting One Hand Swords", "Two Hand Axes", "Two Hand Maces", "Two Hand Swords", "Wands", "Warstaves",
-  "Crossbows", "Quarterstaves", "Spears", "Talismans", "Flails"]);
-const ARMOUR_CLASSES = new Set(["Body Armours", "Boots", "Gloves", "Helmets", "Shields", "Bucklers", "Foci", "Quivers"]);
-const CLASS_THAI: Record<string, string> = { Rings: "แหวน", Amulets: "สร้อย", Belts: "เข็มขัด", Jewels: "Jewel",
-  "Abyss Jewels": "Abyss Jewel", "Life Flasks": "Flask", "Mana Flasks": "Flask", "Utility Flasks": "Flask",
-  "Hybrid Flasks": "Flask", Tinctures: "Tincture", Charms: "Charm", "Heist Cloaks": "Heist Cloak",
-  "Heist Brooches": "Heist Brooch", "Skill Gems": "Gem", "Support Gems": "Gem" };
-const RARITY_ORDER = ["Normal", "Magic", "Rare", "Unique"];
-const CMP = [">=", "<=", "<", ">", "==", "="];
-
-const subset = (a: Set<string>, b: Set<string>): boolean => [...a].every((x) => b.has(x));
-
-function shortList(names: string[], limit = 2): string {
-  return names.slice(0, limit).join(", ") + (names.length > limit ? ` +${names.length - limit}` : "");
-}
-
-/** A readable name for one gear block, summed up from its conditions. */
-export function blockLabel(ty: string, conds: string[]): string {
-  let rar = "", cls = "", base = "";
-  const extra: string[] = [];
-  let ilvlLo: string | null = null, ilvlHi: string | null = null;
-  for (const c of conds) {
-    const cs = pyStrip(c);
-    const i = cs.indexOf(" ");
-    const kw = i < 0 ? cs : cs.slice(0, i);
-    const rest = i < 0 ? "" : cs.slice(i + 1);
-    const toks = splitAll(rest);
-    const names = filterGen.findQuoted(rest);
-    if (kw === "Rarity") {
-      const ranks = toks.filter((t) => RARITY_ORDER.includes(t));
-      if (toks.length && CMP.includes(toks[0]) && ranks.length) rar = `${toks[0]} ${ranks[0]}`;
-      else if (ranks.length && !(new Set(ranks).size === 3 && ["Normal", "Magic", "Rare"].every((r) => ranks.includes(r)))) rar = ranks.join("/");
-    } else if (kw === "Class") {
-      if (names.length && subset(new Set(names), WEAPON_CLASSES)) cls = "อาวุธ";
-      else if (names.length && subset(new Set(names), ARMOUR_CLASSES)) cls = "เกราะ";
-      else cls = shortList(uniq(names.map((x) => get(CLASS_THAI, x, x)!)), 2);
-    } else if (kw === "BaseType") base = shortList(names, 1);
-    else if (kw === "ItemLevel" && toks.length === 2) {
-      if (toks[0] === ">=") ilvlLo = toks[1];
-      else if (toks[0] === "<=") ilvlHi = toks[1];
-      else extra.push(`ilvl ${toks[0]} ${toks[1]}`);
-    } else if (["AreaLevel", "Quality", "DropLevel", "LinkedSockets", "Sockets", "UnidentifiedItemTier", "MemoryStrands", "GemLevel"].includes(kw)) {
-      extra.push(`${kw} ${rest}`.replaceAll(">=", "≥").replaceAll("<=", "≤"));
-    } else if (kw === "HasInfluence") extra.push("influence");
-    else if ((kw === "Corrupted" || kw === "TwiceCorrupted") && pyStrip(rest) === "True") extra.push("corrupted");
-    else if (kw === "Identified" && pyStrip(rest) === "True") extra.push("ระบุแล้ว");
-    else if (kw === "HasExplicitMod") extra.push("มี mod ที่ระบุ");
-    else if (kw === "TransfiguredGem" && pyStrip(rest) === "True") extra.push("Transfigured");
-    else if (["AnyEnchantment", "FracturedItem", "AlwaysShow"].includes(kw) && pyStrip(rest) === "True") extra.push(kw);
-  }
-  if (ilvlLo && ilvlHi) extra.unshift(`ilvl ${ilvlLo}–${ilvlHi}`);
-  else if (ilvlLo) extra.unshift(`ilvl ≥ ${ilvlLo}`);
-  else if (ilvlHi) extra.unshift(`ilvl ≤ ${ilvlHi}`);
-  if (cls && base) extra.push(`base ${base}`);
-  const what = cls || (base ? `base ${base}` : "");
-  const head = [rar, what].filter((x) => x).join(" ") || "ทุกชิ้น";
-  return head + (extra.length ? "  " + uniq(extra).join(" · ") : "") + `   [${ty}]`;
 }
 
 const valid = (t: unknown): string | null => (typeof t === "string" && ALL_TIERS.includes(t) ? t : null);
 const dget = (o: unknown, k: string): any => get(o, k);
 const orEmpty = (v: unknown): Record<string, any> => (truthy(v) ? (v as Record<string, any>) : {});
-
-function legacyGearTier(game: string, cfg: Record<string, any>, gid: string): string | null {
-  return valid(dget(orEmpty(cfg[`wl_gear_tier_${game}`]), gid)) || valid(dget(orEmpty(cfg[`wl_cat_tier_${game}`]), GEAR_CATEGORY));
-}
-
-/** {group id: tier}: the player's tier for the group's category > the group's default. */
-export function gearTiers(game: string, cfg: Record<string, any>): Record<string, string> {
-  const cats = orEmpty(cfg[`wl_cat_tier_${game}`]);
-  const out: Record<string, string> = {};
-  for (const [gid, , dflt] of listedGearGroups(game)) out[gid] = valid(dget(cats, gearCat(gid))) || legacyGearTier(game, cfg, gid) || dflt;
-  return out;
-}
-
-/** {block key: tier} for every gear block: the block's own tier > its group's tier. */
-export function gearBlockTiers(game: string, cfg: Record<string, any>, items: GearListed[]): Record<string, string> {
-  const group = gearTiers(game, cfg);
-  const own = orEmpty(cfg[`wl_block_tier_${game}`]);
-  const out: Record<string, string> = {};
-  for (const [key, gid] of items) out[key] = valid(dget(own, key)) || group[gid];
-  return out;
-}
 
 /** The style lines of NeverSink's own quest-item block (`$tier->questitems`). */
 export function neversinkQuestLines(baseText: string): string[] {
@@ -363,17 +246,6 @@ export function defaultTiers(baseText: string): Map<string, string> {
     if (intersects(cs, SPECIAL_CONDITIONS) || cs.has("Continue")) continue;
     const tier = b.blockType === "Hide" ? HIDE_TIER : tierOfStep(filterGen.headerTags(lines, b)[1]) || "B";
     for (const n of names) if (!out.has(n)) out.set(n, tier);
-  }
-  return out;
-}
-
-/** Every name NeverSink lists in its value-ladder blocks. */
-export function ladderNames(baseText: string): Set<string> {
-  const [lines, blocks] = scan(baseText);
-  const out = new Set<string>();
-  for (const b of blocks) {
-    const ty = filterGen.headerTags(lines, b)[0] || "";
-    if (sw(ty, VALUE_PREFIXES) && !ty.includes("leveling")) for (const n of exactNames(lines, b)) out.add(n);
   }
   return out;
 }
@@ -766,8 +638,6 @@ export interface WhitelistResult {
   report: Record<string, number>;
   skipped: [string, string][];
   bad_names: [string, string][];
-  gear_tiers: Record<string, string>;
-  block_tiers: Record<string, string>;
   stack_min: Map<string, number>;
 }
 
@@ -927,9 +797,6 @@ export function buildWhitelistFilter(game: string, cfgIn: Record<string, any> | 
     count += nms.size;
   }
 
-  const gearT = gearTiers(game, cfg);
-  const gearNames: Record<string, string> = {};
-  for (const [gid, name] of GEAR_GROUPS[game] ?? []) gearNames[gid] = name;
   // NeverSink's blocks are copied as NeverSink wrote them (its own sounds: the NeverSink tab's numbered sounds are that tab's alone)
   const copyText = baseText;
   const rowsCfg = orEmpty(cfg[`wl_rarity_rows_${game}`]);
@@ -962,24 +829,9 @@ export function buildWhitelistFilter(game: string, cfgIn: Record<string, any> | 
       }
     }
   }
-  const seq = gearSequence(game, copyText);
-  const gearItems = seq.filter((e): e is ["listed", GearListed] => e[0] === "listed").map((e) => e[1]);
-  const blockT = gearBlockTiers(game, cfg, gearItems);
-  for (const e of seq) {
-    if (e[0] === "copy") { // NeverSink's block as it wrote it (Show / Hide)
-      const [, reason, ty, tag, kind, body] = e;
-      out.push(pyRstrip(`# neversink (${reason}): ${pyStr(ty)} ${tag || ""}`), kind, ...body, "");
-      count += kind === "Show" ? 1 : 0;
-      continue;
-    }
-    const [key, gid, ty, , cs] = e[1];
-    const t = blockT[key];
-    if (t === HIDE_TIER) { // a Hide copy keeps NeverSink's first-match order (the names above already matched)
-      out.push(`# gear: ${gearNames[gid]} - tier D (${ty})`, "Hide", ...cs, "");
-      continue;
-    }
-    out.push(`# gear: ${gearNames[gid]} - tier ${t} (${ty})`, "Show", ...cs, ...style[t], "");
-    count += 1;
+  for (const [reason, ty, tag, kind, body] of gearSequence(game, copyText)) { // NeverSink's block as it wrote it (Show / Hide)
+    out.push(pyRstrip(`# neversink (${reason}): ${pyStr(ty)} ${tag || ""}`), kind, ...body, "");
+    count += kind === "Show" ? 1 : 0;
   }
 
   if (game === "poe1") { // NeverSink lists wombgifts by name only: a new one (Growing Wombgift) would reach the final Hide
@@ -994,7 +846,7 @@ export function buildWhitelistFilter(game: string, cfgIn: Record<string, any> | 
   report[TABLET_DEFAULT] = [...allTiers.values()].filter((v) => v === TABLET_DEFAULT).length;
   return {
     text: out.join("\n"), count, tiers: allTiers, categories: names, unique_conflicts: conflicts, report,
-    skipped: skippedList, bad_names: [...bad].sort((a, b) => cmpTuple(a, b)), gear_tiers: gearT, block_tiers: blockT,
+    skipped: skippedList, bad_names: [...bad].sort((a, b) => cmpTuple(a, b)),
     stack_min: stackMin,
   };
 }

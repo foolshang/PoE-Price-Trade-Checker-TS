@@ -53,6 +53,11 @@
 6. **Parity กับของเดิม:** ฟังก์ชันที่แปลงจาก Python ต้องให้ผลตรงของเดิมทุก byte บน input เดียวกัน (filter ทั้งไฟล์,
    settings หลังแก้, ข้อความที่แสดง) golden มาจากการรัน Python เดิม ห้ามแก้ golden ให้เทสผ่าน — ถ้าต่างต้องแก้
    โค้ด TS หรือบันทึกความต่างเป็นเจตนาใน `docs/` + `history.md` และให้ Winai ตัดสิน
+6b. **บั๊กของเดิมห้ามลอกมา** ทำแบบที่ถูกต้องแล้วรายงาน (เช่น CR ซ้อนก่อน CRLF → เขียน CRLF ให้ถูก) บันทึกความต่างจาก golden เป็น
+   เจตนาใน `docs/` + `history.md` (golden ของเดิมไม่แก้ ใช้ allowlist ความต่างที่ระบุเหตุผล)
+6c. **Dead code ห้ามแปลงมา ลบทิ้ง** (โค้ดที่ไม่ถูกเรียก / ไม่มีผลกับโปรแกรม) แล้วรายงานรายการที่ลบ; dead code ใน
+   ของเดิม (Python) ไม่ต้องลบ ห้ามแตะ ข้อมูลที่บันทึกลง config/ไฟล์ (เช่น key `wl_block_tier_*`) ไม่ใช่ dead code ถ้า
+   ยังถูกเขียนออก
 7. **อัปเดต `docs/PLAN.md` (ตารางสถานะ) และ `history.md` ทุกครั้งที่จบงานหนึ่งก้อน** — entry ใหม่ไว้บนสุดของ
    `history.md` (วันที่ — สรุป — ไฟล์ที่แตะ — สถานะ/ปัญหาค้าง)
 8. ไฟล์ local-only (`dist/`, `dist_new/`, `release-out/`, `.parity-cache/`, `node_modules/`) อยู่ใน `.gitignore`
@@ -63,7 +68,10 @@
 - `npm test` (vitest ทั้งหมด ~2 นาที ไม่ต้องใช้ Python) · `npm run typecheck` · `npm run lint`
 - `npm run parity:check` รัน Python เดิมใหม่เทียบกับ golden ที่ commit ไว้ (ต้องมี Python + ของเดิม; ~3 นาที) —
   Winai แจ้งว่าของเดิมแก้บั๊ก → รัน `npm run parity:regen` แล้วดู diff ของ golden ก่อนแก้ TS ให้ตรง
-- รายละเอียดระบบ parity และสถานะการแปลง: `docs/PHASE1.md`
+- เว็บ: `npm run web:local` (build + เสิร์ฟที่ http://127.0.0.1:4173/ พร้อม proxy hub เพราะ hub ยอมแค่ origin ของ Pages) ·
+  `npm run web:dev` (5173) · `npm run web:build` · `npm run test:e2e` · `npm run test:ui` · `npm run names:refresh`
+- `node tools/unused-exports.mjs` หา export ที่ไม่มีใครใช้ (ตัวตั้งต้นของกฎ 6c)
+- รายละเอียดระบบ parity และสถานะการแปลง: `docs/PHASE1.md` · เฟส 2 (เว็บ): `docs/PHASE2.md`
 
 ## ความเข้ากันได้กับของเดิม (ต้องรักษา)
 

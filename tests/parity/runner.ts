@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import * as core from "../../packages/core/src/index.ts";
 import { WlModel } from "../../packages/core/src/index.ts";
 
-const { py, filterCore, filterGen, filterStyle, filterWhitelist: w, wlEmbed, wlImport, wlSession, hubClient, tradeNames } = core;
+const { py, filterCore, filterGen, filterStyle, filterWhitelist: w, wlEmbed, wlImport, wlSession, tradeNames } = core;
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const FIX = path.join(ROOT, "tests", "parity", "fixtures");
@@ -182,8 +182,8 @@ function modelSummary(caseId: string, m: WlModel, a: any): any {
   const cats = py.sortedBy([...res.categories], (e) => [e[0], e[1]]);
   out.build = {
     text: textRef(caseId, "build", res.text), count: res.count, report: res.report, skipped: jsonable(res.skipped),
-    bad_names: jsonable(res.bad_names), unique_conflicts: jsonable(res.unique_conflicts), gear_tiers: res.gear_tiers,
-    block_tiers: res.block_tiers, stack_min: jsonable(res.stack_min),
+    bad_names: jsonable(res.bad_names), unique_conflicts: jsonable(res.unique_conflicts), gear_tiers: {}, // the original reports them (always empty: its equipment is never listed block by block)
+    block_tiers: {}, stack_min: jsonable(res.stack_min),
     tiers_sha: sha256(py.dumps(tiers, { ensureAscii: true })), categories_sha: sha256(py.dumps(cats, { ensureAscii: true })),
   };
   return out;
@@ -279,7 +279,6 @@ function summaryJson(sm: ReturnType<typeof wlImport.summarize>): any {
   for (const [k, v] of Object.entries(sm)) {
     if (k === "tablet_block" || k === "map_block" || k === "gold_block") o[k] = blockJson(v);
     else if (k === "gem_blocks") o[k] = (v as any[]).map(blockJson);
-    else if (k === "gear") o[k] = (v as any[]).map(([ty, ck, tier]) => [ty, JSON.parse(ck), tier]); // the condition key is a JSON string here
     else o[k] = jsonable(v);
   }
   return o;
@@ -299,7 +298,6 @@ const CALLS: Record<string, Fn> = {
   "filter_style.DEFAULT_STYLES": () => filterStyle.DEFAULT_STYLES,
   "filter_gen.parse_blocks": (text) => blocksOf(text),
   "filter_gen.sound_id_of": (body) => filterGen.soundIdOf(body),
-  "filter_gen.sound_block_counts": (ref) => filterGen.soundBlockCounts(fixture(ref)),
   "filter_gen.apply_numbered_sounds": (ref, sm) => filterGen.applyNumberedSounds(fixture(ref), sm),
   "filter_gen.apply_numbered_sounds_text": (text, sm) => filterGen.applyNumberedSounds(text, sm),
   "filter_gen.names_in_categories": (ref, cats) => filterGen.namesInCategories(fixture(ref), cats),
@@ -324,7 +322,6 @@ const CALLS: Record<string, Fn> = {
   "w.tier_of_step": (tag) => w.tierOfStep(tag),
   "w.bad_name": (n) => w.badName(n),
   "w.default_tiers": (ref) => w.defaultTiers(fixture(ref)),
-  "w.ladder_names": (ref) => w.ladderNames(fixture(ref)),
   "w.known_names": (ref) => w.knownNames(fixture(ref)),
   "w.start_tiers": (ref) => w.startTiers(fixture(ref)),
   "w.stack_info": (ref) => { const [d, s] = w.stackInfo(fixture(ref)); return [d, [...s].sort(py.cmpStr)]; },
@@ -332,8 +329,7 @@ const CALLS: Record<string, Fn> = {
   "w.poe1_special_map_bases": (ref) => w.poe1SpecialMapBases(fixture(ref)),
   "w.universe": (game, hub, ref) => w.universe(game, fixture(hub), fixture(ref)),
   "w.type_category": (game, ty) => w.typeCategory(game, ty),
-  "w.gear_sequence": (game, ref) => w.gearSequence(game, fixture(ref)),
-  "w.block_label": (ty, conds) => w.blockLabel(ty, conds),
+  "w.gear_sequence": (game, ref) => w.gearSequence(game, fixture(ref)).map((e) => ["copy", ...e]), // (the original tags each entry)
   "w.neversink_quest_lines": (ref) => w.neversinkQuestLines(fixture(ref)),
   "w.default_tier_lines": (ref) => w.defaultTierLines(fixture(ref)),
   "w.sound_requests": (cfg, game = null) => w.soundRequests(cfg, game),
@@ -349,7 +345,6 @@ const CALLS: Record<string, Fn> = {
   "wl_import.version_of": (text) => wlImport.versionOf(text),
   "wl_import.guess_game": (text) => wlImport.guessGame(text),
   "wl_import.summarize_fixture": (ref) => summaryJson(wlImport.summarize(fixture(ref))),
-  "hub_client.hub_chaos_value": (e) => hubClient.hubChaosValue(e),
   "trade_names.names_from_payload": (p) => tradeNames.namesFromPayload(p),
   "wl_model.convert_legacy": (fg, game) => WlModel.convertLegacy(fg, game),
 };

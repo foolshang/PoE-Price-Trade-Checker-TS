@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { filterGen } from "../src/index.ts";
 import { fixture } from "./helpers.ts";
+import { soundBlockCounts } from "./sound_counts.ts";
 
 const lastLine = (t: string): string => t.trimEnd().split(/\r?\n/).pop()!;
 const count = (t: string, s: string): number => t.split(s).length - 1;
@@ -246,7 +247,7 @@ describe("custom sounds by NeverSink's numbers", () => {
     expect(blockOf(out, "Orb of Chance")).not.toContain("CustomAlertSound");
     expect(blockOf(out, "Scroll of Wisdom")).not.toContain("CustomAlertSound");
     expect(filterGen.SOUND_SLOT_OF_ID).toEqual({ "6": "1", "1": "2", "2": "3", "3": "4", "4": "5", "5": "6" });
-    const counts = filterGen.soundBlockCounts(SOUND_BASE);
+    const counts = soundBlockCounts(SOUND_BASE);
     expect(Object.values(done).reduce((a, b) => a + b, 0)).toBe([..."612345"].reduce((a, i) => a + (counts[i] ?? 0), 0));
   });
 
@@ -269,7 +270,7 @@ describe("custom sounds by NeverSink's numbers", () => {
     for (const [game, ref] of [["poe1", "fx:ns_poe1_base"], ["poe2", "fx:ns_poe2_base"]] as const) {
       void game;
       const base: string = fixture(ref);
-      const counts = filterGen.soundBlockCounts(base);
+      const counts = soundBlockCounts(base);
       expect(Object.keys(counts).every((k) => "123456".includes(k))).toBe(true); // NeverSink uses no other number
       const sm = Object.fromEntries(filterGen.SOUND_SLOTS.map((s) => [s, `snd${s}.mp3`]));
       const [out, done] = filterGen.applyNumberedSounds(base, sm);

@@ -13,3 +13,4 @@ export * as neversinkSource from "./neversink_source.ts";
 export * as tradeNames from "./trade_names.ts";
 export { WlModel } from "./wl_model.ts";
 export * from "./ports.ts";
+export * as wlModel from "./wl_model.ts";

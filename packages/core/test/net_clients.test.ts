@@ -79,15 +79,6 @@ describe("hub_client", () => {
     await expect(new hubClient.HubClient(http((u) => new HttpError(404, u))).getPrices("x.json")).rejects.toThrow("hub HTTP 404");
   });
 
-  it("the chaos value rule", () => {
-    const f = hubClient.hubChaosValue;
-    expect(f({ value: 5.0, value_currency: "chaos" })).toBe(5.0); // poe1: value is chaos
-    expect(f({ value: 5.0, value_currency: "exalted", chaos_value: 2.5 })).toBe(2.5); // poe2: the additive field
-    expect(f({ value: 5.0, value_currency: "chaos", chaos_value: 7.0 })).toBe(7.0); // additive field wins
-    expect(f({ value: 5.0, value_currency: "exalted" })).toBe(0.0); // no conversion is guessed
-    expect(f({})).toBe(0.0);
-    expect(f({ chaos_value: null, value: null, value_currency: "chaos" })).toBe(0.0);
-  });
 });
 
 // ------------------------------------------------------------------------------------------------ neversink_source

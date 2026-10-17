@@ -10,7 +10,7 @@ import * as filterGen from "./filter_gen.ts";
 import * as filterStyle from "./filter_style.ts";
 import * as w from "./filter_whitelist.ts";
 import { HIDE, WlModel } from "./wl_model.ts";
-import { PY_S, pyStrip, splitAll, splitLines, splitWs, uniq } from "./py.ts";
+import { PY_S, pyStrip, splitAll, splitLines } from "./py.ts";
 
 const S = PY_S;
 export const V1_HEADER = "# === PoE Checker - Whitelist (show only)";
@@ -20,7 +20,6 @@ const STYLE_KW = new Set([
   "CustomAlertSoundOptional"]);
 const TIERS3 = ["S", "A", "B"];
 const ALL_RAR = ["Normal", "Magic", "Rare", "Unique"];
-export const NEW_GEAR_GROUPS = w.NEW_GEAR_GROUPS; // no file of these versions can have them: NeverSink's starting values
 
 /** "v1" | "v2" | null (not a whitelist file of this program). */
 export function versionOf(text: string): "v1" | "v2" | null {
@@ -105,11 +104,6 @@ export function parseBlocks(text: string): FBlock[] {
   return out;
 }
 
-/** Conditions as a comparable key: (keyword, normalised rest) pairs. */
-export function condKey(conds: [string, string][]): string {
-  return JSON.stringify(conds.map(([k, r]) => [k, splitAll(r).join(" ")]));
-}
-
 export interface Summary {
   version: string;
   shown: Map<string, [string, number]>; // name -> (tier, stack minimum)   (S/A/B blocks)
@@ -134,7 +128,7 @@ export interface Summary {
   custom: [string, string[], string][]; // (name, rarities, tier)
   classes: Map<string, string>; // class -> tier
   fragments: Map<string, string>; // name fragment -> tier
-  gear: [string, string, string][]; // (type, conds key, tier)
+  gear_types: string[]; // the block types of `# gear:` blocks (gear is NeverSink's now: only named in the notes)
   hidden_c: Set<string>;
 }
 
@@ -142,7 +136,7 @@ const newSummary = (version: string): Summary => ({
   version, shown: new Map(), tier_lines: new Map(), tier_sound: new Map(), quest_sound: "", names_v1: new Set(),
   unique_bases: new Map(), unique_all: false, tablet_own: new Map(), tablet_block: null, map_on: null, map_tier: 1,
   map_rarity: "Normal", map_block: null, gold_on: null, gold_min: 0, gold_block: null, gem_uncut: new Map(), gem_names: [],
-  gem_blocks: [], custom: [], classes: new Map(), fragments: new Map(), gear: [], hidden_c: new Set(),
+  gem_blocks: [], custom: [], classes: new Map(), fragments: new Map(), gear_types: [], hidden_c: new Set(),
 });
 
 /** The sections of an old whitelist file, or null when it is not one. */
@@ -245,9 +239,9 @@ export function summarize(text: string): Summary | null {
       for (const n of b.fragments()) sm.custom.push([n, rar, m[2] || "B"]);
       continue;
     }
-    m = /^# gear: [^\n]+ - tier ([SABCD]) \(([^\n]+)\)$/.exec(t);
-    if (m) { // (gear groups are never listed: C / D = hidden)
-      sm.gear.push([m[2], condKey(b.conds), "CD".includes(m[1]) ? HIDE : m[1]]);
+    m = /^# gear: [^\n]+ - tier [SABCD] \(([^\n]+)\)$/.exec(t);
+    if (m) {
+      sm.gear_types.push(m[1]);
       continue;
     }
     if (t.startsWith("# hide everything")) continue;
@@ -374,56 +368,13 @@ export function read(text: string, game: string, current: WlModel, folder: Folde
         `ตั้ง tier ได้ทีละชื่อ — ตรวจที่หมวด Unique)`);
     }
   }
-  // ---- gear blocks (a block the file does not have was hidden by it)
-  const queues = new Map<string, string[]>();
-  for (const [ty, conds, tier] of sm.gear) {
-    const k = `${ty}\u0000${conds}`;
-    if (!queues.has(k)) queues.set(k, []);
-    queues.get(k)!.push(tier);
-  }
-  const perGroup = new Map<string, [string, string][]>();
-  let missing = 0;
-  for (const [key, gid, ty, , conds] of wm._gearItems) {
-    if (NEW_GEAR_GROUPS.includes(gid)) continue;
-    const ck = condKey(conds.map((c): [string, string] => {
-      const cs = pyStrip(c);
-      if (cs.includes(" ")) {
-        const p = splitWs(cs, 1);
-        return [p[0], p[1] ?? ""];
-      }
-      return [cs, ""];
-    }));
-    const q = queues.get(`${ty}\u0000${ck}`);
-    if (!perGroup.has(gid)) perGroup.set(gid, []);
-    if (q && q.length && !v1) perGroup.get(gid)!.push([key, q.shift()!]);
-    else {
-      perGroup.get(gid)!.push([key, HIDE]);
-      missing++;
-    }
-  }
-  for (const [gid, items] of perGroup) {
-    const tiers = items.map(([, t]) => t);
-    // Python: max(set(tiers), key=tiers.count) - ties are broken by set order (hash-randomised there); here: first seen
-    let top = tiers[0], topN = -1;
-    for (const t of uniq(tiers)) {
-      const c = tiers.filter((x) => x === t).length;
-      if (c > topN) {
-        top = t;
-        topN = c;
-      }
-    }
-    const dflt = (w.GEAR_GROUPS[game] ?? []).find(([g]) => g === gid)?.[2] ?? "B";
-    if (top !== dflt) wm.cat_tier[w.gearCat(gid)] = top;
-    for (const [key, t] of items) if (t !== top) wm.block_tier[key] = t;
-  }
-  if (missing && !v1) notes.push(`อุปกรณ์ ${missing} block ที่ไฟล์เก่าไม่มี (NeverSink รุ่นใหม่กว่าไฟล์) ตั้งเป็น D (ซ่อน) ตามไฟล์เดิม`);
   // ---- what the tab does not set any more: NeverSink's own blocks (equipment groups, keys / special classes)
   const gnames: Record<string, string> = {};
   for (const [gid, n] of w.GEAR_GROUPS[game] ?? []) gnames[gid] = n;
   const cut: string[] = [];
-  for (const [ty] of sm.gear) {
+  for (const ty of sm.gear_types) {
     const gid = w.gearGroupOf(game, ty);
-    if (gid && !(w.GEAR_LISTED[game] ?? []).includes(gid) && !cut.includes(gnames[gid])) cut.push(gid !== w.FLASK_GROUP ? gnames[gid] : "Flask / Charm");
+    if (gid && !cut.includes(gnames[gid])) cut.push(gid !== w.FLASK_GROUP ? gnames[gid] : "Flask / Charm");
   }
   if (sm.classes.size || sm.fragments.size) cut.push("กุญแจ/ของพิเศษ (class)");
   if (cut.length) notes.push("หมวดที่ตัดออกแล้ว ไฟล์ใหม่ใช้ block ของ NeverSink แทนค่าในไฟล์เก่า: " + cut.join(", "));

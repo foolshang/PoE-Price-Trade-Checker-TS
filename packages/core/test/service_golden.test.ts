@@ -12,6 +12,7 @@ import { NodeFs } from "../../node/src/nodefs.ts";
 import { filterGen, filterOutput, filterService } from "../src/index.ts";
 import { FIX } from "../../../tests/parity/runner.ts";
 import { fixture } from "./helpers.ts";
+import { soundBlockCounts } from "./sound_counts.ts";
 
 const sha = (s: string): string => createHash("sha256").update(Buffer.from(s, "utf-8")).digest("hex");
 const cp = (s: string): number => [...s].length;
@@ -167,7 +168,7 @@ async function runE2E(tmp: string, game: string, v2: boolean, nsSlots = NS_SLOTS
 describe("every sound slot, both tabs, both games, through the service", () => {
   it.each(["poe1", "poe2"])("the six numbered sounds land on every block of their number (%s)", async (game) => {
     const [tier, , , base] = await runE2E(mkdtempSync(path.join(os.tmpdir(), "poe-ts-")), game, true);
-    const counts = filterGen.soundBlockCounts(base);
+    const counts = soundBlockCounts(base);
     expect(Object.keys(counts).every((k) => "123456".includes(k))).toBe(true);
     const lines = tier.split("\n");
     const got: Record<string, number> = Object.fromEntries(NS_SLOTS.map((n) => [n, 0]));
@@ -211,7 +212,7 @@ describe("every sound slot, both tabs, both games, through the service", () => {
   it("an empty slot writes nothing and leaves NeverSink's own sound", async () => {
     const [tier, , , base] = await runE2E(mkdtempSync(path.join(os.tmpdir(), "poe-ts-")), "poe2", true, ["2", "5"]);
     expect(new Set(refs(tier))).toEqual(new Set(["snd_2.mp3", "snd_5.mp3", "snd_Q.mp3"]));
-    const counts = filterGen.soundBlockCounts(base);
+    const counts = soundBlockCounts(base);
     const n = (t: string, s: string): number => t.split(s).length - 1;
     expect(n(tier, 'CustomAlertSoundOptional "snd_2.mp3"')).toBe(counts["1"]); // slot 2 <- id 1
     expect(n(tier, 'CustomAlertSoundOptional "snd_5.mp3"')).toBe(counts["4"]); // slot 5 <- id 4

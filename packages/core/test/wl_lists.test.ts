@@ -230,12 +230,12 @@ describe("NeverSink's own blocks inside the whitelist file", () => {
   it.each(["poe1", "poe2"])("every block of the cut categories is NeverSink's, line for line (%s)", (game) => {
     const [, base] = data(game);
     const text = model(game).build().text;
-    const want = w.gearSequence(game, base).filter((e) => e[0] === "copy");
+    const want = w.gearSequence(game, base);
     const got = writtenCopies(text);
     expect(got.length).toBe(want.length);
     expect(got.length).toBeGreaterThan(200); // nothing left out, nothing added
     got.forEach(([header, kind, body], k) => {
-      const [, reason, ty, tag, nkind, nbody] = want[k] as Extract<w.GearEntry, { 0: "copy" }>;
+      const [reason, ty, tag, nkind, nbody] = want[k];
       expect(header).toBe(`# neversink (${reason}): ${ty} ${tag || ""}`.trimEnd());
       expect(kind).toBe(nkind);
       expect(body).toEqual(bodyLines(nbody)); // conditions, look, sound: every line
@@ -245,10 +245,10 @@ describe("NeverSink's own blocks inside the whitelist file", () => {
 
   it.each(["poe1", "poe2"])("the copies keep NeverSink's relative order (%s)", (game) => {
     const base = data(game)[1];
-    const seq = w.gearSequence(game, base).filter((e) => e[0] === "copy") as Extract<w.GearEntry, { 0: "copy" }>[];
+    const seq = w.gearSequence(game, base);
     const [lines, blocks] = w.scan(base);
     const headers = blocks.map((b) => filterGen.headerTags(lines, b));
-    const positions = seq.map((e) => headers.findIndex((h) => h[0] === e[2] && h[1] === e[3]));
+    const positions = seq.map((e) => headers.findIndex((h) => h[0] === e[1] && h[1] === e[2]));
     expect(positions).toEqual([...positions].sort((a, b) => a - b));
   });
 
@@ -269,12 +269,12 @@ describe("NeverSink's own blocks inside the whitelist file", () => {
     const m = new WlModel(game);
     m.setData(hub, base, extra);
     const res = w.buildWhitelistFilter(game, m.cfg(), base, hub, "", { S: "s.mp3", A: "a.mp3", B: "b.mp3" }, extra);
-    const want = w.gearSequence(game, base).filter((e) => e[0] === "copy") as Extract<w.GearEntry, { 0: "copy" }>[];
+    const want = w.gearSequence(game, base);
     const got = writtenCopies(res.text);
     expect(got.length).toBe(want.length);
     got.forEach(([, kind, body], k) => {
-      expect(kind).toBe(want[k][4]);
-      expect(body).toEqual(bodyLines(want[k][5])); // exactly NeverSink's blocks, no custom sound
+      expect(kind).toBe(want[k][3]);
+      expect(body).toEqual(bodyLines(want[k][4])); // exactly NeverSink's blocks, no custom sound
     });
     expect(lint(res.text, base)).toEqual([]);
   });
