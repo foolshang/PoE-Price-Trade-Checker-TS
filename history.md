@@ -14,8 +14,7 @@
   by sha256 -> all equal. `npm run parity:check` re-runs the original and reproduces the committed goldens.
 - Tests: 1,916 pass (1,499 parity incl. bookkeeping, 417 converted unit tests); the golden files of the original
   (filter_service_golden, golden_open_messages) are reused as they are.
-- Findings in the original (docs/PHASE1.md F1-F3): CRLF base text written in text mode gives `
-` on Windows; a
+- Findings in the original (docs/PHASE1.md F1-F3): CRLF base text written in text mode gives doubled CRs on Windows; a
   tie-break that depends on the string hash seed (dead code); negative index of the NeverSink level list.
 - Left for later phases: Tk-only tests (replaced by Playwright), web glue/parity tests (phase 2), parser/badge/meta tests (phase 4).
 - The original folder and repo were not modified (checked with `git status` before and after every golden run).
