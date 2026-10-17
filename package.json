@@ -1,0 +1,8 @@
+{
+  "name": "poe-price-trade-checker-ts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "PoE Price & Trade Checker (TypeScript)",
+  "workspaces": ["packages/*", "apps/*"],
+  "engines": { "node": ">=22" }
+}

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dist_new/
+out/
+release-out/
+.parity-cache/
+*.log
+.vite/
+coverage/
+playwright-report/
+test-results/
