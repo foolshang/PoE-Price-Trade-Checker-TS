@@ -98,16 +98,26 @@ jobs:
           cd pages
           git push "https://x-access-token:${GH_TOKEN}@github.com/${PUBLIC_REPO}.git" gh-pages
 
-      # Pages needs a minute or two to publish
+      # Pages can take many minutes to build: wait until the Pages build of our commit has finished (or failed), then check
+      # what is served. The overall limit is 25 minutes; a failed Pages build stops the wait at once.
       - name: Verify the live site
         if: ${{ !inputs.dry_run }}
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
-          for i in $(seq 1 30); do
-            html=$(curl -fsS -H 'Cache-Control: no-cache' "$SITE_URL/?t=$(date +%s)" 2>/dev/null) || html=""
-            js=$(echo "$html" | grep -o 'assets/index-[A-Za-z0-9_-]*\.js' | head -1)
-            if [ -n "$js" ] && curl -fsS "$SITE_URL/$js" | grep -qF "web-$ver"; then echo "site is live: $SITE_URL/ (web-$ver)"; exit 0; fi
-            echo "try $i: not yet"; sleep 10
+          sha=$(git -C pages rev-parse HEAD)
+          echo "pushed commit: $sha"
+          for i in $(seq 1 75); do
+            status=$(gh api "repos/${PUBLIC_REPO}/pages/builds/latest" --jq '.status' 2>/dev/null || echo "unknown")
+            echo "try $i: pages build '$status'"
+            if [ "$status" = "errored" ]; then echo "::error::the Pages build failed"; exit 1; fi
+            if [ "$status" = "built" ] || [ "$status" = "unknown" ]; then
+              html=$(curl -fsS -H 'Cache-Control: no-cache' "$SITE_URL/?t=$(date +%s)" 2>/dev/null) || html=""
+              js=$(echo "$html" | grep -o 'assets/index-[A-Za-z0-9_-]*\.js' | head -1)
+              if [ -n "$js" ] && curl -fsS "$SITE_URL/$js" | grep -qF "web-$ver"; then echo "site is live: $SITE_URL/ (web-$ver)"; exit 0; fi
+            fi
+            sleep 20
           done
-          echo "::error::$SITE_URL did not serve web-$ver after 5 minutes"
+          echo "::error::$SITE_URL did not serve web-$ver after 25 minutes"
           exit 1

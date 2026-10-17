@@ -5,6 +5,17 @@
 
 ---
 
+## 2026-10-17 (7) - original's deploy job patched; verify step waits for the Pages build
+
+- Original repo (c.f. its history.md): `deploy-web.yml` now writes only `legacy/` (commit 26e29f6, no tag). A manual run
+  (`tag=v0.13.5`) succeeded: "legacy/ already up to date", live `/legacy/` reports 0.13.5; gh-pages blob list before/after
+  identical for root and legacy (31 files), so nothing outside `legacy/` can have changed.
+- `deploy-web.yml` here: the verify step polls the Pages build status (`errored` stops at once) and then the served page, up
+  to 25 minutes, instead of a fixed 5 minutes.
+- Phase 3 not started: waiting for Winai's test of the live page.
+
+---
+
 ## 2026-10-17 (6) - TS web page is live at the root; old page in /legacy/
 
 - `RELEASE_TOKEN` fixed by Winai; `deploy-web.yml` pushed gh-pages (the workflow's own verify step timed out because Pages was
