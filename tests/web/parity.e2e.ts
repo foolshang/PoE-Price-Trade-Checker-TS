@@ -32,7 +32,8 @@ const names = (g) => JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(FIXTUR
 let browser, srv, url;
 beforeAll(async () => {
   browser = await launchBrowser();
-  ({ srv, url } = await startServer());
+  if (process.env.WEB_URL) url = process.env.WEB_URL.replace(/\/$/, ""); // a deployed page instead of dist
+  else ({ srv, url } = await startServer());
 }, 60000);
 afterAll(async () => { await browser?.close(); srv?.close(); });
 

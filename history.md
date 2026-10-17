@@ -5,6 +5,19 @@
 
 ---
 
+## 2026-10-17 (6) - TS web page is live at the root; old page in /legacy/
+
+- `RELEASE_TOKEN` fixed by Winai; `deploy-web.yml` pushed gh-pages (the workflow's own verify step timed out because Pages was
+  still building; the page was live a few minutes later). gh-pages: 25 files before (old page at the root) -> 31 after
+  (root: `.nojekyll`, `index.html`, `assets/` x2, `data/` x2; `legacy/`: the old 25 files).
+- Checked on the real URLs with Playwright: new page shows `web-1.0.0-beta.1`, lists load, Generate works (both games, both
+  tabs, no console / network errors, real hub + GitHub); `parity.e2e.ts` against the live URL (`WEB_URL=...`) 36/36 byte-equal
+  to the goldens; `/legacy/` shows `web-0.13.5`, Pyodide loads and Generate works.
+- Open: Winai's check in his own browser; the original repo's deploy job still force-pushes (patch in `docs/legacy-deploy.patch`,
+  not applied; do not tag the original).
+
+---
+
 ## 2026-10-17 (5) - deploy retried: still 403; patch for the original's deploy job written (not applied)
 
 - Second deploy run (16:05 UTC, after `RELEASE_TOKEN` was updated at 16:05:22): same 403 on push; gh-pages unchanged (25 files).
