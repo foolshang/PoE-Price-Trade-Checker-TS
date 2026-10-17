@@ -5,6 +5,18 @@
 
 ---
 
+## 2026-10-17 (4) - web deploy workflows; first real deploy stopped (403 on push)
+
+- Added `.github/workflows/deploy-web.yml` (manual; first run moves the old page to `/legacy/`, then replaces the root web
+  files, nothing else), `rollback-web.yml` (manual, `confirm=ROLLBACK`), `docs/DEPLOY.md`.
+- Dry run on Actions: passed (names refreshed 7,685 / 4,363, version check ok, legacy move and file lists as planned).
+- Real run: build ok, clone ok, **push to `foolshang/PoE-Filter-Generator` gh-pages refused: 403 "Permission ... denied to
+  foolshang"** - `RELEASE_TOKEN` of this repo cannot write there (scope / repo access / expiry; the value was never read).
+  gh-pages is unchanged (25 files, identical list before and after). Waiting for Winai to fix the token.
+- Clash found: the original's `deploy-web.yml` force-pushes a single commit to gh-pages on every `v*` tag (see docs/DEPLOY.md).
+
+---
+
 ## 2026-10-17 (3) - phase 2: web page on the TS core, no Pyodide (committed, no tag, not deployed)
 
 - `packages/ui` (all UI, reused by Electron in phase 3), `apps/web` (Vite), `tests/web`, `tools/refresh-names*.ts`
