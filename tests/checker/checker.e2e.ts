@@ -225,7 +225,9 @@ describe("C) F5 with a real key press", () => {
     const rows = pk.locator(".p-row");
     const n = await rows.count();
     const last = n - 1;
-    expect(await rows.nth(last).locator("label span").innerText()).toContain("increased Nothing Anybody Lists  (ค้นหา mod นี้ไม่ได้)");
+    const lastText = await rows.nth(last).locator("label span").innerText();
+    expect(lastText).toContain("Nothing"); // (long texts are cut at 56 characters, the note comes after the cut)
+    expect(lastText.endsWith("  (ค้นหา mod นี้ไม่ได้)")).toBe(true);
     expect(await pk.locator(`#row-${last}`).isDisabled()).toBe(true);
     expect(await pk.locator(`#row-${last}`).isChecked()).toBe(false);
     expect(await pk.locator(`#min-${last}`).isDisabled()).toBe(true);

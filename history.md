@@ -229,3 +229,9 @@
 - Real GitHub test found that `autoUpdater.channel` hid pre-releases from installed betas; fixed in both updaters, Checker feed file renamed `latest.yml`.
 - Test prereleases v1.0.0-rc.1 / rc.3 released and deleted in both repos; Latest (v0.13.5), README and web untouched. Installed rc.2 -> rc.3 updated itself from GitHub in both programs.
 - No v1.0.0 tag. Waiting for Winai: README draft, old-repo diff, the order to release.
+
+## (10) Stat id without guessing (2026-10-19, v1.0.0-rc.4)
+- Removed the difflib guessing of `find_stat_id` and of the badge dictionary fallback (the hub measured 92% of its guesses wrong). New `stat_match.ts` / `rendering_aliases.ts` (ports of the rules of the hub ModNormalizer and of its AliasIndex), `ModDatabase.lookup/findStatId`, `ModBadgeDB.badgeState`, a no-data marker in the F5 popup, a bundled alias snapshot, once-only log lines.
+- Measured: 0 differences from the real normalizer of the hub on 120,000 texts (hub rules only); 0 wrong against RePoE (PoE1 16,173 wordings, PoE2 686) with the one addition described in docs/PHASE5.md Addendum 4 (the hub rules alone: 3 wrong).
+- 434 of 5,586 parity cases changed on purpose and are listed and explained; the F5 end-to-end oracle answers stat ids from a table.
+- Not done / waiting: the alias file and `stat_aliases` are not published by the hub yet; no tag v1.0.0.
