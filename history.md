@@ -222,3 +222,10 @@
   measured); web origin data (localStorage key `poeFilterGen.cfg`, IndexedDB `poe-filter-gen` v2) must stay compatible;
   the original drops unknown `config.json` keys on save, so two apps should not share one file.
 - Status: waiting for Winai's decisions (docs/PLAN.md section F). Next: phase 1 after approval.
+
+## (9) Part B1 - release workflow tested with prereleases (2026-10-19)
+- Added `.github/workflows/release.yml`, `tools/check-release.mjs`, `release/update_public_readme.sh`; `deploy-web.yml` can be called by the release.
+- Test-only env variables now need `POE_CHECKER_TEST=1` too. Removed a local path from a bundled comment (+ test).
+- Real GitHub test found that `autoUpdater.channel` hid pre-releases from installed betas; fixed in both updaters, Checker feed file renamed `latest.yml`.
+- Test prereleases v1.0.0-rc.1 / rc.3 released and deleted in both repos; Latest (v0.13.5), README and web untouched. Installed rc.2 -> rc.3 updated itself from GitHub in both programs.
+- No v1.0.0 tag. Waiting for Winai: README draft, old-repo diff, the order to release.
