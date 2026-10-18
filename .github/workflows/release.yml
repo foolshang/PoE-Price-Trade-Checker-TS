@@ -2,7 +2,7 @@
 #   1. the web page            (a real release only: the gh-pages branch of foolshang/PoE-Filter-Generator, deploy-web.yml)
 #   2. the Filter Generator    -> Releases of foolshang/PoE-Filter-Generator: Setup + latest.yml + blockmap + Portable zip   ("Latest" for a real release)
 #   3. the public README       (a real release only: release/README_public.md -> README.md of foolshang/PoE-Filter-Generator)
-#   4. the Checker             -> Releases of THIS repo: Setup + checker.yml + blockmap + Portable zip
+#   4. the Checker             -> Releases of THIS repo: Setup + latest.yml + blockmap + Portable zip
 # Every check runs BEFORE the first publish step (tools/check-release.mjs: tag == package.json, both CHANGELOG sections, files, sizes, checksums).
 # A step that fails stops the rest: nothing is deleted or released again on its own. A prerelease is never "Latest" and never touches the
 # web page or the README. The text of each release page = the section of the tag in apps/<app>/CHANGELOG.md (tools/release-notes.mjs).
@@ -102,7 +102,7 @@ jobs:
             dist-checker/*.exe
             dist-checker/*.blockmap
             dist-checker/*.zip
-            dist-checker/checker.yml
+            dist-checker/latest.yml
             release-notes-checker.md
             release-notes-filtergen.md
 
@@ -162,5 +162,5 @@ jobs:
           flag="--prerelease"; [ "$STABLE" = "true" ] && flag="--latest"
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "PoE Price & Trade Checker $TAG" --notes-file release-notes-checker.md $flag \
-            "dist-checker/PoE-Price-Trade-Checker-TS-Setup-$v.exe" "dist-checker/PoE-Price-Trade-Checker-TS-Setup-$v.exe.blockmap" dist-checker/checker.yml \
+            "dist-checker/PoE-Price-Trade-Checker-TS-Setup-$v.exe" "dist-checker/PoE-Price-Trade-Checker-TS-Setup-$v.exe.blockmap" dist-checker/latest.yml \
             "dist-checker/PoE-Price-Trade-Checker-TS-Portable-$v.zip"

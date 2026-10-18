@@ -40,7 +40,7 @@ const launch = (env) => spawn(EXE, [], { detached: true, stdio: "ignore", window
 const listening = () => ps(`(Get-NetTCPConnection -LocalPort ${PORT} -State Listen -ErrorAction SilentlyContinue | Measure-Object).Count`) !== "0";
 
 async function serve() {
-  await serveFolder(DIST, { port: PORT, yml: { "checker.yml": (t) => {
+  await serveFolder(DIST, { port: PORT, yml: { "latest.yml": (t) => {
     const body = t.replace(/^version: .+$/m, `version: ${FAKE}`);
     return `${body.trimEnd()}\nreleaseNotes: |\n${NOTES.split("\n").map((l) => "  " + l).join("\n")}\n`;
   } } }); // (the open server keeps this process alive)
@@ -48,7 +48,7 @@ async function serve() {
 
 async function start() {
   if (fs.existsSync(STATE)) { console.log("a test is already running - run 'stop' first"); process.exit(1); }
-  if (!fs.existsSync(path.join(DIST, "checker.yml"))) { console.log("dist-checker/checker.yml is missing - run the Checker pack first"); process.exit(1); }
+  if (!fs.existsSync(path.join(DIST, "latest.yml"))) { console.log("dist-checker/latest.yml is missing - run the Checker pack first"); process.exit(1); }
   killChecker();
   await sleep(2000);
   const cfg = readCfg();

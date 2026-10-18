@@ -112,11 +112,11 @@ const filterHost = new FilterHost({
   gameStore: { get: () => game, set: (g) => setGame(g, "filter") },
 });
 
-// updates of the program itself: the Releases of the Checker's own repo (public), channel "checker" (checker.yml); the feed is the one
+// updates of the program itself: the Releases of the Checker's own repo (public), channel "latest" (latest.yml); the feed is the one
 // electron-builder wrote into the program. The player chooses what happens (see managed_updater.ts); a newer version raises the red dot.
 const REPO_URL = "https://github.com/foolshang/PoE-Price-Trade-Checker-TS";
 const updater = new ManagedUpdater({
-  version: VERSION, isPackaged: app.isPackaged, exePath: process.execPath, channel: "checker",
+  version: VERSION, isPackaged: app.isPackaged, exePath: process.execPath, channel: "latest",
   releasesUrl: `${REPO_URL}/releases/latest`, log: fileLog,
   autoDownload: () => cfgBool("auto_update", true),
   windows: () => (mainWin && !mainWin.isDestroyed() ? [mainWin] : []),

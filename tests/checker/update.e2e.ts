@@ -208,7 +208,7 @@ describe("A) the red dot and the details window", () => {
 });
 
 // ------------------------------------------------------------------------------------------------------------------------------
-const haveFeed = fs.existsSync(path.join(DIST, "checker.yml"));
+const haveFeed = fs.existsSync(path.join(DIST, "latest.yml"));
 describe.skipIf(!exe || !haveFeed)("B) the installed program updates itself from a local feed", () => {
   const FAKE = "99.0.0-beta.1";
   const fakeNewer = (t) => t.replace(/^version: .+$/m, `version: ${FAKE}`);
@@ -228,7 +228,7 @@ describe.skipIf(!exe || !haveFeed)("B) the installed program updates itself from
     killAll();
     await wait(1500);
     const state = { offer: true, wrongSum: false };
-    const feed = await serveFolder(DIST, { yml: { "checker.yml": (t) => {
+    const feed = await serveFolder(DIST, { yml: { "latest.yml": (t) => {
       let x = state.offer ? fakeNewer(t) : t.replace(/^version: .+$/m, `version: ${ver}`);
       if (state.wrongSum) x = x.replace(/sha512: .+/g, "sha512: " + "A".repeat(86) + "==");
       return yml ? yml(x) : x;
@@ -341,7 +341,7 @@ describe.skipIf(!exe || !haveFeed)("B) the installed program updates itself from
     const { page, feed, state } = await begin({ auto_update: false }, { first: 1000, every: 3000 });
     state.offer = false; // (nothing newer at first)
     await wait(1500);
-    const count = () => feed.requests.filter((r) => r.name === "checker.yml").length;
+    const count = () => feed.requests.filter((r) => r.name === "latest.yml").length;
     expect(await until(() => count() >= 3, 20000)).toBe(true); // asked again and again
     expect(await page.locator("#update-bar").isHidden()).toBe(true); // ... and said nothing
     state.offer = true; // published meanwhile

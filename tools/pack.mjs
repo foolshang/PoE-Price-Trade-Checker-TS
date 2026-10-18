@@ -22,5 +22,5 @@ const exe = path.join(root, APPS[app].dir, `${APPS[app].name}-Setup-${version}.e
 console.log(`built ${exe} (${(fs.statSync(exe).size / 1048576).toFixed(1)} MB) v${version}`);
 const zip = path.join(root, APPS[app].dir, `${APPS[app].name}-Portable-${version}.zip`);
 if (fs.existsSync(zip)) console.log(`built ${zip} (${(fs.statSync(zip).size / 1048576).toFixed(1)} MB)`);
-const feed = path.join(root, APPS[app].dir, app === "checker" ? "checker.yml" : "latest.yml");
+const feed = path.join(root, APPS[app].dir, "latest.yml");
 console.log(fs.existsSync(feed) ? `update feed file: ${feed}` : `WARNING: no ${path.basename(feed)} was written`);

@@ -26,7 +26,7 @@ if (!v.includes("-") && !fs.existsSync(path.join(root, "release", "README_public
 const MB = 1024 * 1024;
 const apps = [
   { dir: "dist", prefix: "PoE-Filter-Generator-TS", yml: "latest.yml" },
-  { dir: "dist-checker", prefix: "PoE-Price-Trade-Checker-TS", yml: "checker.yml" },
+  { dir: "dist-checker", prefix: "PoE-Price-Trade-Checker-TS", yml: "latest.yml" },
 ];
 for (const a of apps) {
   const at = (n) => path.join(root, a.dir, n);

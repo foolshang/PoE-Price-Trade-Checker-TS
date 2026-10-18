@@ -49,7 +49,7 @@ describe.skipIf(!fs.existsSync(ZIP))("the zip copy", () => {
     // a feed that offers a newer version: the zip copy tells, it does not download
     const feedDir = fs.mkdtempSync(path.join(os.tmpdir(), "pfg-feed-"));
     extra.push(() => fs.rmSync(feedDir, { recursive: true, force: true }));
-    fs.writeFileSync(path.join(feedDir, "checker.yml"), "version: 9.9.9\nfiles:\n  - url: x.exe\n    sha512: AAAA\n    size: 1\npath: x.exe\nsha512: AAAA\nreleaseDate: '2026-01-01T00:00:00.000Z'\n");
+    fs.writeFileSync(path.join(feedDir, "latest.yml"), "version: 9.9.9\nfiles:\n  - url: x.exe\n    sha512: AAAA\n    size: 1\npath: x.exe\nsha512: AAAA\nreleaseDate: '2026-01-01T00:00:00.000Z'\n");
     const feed = await serveFolder(feedDir);
     extra.push(() => feed.close());
 
@@ -66,7 +66,7 @@ describe.skipIf(!fs.existsSync(ZIP))("the zip copy", () => {
     expect(await page.locator("#update-bar .update-text").innerText()).toContain("มีรุ่นใหม่ v9.9.9");
     expect(await page.locator("#update-bar .update-text").innerText()).toContain("zip");
     expect(await page.locator("#update-bar button").allInnerTexts()).toEqual(["อัปเดต (เปิดหน้าดาวน์โหลด)"]); // (the button opens the download page: this copy cannot install)
-    expect(feed.requests.map((r) => r.name)).toEqual(["checker.yml"]); // nothing was downloaded
+    expect(feed.requests.map((r) => r.name)).toEqual(["latest.yml"]); // nothing was downloaded
     // the settings are in the user's folder, not next to the exe
     expect(fs.existsSync(path.join(sbx.checkerDir, "log.txt"))).toBe(true);
     await wait(800);
@@ -82,7 +82,7 @@ describe.skipIf(!fs.existsSync(ZIP))("the zip copy", () => {
     execFileSync("powershell", ["-NoProfile", "-Command", `Expand-Archive -LiteralPath "${ZIP}" -DestinationPath "${dir}" -Force`], { windowsHide: true });
     const feedDir = fs.mkdtempSync(path.join(os.tmpdir(), "pfg-feed-"));
     extra.push(() => fs.rmSync(feedDir, { recursive: true, force: true }));
-    fs.writeFileSync(path.join(feedDir, "checker.yml"), "version: 9.9.9\nfiles:\n  - url: x.exe\n    sha512: AAAA\n    size: 1\npath: x.exe\nsha512: AAAA\nreleaseDate: '2026-01-01T00:00:00.000Z'\n");
+    fs.writeFileSync(path.join(feedDir, "latest.yml"), "version: 9.9.9\nfiles:\n  - url: x.exe\n    sha512: AAAA\n    size: 1\npath: x.exe\nsha512: AAAA\nreleaseDate: '2026-01-01T00:00:00.000Z'\n");
     const feed = await serveFolder(feedDir);
     extra.push(() => feed.close());
     const sbx = sandbox();

@@ -41,4 +41,4 @@ publish:
     owner: foolshang
     repo: PoE-Price-Trade-Checker-TS # the Checker has its own public repo (B0 answered); its release is not linked from the Filter Generator's README
     releaseType: release
-    channel: checker                 # checker.yml in the release
+    channel: latest                  # latest.yml in the release (the Checker has its own repo; a pre-release falls back to it too)

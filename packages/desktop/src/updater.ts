@@ -27,7 +27,7 @@ export interface AppUpdaterOptions {
   version: string;
   isPackaged: boolean;
   exePath: string;
-  /** the feed channel of this program ("latest" -> latest.yml; the Checker: "checker" -> checker.yml) */
+  /** the feed channel of this program ("latest" -> latest.yml) */
   channel: string;
   /** where a person gets the release by hand */
   releasesUrl: string;
@@ -74,7 +74,8 @@ export class AppUpdater {
     u.autoInstallOnAppQuit = false; // (the program does it itself at the end of its own closing: see installAtExit)
     u.allowPrerelease = isPrerelease(o.version);
     u.allowDowngrade = false;
-    u.channel = o.channel;
+    // (u.channel stays unset: electron-updater also reads it as the NAME OF THE PRE-RELEASE LINE, and a value like "latest" hides every
+    // pre-release from a beta copy. The name of the .yml comes from app-update.yml (written at build time) or from the feed override below.)
     u.logger = {
       info: (m: unknown) => o.log("INFO", `updater: ${String(m)}`),
       warn: (m: unknown) => o.log("WARNING", `updater: ${String(m)}`),
