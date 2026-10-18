@@ -1,6 +1,6 @@
 /**
  * Fetch data from poe-data-hub (prices, index, meta, passives, skills). Port of poe_price_trade/hub_client.py.
- * Schema reference: D:\Projects\Poe_Hub\SPEC.md (sections 8.1, 8.1a/b/c, 8.2). The HTTP client is injected.
+ * Schema reference: SPEC.md of the Poe_Hub project (sections 8.1, 8.1a/b/c, 8.2). The HTTP client is injected.
  */
 import { HttpError, HttpPort } from "./ports.ts";
 import { Log, noopLog, truthy } from "./py.ts";

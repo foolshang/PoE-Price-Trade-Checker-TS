@@ -75,4 +75,26 @@ describe.skipIf(!fs.existsSync(ZIP))("the zip copy", () => {
     await wait(1500);
     expect(snapshot(dir)).toEqual(before);
   }, 300000);
+
+  it("a stray POE_UPDATE_FEED (without POE_CHECKER_TEST=1, as on a player's machine) does nothing: the feed is never asked", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pfg-zip-"));
+    extra.push(() => fs.rmSync(dir, { recursive: true, force: true }));
+    execFileSync("powershell", ["-NoProfile", "-Command", `Expand-Archive -LiteralPath "${ZIP}" -DestinationPath "${dir}" -Force`], { windowsHide: true });
+    const feedDir = fs.mkdtempSync(path.join(os.tmpdir(), "pfg-feed-"));
+    extra.push(() => fs.rmSync(feedDir, { recursive: true, force: true }));
+    fs.writeFileSync(path.join(feedDir, "checker.yml"), "version: 9.9.9\nfiles:\n  - url: x.exe\n    sha512: AAAA\n    size: 1\npath: x.exe\nsha512: AAAA\nreleaseDate: '2026-01-01T00:00:00.000Z'\n");
+    const feed = await serveFolder(feedDir);
+    extra.push(() => feed.close());
+    const sbx = sandbox();
+    fs.mkdirSync(sbx.checkerDir, { recursive: true });
+    fs.writeFileSync(path.join(sbx.checkerDir, "config.json"), JSON.stringify({ game_version: "poe2" }));
+    // (the test variable is blanked: with it, the 1 s first check would have asked this feed long before the wait below ends)
+    const { app, page } = await launch(sbx, { exe: path.join(dir, "PoE-Price-Trade-Checker-TS.exe"), extraEnv: { POE_CHECKER_TEST: "", POE_UPDATE_FEED: feed.url, POE_UPDATE_FIRST_MS: "1000" } });
+    opened.push(app);
+    await page.waitForSelector("#league");
+    await wait(8000);
+    expect(feed.requests).toEqual([]);
+    expect(await page.locator("#update-bar").isHidden()).toBe(true);
+    expect(fs.readFileSync(path.join(sbx.checkerDir, "log.txt"), "utf-8")).not.toContain(feed.url);
+  }, 120000);
 });

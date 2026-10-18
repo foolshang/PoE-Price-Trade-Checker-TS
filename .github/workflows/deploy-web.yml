@@ -4,9 +4,17 @@ name: Deploy web to GitHub Pages
 # served at https://foolshang.github.io/PoE-Filter-Generator/.
 #   - first run: the old (Pyodide) page at the root of gh-pages is moved to /legacy/ (never overwritten once it exists)
 #   - every run: the root web files are replaced by this build; any other file in gh-pages is left alone
-# Run by hand only (workflow_dispatch); it is not tied to a tag yet. How to go back: docs/DEPLOY.md.
+# Run by hand (workflow_dispatch) or by release.yml (workflow_call, a real release only - never a prerelease). How to go back: docs/DEPLOY.md.
 
 on:
+  workflow_call:
+    inputs:
+      dry_run:
+        type: boolean
+        default: false
+    secrets:
+      RELEASE_TOKEN:
+        required: true
   workflow_dispatch:
     inputs:
       dry_run:

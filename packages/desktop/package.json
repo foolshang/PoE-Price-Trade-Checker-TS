@@ -21,7 +21,8 @@
     "./update-ui": "./src/update_ui.ts",
     "./about": "./src/about.ts",
     "./about-api": "./src/about_api.ts",
-    "./modal": "./src/modal.ts"
+    "./modal": "./src/modal.ts",
+    "./test-env": "./src/test_env.ts"
   },
   "dependencies": {
     "@poe/core": "*",

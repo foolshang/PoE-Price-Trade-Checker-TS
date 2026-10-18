@@ -3,7 +3,7 @@
 //                                    from 127.0.0.1, makes the NeverSink tags look old, starts the installed Checker pointed at that feed
 //   node tools/redtest.mjs stop    - closes it, stops the feed, puts the config values back, starts the installed Checker normally, verifies
 //   node tools/redtest.mjs status  - what is running and what is still changed
-// The feed is only reached through the POE_UPDATE_FEED environment variable of the one process this script starts: a normal start of the
+// The feed is only reached through POE_UPDATE_FEED (honoured only together with POE_CHECKER_TEST=1: packages/desktop/src/test_env.ts) of the one process this script starts: a normal start of the
 // program never sees it. What is changed in config.json: filter_gen.neversink_tag_poe1/poe2 and filter_gen.auto_regen_neversink (so the
 // test cannot rewrite the real filter); the originals are kept in %TEMP%\poe-redtest-state.json and put back by "stop".
 import fs from "node:fs";
@@ -65,7 +65,7 @@ async function start() {
   server.unref();
   fs.writeFileSync(STATE, JSON.stringify({ saved, serverPid: server.pid, at: new Date().toISOString() }), "utf-8");
   for (let i = 0; i < 40 && !listening(); i++) await sleep(500);
-  launch({ POE_UPDATE_FEED: `http://127.0.0.1:${PORT}`, POE_UPDATE_FIRST_MS: "40000", POE_CHECKER_REGEN_FIRST_MS: "50000" });
+  launch({ POE_CHECKER_TEST: "1", POE_UPDATE_FEED: `http://127.0.0.1:${PORT}`, POE_UPDATE_FIRST_MS: "40000", POE_CHECKER_REGEN_FIRST_MS: "50000" });
   console.log("started: Checker pointed at the fake feed (update check in 40 s, NeverSink check in 50 s)");
 }
 

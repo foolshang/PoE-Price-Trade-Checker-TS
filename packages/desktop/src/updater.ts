@@ -9,6 +9,7 @@
  *    nothing more: the program keeps running as it is.
  * The feed is the one electron-builder wrote into the program (resources/app-update.yml); POE_UPDATE_FEED=<url> replaces it (tests).
  */
+import { testEnv } from "./test_env.ts";
 import { ipcMain } from "electron";
 import type { BrowserWindow, IpcMainEvent, IpcMainInvokeEvent } from "electron";
 import { readdirSync } from "node:fs";
@@ -53,7 +54,7 @@ export class AppUpdater {
   private checking = false;
   private downloaded = false;
   private readonly mode: "installer" | "manual" | "off";
-  private readonly feed = process.env.POE_UPDATE_FEED || "";
+  private readonly feed = testEnv("POE_UPDATE_FEED") || "";
 
   constructor(private readonly o: AppUpdaterOptions) {
     const packaged = o.isPackaged || !!this.feed;
@@ -106,7 +107,7 @@ export class AppUpdater {
   }
 
   /** Start checking: once after `firstMs`, then every 6 hours. */
-  start(firstMs = Number(process.env.POE_UPDATE_FIRST_MS) || FIRST_CHECK_MS): void {
+  start(firstMs = Number(testEnv("POE_UPDATE_FIRST_MS")) || FIRST_CHECK_MS): void {
     if (this.mode === "off") {
       this.o.log("INFO", "updater: off (not an installed program)");
       return;
@@ -129,7 +130,7 @@ export class AppUpdater {
   /** One check now. Never throws; the next one is always scheduled. */
   async check(): Promise<void> {
     if (this.mode === "off" || this.checking || this.downloaded) {
-      if (this.mode !== "off") this.arm(Number(process.env.POE_UPDATE_EVERY_MS) || CHECK_EVERY_MS);
+      if (this.mode !== "off") this.arm(Number(testEnv("POE_UPDATE_EVERY_MS")) || CHECK_EVERY_MS);
       return;
     }
     this.checking = true;
@@ -139,7 +140,7 @@ export class AppUpdater {
       this.fail(e as Error);
     } finally {
       this.checking = false;
-      this.arm(Number(process.env.POE_UPDATE_EVERY_MS) || CHECK_EVERY_MS);
+      this.arm(Number(testEnv("POE_UPDATE_EVERY_MS")) || CHECK_EVERY_MS);
     }
   }
 

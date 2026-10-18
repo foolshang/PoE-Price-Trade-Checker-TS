@@ -1,0 +1,166 @@
+# Tag v* (v1.0.0 = a real release, v1.0.0-rc.1 = a prerelease) -> build on a Windows runner -> check -> publish:
+#   1. the web page            (a real release only: the gh-pages branch of foolshang/PoE-Filter-Generator, deploy-web.yml)
+#   2. the Filter Generator    -> Releases of foolshang/PoE-Filter-Generator: Setup + latest.yml + blockmap + Portable zip   ("Latest" for a real release)
+#   3. the public README       (a real release only: release/README_public.md -> README.md of foolshang/PoE-Filter-Generator)
+#   4. the Checker             -> Releases of THIS repo: Setup + checker.yml + blockmap + Portable zip
+# Every check runs BEFORE the first publish step (tools/check-release.mjs: tag == package.json, both CHANGELOG sections, files, sizes, checksums).
+# A step that fails stops the rest: nothing is deleted or released again on its own. A prerelease is never "Latest" and never touches the
+# web page or the README. The text of each release page = the section of the tag in apps/<app>/CHANGELOG.md (tools/release-notes.mjs).
+#
+# By hand (Run workflow): "dry_run" builds and checks only (publishes nothing); "only" publishes just one part again after a failed run.
+name: Build & Release (TypeScript)
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release tag (e.g. v1.0.0 or v1.0.0-rc.1)'
+        required: true
+      dry_run:
+        description: 'Build and check only - publish nothing'
+        type: boolean
+        default: false
+      only:
+        description: 'Publish only this part (to repeat one step of a failed run)'
+        type: choice
+        options: [all, web, filtergen, readme, checker]
+        default: all
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    outputs:
+      tag: ${{ steps.ver.outputs.tag }}
+      stable: ${{ steps.ver.outputs.stable }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Resolve the tag
+        id: ver
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then tag="$INPUT_VERSION"; else tag="$REF_NAME"; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          case "$tag" in *-*) echo "stable=false" >> "$GITHUB_OUTPUT" ;; *) echo "stable=true" >> "$GITHUB_OUTPUT" ;; esac
+
+      # koffi's prebuilt binary is fetched by a script that npm's policy skips (docs/PHASE4.md, "Build")
+      - run: npm ci
+      - run: npm run desktop:setup
+
+      - name: Check before building (types, lint, unit tests, parity of the committed goldens)
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+
+      - name: Pack the Filter Generator
+        run: npm run desktop:pack
+      - name: Pack the Checker
+        run: npm run checker:pack
+
+      - name: Check the release (tag, CHANGELOGs, files, sizes, checksums)
+        shell: bash
+        env:
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: node tools/check-release.mjs "$TAG"
+
+      - name: Release notes from the CHANGELOGs
+        shell: bash
+        env:
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          node tools/release-notes.mjs checker "$TAG" > release-notes-checker.md
+          node tools/release-notes.mjs filtergen "$TAG" > release-notes-filtergen.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-files
+          retention-days: 3
+          if-no-files-found: error
+          path: |
+            dist/*.exe
+            dist/*.blockmap
+            dist/*.zip
+            dist/latest.yml
+            dist-checker/*.exe
+            dist-checker/*.blockmap
+            dist-checker/*.zip
+            dist-checker/checker.yml
+            release-notes-checker.md
+            release-notes-filtergen.md
+
+  web:
+    needs: build
+    if: ${{ needs.build.outputs.stable == 'true' && !(github.event_name == 'workflow_dispatch' && (inputs.dry_run || (inputs.only != 'all' && inputs.only != 'web'))) }}
+    uses: ./.github/workflows/deploy-web.yml
+    with:
+      dry_run: false
+    secrets:
+      RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+
+  publish:
+    needs: [build, web]
+    if: ${{ !cancelled() && needs.build.result == 'success' && (needs.web.result == 'success' || needs.web.result == 'skipped') && !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ needs.build.outputs.tag }}
+      STABLE: ${{ needs.build.outputs.stable }}
+      ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.only || 'all' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-files
+
+      - name: Publish the Filter Generator (Releases of foolshang/PoE-Filter-Generator)
+        if: ${{ env.ONLY == 'all' || env.ONLY == 'filtergen' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          v="${TAG#v}"
+          flag="--prerelease"; [ "$STABLE" = "true" ] && flag="--latest"
+          gh release create "$TAG" --repo foolshang/PoE-Filter-Generator \
+            --title "PoE Filter Generator $TAG" --notes-file release-notes-filtergen.md $flag \
+            "dist/PoE-Filter-Generator-TS-Setup-$v.exe" "dist/PoE-Filter-Generator-TS-Setup-$v.exe.blockmap" dist/latest.yml \
+            "dist/PoE-Filter-Generator-TS-Portable-$v.zip"
+
+      - name: Update the README of the public repo (a real release only)
+        if: ${{ env.STABLE == 'true' && (env.ONLY == 'all' || env.ONLY == 'readme') }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: bash release/update_public_readme.sh
+
+      # the Checker is released in the Releases of THIS repo; the public README does not link to it, the program finds it by itself
+      - name: Publish the Checker (Releases of this repo)
+        if: ${{ env.ONLY == 'all' || env.ONLY == 'checker' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          v="${TAG#v}"
+          flag="--prerelease"; [ "$STABLE" = "true" ] && flag="--latest"
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "PoE Price & Trade Checker $TAG" --notes-file release-notes-checker.md $flag \
+            "dist-checker/PoE-Price-Trade-Checker-TS-Setup-$v.exe" "dist-checker/PoE-Price-Trade-Checker-TS-Setup-$v.exe.blockmap" dist-checker/checker.yml \
+            "dist-checker/PoE-Price-Trade-Checker-TS-Portable-$v.zip"

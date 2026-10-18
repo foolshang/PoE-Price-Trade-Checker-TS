@@ -1,17 +1,40 @@
-# PROPOSAL for the ORIGINAL repo (PoE_Price-Trade_Checker) - NOT applied, waits for Winai's approval (the old repo is read only for me).
-#
-# Once the TypeScript programs are released as "Latest" on foolshang/PoE-Filter-Generator, the original's release.yml must not be able to
-# create a release, rewrite the README or deploy the page there any more. The least invasive guard keeps the workflow (and its history)
-# and switches off the three publishing steps: a tag push still builds the exe (a quick check that the old program still builds), but
-# publishes nothing; a deliberate legacy release is still possible by hand: workflow_dispatch with a tag that contains "legacy"
-# (which is a prerelease because of the "-"; write it like v0.99.0-legacy).
---- a/.github/workflows/release.yml
-+++ b/.github/workflows/release.yml
-@@ web:
+# PROPOSAL for the ORIGINAL repo (PoE_Price-Trade_Checker) - NOT applied, waits for Winai approval (the old repo is read only for me).
+# Effect: a tag push in the old repo still builds the Python exe but publishes NOTHING (no release, no README, no web); a deliberate legacy
+# release stays possible by hand (Run workflow with a tag like v0.99.0-legacy). Real unified diff, checked with: patch -p1 --dry-run.
+--- a/.github/workflows/release.yml	2026-10-18 22:46:54.269032800 +0700
++++ b/.github/workflows/release.yml	2026-10-18 22:46:54.458161200 +0700
+@@ -13,7 +13,7 @@
+   # The web page goes to GitHub Pages first (a prerelease tag such as v0.13.5-test never deploys). A failed deploy does not
+   # stop the exe release below, but the README (which links the web page) is then not updated.
+   web:
 -    if: ${{ !contains(github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name, '-') }}
-+    if: ${{ false }}        # deploy-web.yml of the TypeScript repo owns the page now
-@@ - name: Publish release to public repo
-+        if: ${{ github.event_name == 'workflow_dispatch' && contains(inputs.version, 'legacy') }}   # the TypeScript release owns "Latest" now
-@@ - name: Update README in public repo
++    if: ${{ false }}                 # the TypeScript repo owns the web page now (its deploy-web.yml); this one only keeps /legacy/
+     uses: ./.github/workflows/deploy-web.yml
+     with:
+       tag: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+@@ -87,6 +87,8 @@
+         run: ls -la dist/PoE-Filter-Generator.exe
+ 
+       - name: Publish release to public repo
++        # the TypeScript release owns "Latest" now: this old build is only published on purpose (Run workflow with a tag like v0.99.0-legacy)
++        if: ${{ github.event_name == 'workflow_dispatch' && contains(inputs.version, 'legacy') }}
+         env:
+           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+           TAG: ${{ steps.ver.outputs.tag }}
+@@ -106,7 +108,7 @@
+       # The public README lives in this repo (release/README_public.md). A real release also puts it into the public
+       # repo; a prerelease (tag with "-", e.g. v0.11.0-test) never touches it. No change = no commit.
+       - name: Update README in public repo
 -        if: ${{ !contains(steps.ver.outputs.tag, '-') && needs.web.result == 'success' }}
-+        if: ${{ false }}        # the README of the public repo is the TypeScript one now
++        if: ${{ false }}                 # the README of the public repo is the TypeScript one now
+         env:
+           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+           TAG: ${{ steps.ver.outputs.tag }}
+@@ -114,6 +116,6 @@
+         run: bash release/update_public_readme.sh
+ 
+       - name: README not updated (web deploy failed)
+-        if: ${{ !contains(steps.ver.outputs.tag, '-') && needs.web.result != 'success' }}
++        if: ${{ false }}
+         shell: bash
+         run: echo "::warning::the web deploy did not succeed (${{ needs.web.result }}) - the README (with the link to the web page) was NOT updated; fix the deploy and run Deploy web + update the README by hand"

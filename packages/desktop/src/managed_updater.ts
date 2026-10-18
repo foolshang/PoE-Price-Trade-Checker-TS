@@ -10,6 +10,7 @@
  *    nothing in the window; a download that fails is shown with the reason and "try again".
  * The feed is the one electron-builder wrote into the program (resources/app-update.yml); POE_UPDATE_FEED=<url> replaces it (tests).
  */
+import { testEnv } from "./test_env.ts";
 import { ipcMain } from "electron";
 import type { BrowserWindow, IpcMainEvent, IpcMainInvokeEvent } from "electron";
 import { autoUpdater } from "electron-updater";
@@ -50,7 +51,7 @@ export class ManagedUpdater {
   private installStarted = false;
   private announced = "";
   private installRequested = false;
-  private readonly feed = process.env.POE_UPDATE_FEED || "";
+  private readonly feed = testEnv("POE_UPDATE_FEED") || "";
 
   constructor(private readonly o: ManagedUpdaterOptions) {
     const packaged = o.isPackaged || !!this.feed;
@@ -105,7 +106,7 @@ export class ManagedUpdater {
   }
 
   /** Start checking: once after `firstMs`, then every 24 hours. */
-  start(firstMs = Number(process.env.POE_UPDATE_FIRST_MS) || FIRST_CHECK_MS): void {
+  start(firstMs = Number(testEnv("POE_UPDATE_FIRST_MS")) || FIRST_CHECK_MS): void {
     if (this.s.mode === "off") {
       this.o.log("INFO", "updater: off (not an installed program)");
       return;
@@ -131,7 +132,7 @@ export class ManagedUpdater {
     const busy = this.checking || this.downloaded || this.s.phase === "downloading";
     if (busy) {
       if (user) this.set({ userCheck: true });
-      if (!this.checking) this.arm(Number(process.env.POE_UPDATE_EVERY_MS) || CHECK_EVERY_MS);
+      if (!this.checking) this.arm(Number(testEnv("POE_UPDATE_EVERY_MS")) || CHECK_EVERY_MS);
       return;
     }
     this.checking = true;
@@ -143,7 +144,7 @@ export class ManagedUpdater {
       this.fail(e as Error, "check");
     } finally {
       this.checking = false;
-      this.arm(Number(process.env.POE_UPDATE_EVERY_MS) || CHECK_EVERY_MS);
+      this.arm(Number(testEnv("POE_UPDATE_EVERY_MS")) || CHECK_EVERY_MS);
     }
   }
 

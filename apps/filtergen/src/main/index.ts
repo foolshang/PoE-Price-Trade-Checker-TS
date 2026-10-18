@@ -12,6 +12,7 @@ import { pathToFileURL } from "node:url";
 import { AppConfig, IMPORT_MARKER, importOldConfig } from "@poe/node";
 import { isExternalLink, isInside } from "@poe/desktop/guard";
 import { FilterHost } from "@poe/desktop/host";
+import { testEnv } from "@poe/desktop/test-env";
 import { AppUpdater } from "@poe/desktop/updater";
 import { TrayIcon } from "@poe/desktop/tray";
 
@@ -46,7 +47,7 @@ log("INFO", `PoE Filter Generator v${VERSION} started (frozen=${app.isPackaged})
 
 // the CFA message names the exe that has to be allowed: the full path of the installed program
 const exeName = process.execPath;
-const documentsDir = (): string => process.env.POE_FILTERGEN_DOCUMENTS || app.getPath("documents");
+const documentsDir = (): string => testEnv("POE_FILTERGEN_DOCUMENTS") || app.getPath("documents");
 
 // ---------------------------------------------------------------------------------------------- single instance
 let win: BrowserWindow | null = null;

@@ -18,6 +18,7 @@ import type { HttpPort, models } from "@poe/core";
 import { AppConfig, CHECKER_DEFAULTS, NodeFs, NodeHttp, PRICE_MODE_KEYS, importOldConfig } from "@poe/node";
 import { isExternalLink } from "@poe/desktop/guard";
 import { FilterHost } from "@poe/desktop/host";
+import { testEnv } from "@poe/desktop/test-env";
 import { ManagedUpdater } from "@poe/desktop/managed-updater";
 import { TrayIcon, dotIcon } from "@poe/desktop/tray";
 import type { Details, GameId, Hotkeys, MainInit, PickerFilter, SettingsErrors, SettingsInit, SettingsResult, SettingsValues, SkillDetail, Tag } from "../shared/api.ts";
@@ -240,7 +241,7 @@ function startGamePoll(): void {
   gamePoll = setInterval(() => {
     if (quitting || !autoGameOn()) return;
     try { followFront(gameOfFront(false), "", false); } catch (e) { fileLog("WARNING", `game poll: ${(e as Error).message}`); }
-  }, Number(process.env.POE_CHECKER_GAME_POLL_MS) || 1000); // (the env value: tests only)
+  }, Number(testEnv("POE_CHECKER_GAME_POLL_MS")) || 1000); // (the env value: tests only)
   gamePoll.unref();
 }
 
@@ -252,7 +253,7 @@ const ADMIN_MSG = "⚠ Windows ไม่ให้โปรแกรมนี้�
   "หรือรันโปรแกรมนี้แบบ Administrator เหมือนเกม";
 
 /** the Documents folder of the player (the game's settings are under it); POE_CHECKER_DOCUMENTS = a different one, for tests */
-const documentsDir = (): string => process.env.POE_CHECKER_DOCUMENTS || app.getPath("documents");
+const documentsDir = (): string => testEnv("POE_CHECKER_DOCUMENTS") || app.getPath("documents");
 
 const NOT_ENGLISH_MSG = "⚠ F5 รองรับเกมภาษาอังกฤษเท่านั้น (ตั้งภาษาในเกมเป็น English)";
 
@@ -770,7 +771,7 @@ const watcher = new NeverSinkWatcher({
   notify: notifyNeverSink,
   debug: debugEvent,
   warn: (m) => fileLog("WARNING", m),
-}, Number(process.env.POE_CHECKER_REGEN_FIRST_MS) || undefined, Number(process.env.POE_CHECKER_REGEN_EVERY_MS) || undefined);
+}, Number(testEnv("POE_CHECKER_REGEN_FIRST_MS")) || undefined, Number(testEnv("POE_CHECKER_REGEN_EVERY_MS")) || undefined);
 
 // ---- settings (F8)
 const ARCHETYPES = ["all", "attack-melee", "attack-bow", "attack-crossbow", "spell-fire", "spell-cold", "spell-lightning", "spell-chaos", "spell-physical", "minion", "totem-trap-mine"];
