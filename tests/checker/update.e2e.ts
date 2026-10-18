@@ -103,7 +103,7 @@ describe.skipIf(!exe || !haveFeed)("B) the installed program updates itself from
     const feed = await serveFolder(DIST);
     extra.push(() => feed.close());
     const sbx = sandbox();
-    const settings = { game_version: "poe1", league: "Allflame", prefer_hardcore: true, hotkey_trade: "F6", hotkey_quit: "Ctrl+Alt+W", close_action: "exit", f5_restore_clipboard: false, filter_gen: { strictness_poe1: 4, filter_name_tier: "my-tier", auto_regen_neversink: true } };
+    const settings = { game_version: "poe1", league: "Allflame", auto_league: false, prefer_hardcore: true, hotkey_trade: "F6", hotkey_quit: "Ctrl+Alt+W", close_action: "exit", f5_restore_clipboard: false, filter_gen: { strictness_poe1: 4, filter_name_tier: "my-tier", auto_regen_neversink: true } };
     fs.mkdirSync(sbx.checkerDir, { recursive: true });
     fs.writeFileSync(path.join(sbx.checkerDir, "config.json"), JSON.stringify(settings));
     killAll();
@@ -162,7 +162,8 @@ describe.skipIf(!exe || !haveFeed)("B) the installed program updates itself from
   }, 180000);
 
   it("a feed whose checksum does not match the file: refused, nothing is installed, the version stays", async () => {
-    const feed = await serveFolder(DIST, { yml: { "checker.yml": (t) => t.replace(/sha512: .+/g, "sha512: " + "A".repeat(86) + "==") } });
+    // (the feed offers a version above any installed one, so the check always finds an update; the checksum says the file is not what the feed claims)
+    const feed = await serveFolder(DIST, { yml: { "checker.yml": (t) => t.replace(/^version: .+$/m, "version: 99.0.0-beta.1").replace(/sha512: .+/g, "sha512: " + "A".repeat(86) + "==") } });
     extra.push(() => feed.close());
     const sbx = sandbox();
     killAll();

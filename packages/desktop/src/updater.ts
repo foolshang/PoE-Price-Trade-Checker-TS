@@ -56,7 +56,7 @@ export class AppUpdater {
 
   constructor(private readonly o: AppUpdaterOptions) {
     const packaged = o.isPackaged || !!this.feed;
-    this.mode = !packaged ? "off" : installedByInstaller(o.exePath) || this.feed ? "installer" : "manual";
+    this.mode = !packaged ? "off" : installedByInstaller(o.exePath) ? "installer" : "manual"; // (a feed in POE_UPDATE_FEED does not make a zip copy an installed one)
     const ask = (e: IpcMainInvokeEvent | IpcMainEvent): boolean => o.allow(e);
     ipcMain.handle("upd:get", (e) => (ask(e) ? this.state : { kind: "idle" }));
     ipcMain.on("upd:install", (e) => {

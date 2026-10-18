@@ -56,6 +56,14 @@ export class MessageOverlay {
 
   /** The page drew the label: size the window to it, put it at the bottom right and show it without taking the focus. */
   onReady(size: { width: number; height: number }): void {
+    try {
+      this.place(size);
+    } catch (e) {
+      this.o.log(`overlay: ${(e as Error).message}`); // (the program is closing and the window is already gone)
+    }
+  }
+
+  private place(size: { width: number; height: number }): void {
     const win = this.window;
     const p = this.pendingShow;
     if (!win || !p || !(size.width > 0) || !(size.height > 0)) return;

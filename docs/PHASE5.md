@@ -1,0 +1,72 @@
+# Phase 5 - the Checker complete + ready to replace the original
+
+Status: **part A built and tested** (the Checker has the filter page, settings, tray, message over the game, NeverSink auto-regenerate;
+the tier-ladder builder is TypeScript; both programs update themselves; both come as a Setup and a zip). Waiting for Winai's test in the game.
+**Part B (the release) is NOT done and does not start until Winai orders it** - drafts are in `docs/release-draft/`. No tag, no release.
+
+## What part A is, item by item
+
+| | Done as |
+|---|---|
+| **A1 filter page in the Checker** | The page of `@poe/ui` (the same as the Filter Generator and the web) in a window of its own, opened by the main window's **Filter Generator** button (`filter.html`). The shared main-process side moved to a new package `@poe/desktop` (`host.ts`: config `filter_gen`, game folders, allowed network hosts, flush-before-close; `preload.ts`; `page.ts`; `guard.ts`) - **both apps use it** (the Filter Generator's 39 golden-byte tests pass unchanged). `filter_gen` lives in the Checker's `PoePriceTradeTS\config.json`, never in `PoeFilterGenTS`. The page's game IS the Checker's game (switch either, the other follows, like the original's window which was bound to the Checker's game). Generate = the same code as the Filter Generator: golden bytes (3 tier cases + 2 whitelist cases per game, compared with the original). |
+| **A2 auto-regen + 3 notices** | `regen.ts`: 45 s after the start, then every 6 h, only when a tier filter was made for the game and a newer NeverSink release exists; with `auto_regen_neversink` ticked the tier filter is generated again (through the filter page, shown or not: a hidden copy of the page is made for the job and thrown away - the sounds live in the page's storage, so the page is the only place that can write the filter exactly as the button does). Notices: the Status of the main window, the tray (balloon + red dot on the icon until the window is shown), and the **message over the game** (`overlay.ts`: a transparent window, `focusable:false`, `setIgnoreMouseEvents`, `showInactive`, always on top at the "screen-saver" level, bottom right, 8 s, green when regenerated / yellow when only told). Shown only by this check, never by a Generate by hand. |
+| **A3 tray + X** | `tray.ts` (Show / Generate Now / Settings / Quit, red-dot icon while a message waits). `close_action` minimize / exit like the original. **No tray icon => the window is never hidden** (X closes the program; minimize stays in the taskbar); the settings window says so. |
+| **A4 settings (F8)** | Tabs Game / Hotkeys / Advanced as in the original; no price-mode keys (overlay opacity, price offset, match threshold are gone); new: `f5_restore_clipboard`. Hotkeys (`hotkeys.ts`): refused with the reason on the page - Ctrl+C / V / A / F, Ctrl+Enter, Home, Delete, Enter, the arrows, a bare letter / digit / Space / Tab (my addition: it would be taken from the game's skills and from typing), anything that is not a hotkey, and duplicates (any spelling). Applying registers the new keys **at once**; if the system refuses one (another program holds it) the old keys are put back and the page names the field. A hand-edited / imported config with a bad hotkey falls back to the default with a line in the Status. |
+| **A5 mod-meta builder** | `packages/core/src/mod_meta_build.ts` + `tools/build-mod-meta-main.ts`; `npm run mod-meta:build` (both games from repoe-fork -> `apps/checker/resources/`; `--local DIR`, `--game`, `-o`). **Byte-identical with the original's `tools/build_mod_meta.py`** on the real datasets (poe1 771,088 bytes / poe2 966,440 bytes, only the `generated` stamp differs) and on 18 hand-made parity cases (first-match spawn weights, the domain allow-list per game, abyss / cluster not leaking, merged tag sets, number / markup normalisation, tier order, the sanity floor). Time: about 0.9 s per game in TypeScript. The shipped `mod_meta_*.json` and the parity fixtures were rebuilt from the current datamine with it (parity re-run: 5,586 cases still equal the original). A source with a whole number written as `1.0` stops the build (JavaScript could not write it as Python does). |
+| **A6 self-update** | `@poe/desktop/updater` (electron-updater 6.8.10, GitHub Releases): first check 20 s after the start, then every 6 h; downloads in the background; **never closes the program by itself** - the banner says "มีรุ่นใหม่ vX ติดตั้งเมื่อปิดโปรแกรม" with a **รีสตาร์ทเพื่ออัปเดต** button, the update is installed when the program is closed. A pre-release (a "-" in the version) is skipped by stable copies; a beta copy follows the betas (this is how a beta can be tested; the brief said "always skip" - that would leave testers without updates, so it is "skip unless I am a beta myself"). The zip copy cannot update itself: it only says a newer release exists, with the link. The checksum of `latest.yml` / `checker.yml` is checked by electron-updater; a wrong checksum or a feed that is down is a line in the log and nothing else. |
+| **A7 Setup + zip** | `npm run desktop:pack` / `checker:pack` build both, plus the feed file (`latest.yml` for the Filter Generator, `checker.yml` for the Checker: electron-updater channel). Names: `PoE-Filter-Generator-TS-Setup-<v>.exe`, `PoE-Filter-Generator-TS-Portable-<v>.zip`, `PoE-Price-Trade-Checker-TS-Setup-<v>.exe`, `PoE-Price-Trade-Checker-TS-Portable-<v>.zip`. |
+| **A8 import** | `PoePriceTrade` -> `PoePriceTradeTS` once (incl. `filter_gen`, hotkeys, league, `close_action`, `auto_regen_neversink` ...); the Status lists the keys taken over and the keys left behind (price-mode / OCR keys named, unknown keys named); the original's files are never written. |
+
+## Findings on the way (all fixed)
+
+- `staleness_hours`, `regen_cooldown_min`, `auto_regen` of the original's `filter_gen` defaults are **dead keys** (the original's own test says "not touched, just unused"). The real behaviour is the 45 s + 6 h poll with `auto_regen_neversink`; that is what was ported. There is no cooldown in the original.
+- `AppConfig.save()` could fail when two saves ran at once (one temp file name): saves are now queued. Caught by a flaky unit test after the main process started saving from several places.
+- The F5 popup could throw "Object has been destroyed" when a second F5 replaced it before its page loaded (an Electron error dialog and a process that stays). Fixed; every e2e test now fails if `log.txt` has an uncaught error.
+- Two preload files that share code are built with a shared chunk, which a sandboxed preload cannot load (the main window got no bridge): the main preload carries its own copy; a test checks every preload is one self-contained file.
+
+## Layout
+
+```
+packages/desktop/      @poe/desktop: host.ts (main side of the filter page), preload.ts, page.ts, guard.ts, updater.ts (+ _logic, _api), banner.ts
+apps/checker/src/main/ index.ts (+ hotkeys.ts, tray.ts, overlay.ts, regen.ts, game_keys.ts, item_copy.ts, native.ts)
+apps/checker/src/renderer/  index (main), settings, overlay, filter, picker, skillref
+tools/build-mod-meta-main.ts   packages/core/src/mod_meta_build.ts   tools/parity/mod_meta_cases.py
+tests/checker/  checker.e2e.ts (phase 4 + copy round + window flash)  phase5.e2e.ts  update.e2e.ts  hotkeys.test.ts  updater_logic.test.ts  feed.mjs
+docs/release-draft/    part B drafts (not active)
+```
+
+## Tests (all run on the INSTALLED v1.0.0-beta.13 of both programs, and the build output before)
+
+| | |
+|---|---|
+| `npm test` | 6,208 pass (unit + 5,586 parity cases against the original, incl. 18 new for the mod-meta builder); `parity:check` ok; the original's repo `git status` clean before and after |
+| tsc strict, eslint | clean |
+| web | `test:ui` all ok, `test:e2e` 39 |
+| Filter Generator (installed) | 40: the golden bytes (unchanged by moving its code into `@poe/desktop`), config import, old filters, sounds, CFA message, update banner |
+| Checker (installed) | 96 in 3 files: phase 4 + copy round + window flash (53), phase 5 (A filter page golden bytes, B settings, C tray / X / Generate Now, D NeverSink check, E overlay Win32 styles), zip (unpack, run, nothing written next to it, says a newer release) |
+| self-update (installed Checker, local feed = the real pack) | 6: **installed beta.12 -> feed beta.13**: downloads in the background, banner, installs on the click, every setting kept, beta.13 starts; a feed that is down; a feed whose checksum is wrong; banner states |
+| `tests/checker/live.mjs` | against the real hub and GGG: ok |
+
+Honest notes: the key-press tests need the keyboard focus and fail now and then in a full run on the installed program (a different test each
+time, never when run again alone) - the e2e config retries a failed test once; they all pass. One real race came out of those runs (the
+message over the game while the program closes) and is fixed in beta.13. Filter Generator's own self-update flow was not run end to end (it is
+the same code as the Checker's; its banner and its feed lookup are covered), because that needs two consecutive packs of it.
+
+Sizes: Setup Checker 103.6 MB, zip 142.3 MB; Filter Generator Setup 103.0 MB, zip 141.6 MB. Building the tier ladders: 0.9 s per game.
+
+## Needs Winai (in the game)
+
+Close the **original Checker** first (it holds F4 / F5).
+1. **The message over the game** (A2): a NeverSink update notice (to force one: tick "regenerate automatically", generate a tier filter, edit
+   `neversink_tag_<game>` in `%LOCALAPPDATA%\PoePriceTradeTS\config.json` to an older tag, restart - the check runs 45 s after the start): it must show over the game in
+   **fullscreen and borderless**, must not take clicks or the keyboard, and **must not throw the game out of fullscreen**. If it does, say so: the fallback is a smaller window / the tray balloon only
+   (not silent: the Status always has the line).
+2. F8 settings: change a hotkey and use it at once; the refused keys; a key another program holds.
+3. The tray: X hides, Show brings it back; with "exit" X closes.
+4. The Filter Generator button: generate a filter, reload it in the game.
+5. Self-update is only provable on a real release (part B): until then the check finds nothing on GitHub (no release has the files).
+
+## Part B (waits for the order)
+
+`docs/release-draft/`: `release.yml` (workflow), `README_public.draft.md`, `old-repo-release-guard.diff` (a change for the ORIGINAL repo's
+release.yml so it cannot publish over "Latest"; **not applied**), `B0-where-does-the-checker-go.md` (the question for Winai).

@@ -5,6 +5,15 @@
 
 ---
 
+## 2026-10-18 (6) - phase 5 part A: the Checker complete (committed, no tag, no release)
+
+- `@poe/desktop` (new package): the filter page's main-process side, preload, renderer glue and the updater, shared by the Filter Generator and the Checker.
+  Checker: filter page window, settings (F8) with hotkey rules, tray + close action (no tray = X closes), message over the game, NeverSink check
+  (45 s, then 6 h) that regenerates through the filter page and tells in 3 places. mod-meta builder in TypeScript (byte-identical with the original's tool on both real
+  datasets; 18 parity cases); shipped meta rebuilt with it. Self-update (electron-updater, banner, never closes the program by itself), Setup + zip for both programs,
+  import report in the Checker's Status. Part B drafts in docs/release-draft/.
+- Bugs found and fixed on the way: concurrent `AppConfig.save()`, F5 popup "Object has been destroyed", shared preload chunk. Details: docs/PHASE5.md.
+
 ## 2026-10-18 (5) - phase 4 bug fix: window flash on F5 / popup close, v1.0.0-beta.10 (committed, no tag, no release)
 
 - Cause (docs/PHASE4.md): closing the popup (or the F4 window) while it held the focus made Windows give the focus to the Checker's main window, which jumped up over
