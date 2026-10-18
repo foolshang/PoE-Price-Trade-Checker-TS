@@ -369,12 +369,18 @@ describe("E) the original's config is read once, its files are never written", (
     fs.writeFileSync(oldCfg, JSON.stringify({
       game_version: "poe1", league: "Allflame", prefer_hardcore: true, auto_league: false, hotkey_scan: "F9", hotkey_trade: "F5",
       f4_mode: "price", overlay_opacity: 0.5, price_offset_px: 9, match_threshold: 0.9, currency_unit: "chaos", junk_key: 1,
-      filter_gen: { strictness_poe1: 3, auto_regen: true },
+      close_action: "exit", log_level: "DEBUG", hotkey_quit: "Ctrl+Alt+W",
+      filter_gen: { strictness_poe1: 3, auto_regen: true, auto_regen_neversink: true, game_dir_poe1: "D:\games\poe1 filters" },
     }, null, 2));
     fs.writeFileSync(path.join(sbx.checkerOldDir, "log.txt"), "old");
     const before = { cfg: sha(fs.readFileSync(oldCfg)), mtime: fs.statSync(oldCfg).mtimeMs };
     const { app, page } = await start(sbx);
-    expect(await logText(page)).toContain("นำเข้าค่าจากโปรแกรมเดิมแล้ว");
+    const importLog = await logText(page);
+    expect(importLog).toContain("นำเข้าค่าจากโปรแกรมเดิมแล้ว");
+    // the log says which keys came over and which were left behind
+    expect(importLog).toMatch(/นำเข้า \d+ ค่า: .*game_version.*league.*hotkey_scan.*close_action.*filter_gen/);
+    expect(importLog).toMatch(/ไม่นำเข้า \(โหมดราคา\/OCR ที่โปรแกรมนี้ไม่มี\): f4_mode, overlay_opacity, price_offset_px, match_threshold, currency_unit/);
+    expect(importLog).toContain("ไม่รู้จัก: junk_key");
     expect(await page.locator("#game-poe1").getAttribute("aria-pressed")).toBe("true");
     expect(await leagueOf(page)).toBe("Allflame"); // auto_league false: the saved league is kept (it is in the hub's list or added)
     expect(await app.evaluate(({ globalShortcut }) => globalShortcut.isRegistered("F4"))).toBe(true); // the old F9 became F4
@@ -384,7 +390,8 @@ describe("E) the original's config is read once, its files are never written", (
     const mine = JSON.parse(fs.readFileSync(path.join(sbx.checkerDir, "config.json"), "utf-8"));
     for (const k of ["f4_mode", "overlay_opacity", "price_offset_px", "match_threshold", "currency_unit", "junk_key"]) expect(mine[k]).toBeUndefined();
     expect(mine.hotkey_scan).toBe("F4");
-    expect(mine.filter_gen.strictness_poe1).toBe(3);
+    expect(mine).toMatchObject({ close_action: "exit", log_level: "DEBUG", hotkey_quit: "Ctrl+Alt+W", prefer_hardcore: true, auto_league: false, league: "Allflame" });
+    expect(mine.filter_gen).toMatchObject({ strictness_poe1: 3, auto_regen_neversink: true, game_dir_poe1: "D:\games\poe1 filters" });
     expect(sha(fs.readFileSync(oldCfg))).toBe(before.cfg);
     expect(fs.statSync(oldCfg).mtimeMs).toBe(before.mtime);
     expect(fs.readdirSync(sbx.checkerOldDir).sort()).toEqual(["config.json", "log.txt"]);
@@ -410,6 +417,13 @@ describe("F) hotkeys taken by another program", () => {
 });
 
 describe("G) what the windows can and cannot do", () => {
+  it("every preload is one self-contained file (a sandboxed preload cannot load another file)", () => {
+    const dir = path.join(CHECKER_DIR, "out", "preload");
+    const files = fs.readdirSync(dir);
+    expect(files.sort()).toEqual(["filter.cjs", "main.cjs", "overlay.cjs", "picker.cjs", "settings.cjs", "skill.cjs"]);
+    for (const f of files) expect(fs.readFileSync(path.join(dir, f), "utf-8")).not.toMatch(/require\(["']\.\.?\//);
+  });
+
   it("each window has only its own bridge, no node, a strict CSP, no way to navigate away", async () => {
     const sbx = sandbox();
     const { app, page } = await start(sbx, { game: "poe2" });

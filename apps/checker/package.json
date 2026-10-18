@@ -6,15 +6,21 @@
   "main": "out/main/index.cjs",
   "description": "PoE Price & Trade Checker (TypeScript)",
   "author": "foolshang",
-  "scripts": { "dev": "electron-vite dev", "build": "electron-vite build" },
-  "dependencies": { "koffi": "3.3.0" },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build"
+  },
+  "dependencies": {
+    "koffi": "3.3.0"
+  },
   "devDependencies": {
     "@poe/core": "*",
-    "@poe/node": "*",
     "@poe/desktop": "*",
+    "@poe/node": "*",
     "@poe/ui": "*",
     "electron": "44.9.0",
     "electron-builder": "26.15.3",
+    "electron-updater": "^6.8.10",
     "electron-vite": "6.0.0",
     "vite": "8.3.4"
   }

@@ -19,6 +19,9 @@ win:
   target:
     - target: nsis
       arch: [x64]
+    - target: zip                 # no install: unpack anywhere and run (this copy cannot update itself: it says a newer release exists)
+      arch: [x64]
+  artifactName: PoE-Filter-Generator-TS-Portable-${version}.zip
 nsis:
   oneClick: true                   # no wizard: one click installs for the current user, no admin rights
   perMachine: false                # %LOCALAPPDATA%\Programs\PoE-Filter-Generator-TS
@@ -29,3 +32,9 @@ nsis:
   deleteAppDataOnUninstall: false  # the settings (%LOCALAPPDATA%\PoeFilterGenTS) and the game folders are never removed
   runAfterFinish: true
   artifactName: PoE-Filter-Generator-TS-Setup-${version}.exe
+publish:
+  - provider: github
+    owner: foolshang
+    repo: PoE-Filter-Generator
+    releaseType: release
+    channel: latest                 # latest.yml in the release (the Filter Generator)

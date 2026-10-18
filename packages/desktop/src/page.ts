@@ -8,6 +8,7 @@ import {
 } from "@poe/ui";
 import type { Platform } from "@poe/ui";
 import type { GameId, InitData, RegenResult } from "./api.ts";
+import { mountUpdateBanner } from "./banner.ts";
 import { desktopFolder } from "./desktop_folder.ts";
 
 const AUDIO = /\.(mp3|wav|ogg|flac|m4a|aac|wma)$/i;
@@ -125,4 +126,5 @@ export async function runFilterPage(o: FilterPageOptions): Promise<void> {
   document.title = `${o.title} v${init.version}`;
   (window as any).PFG_DESKTOP = { platform };
   await boot(document.getElementById("root") as HTMLElement, { title: o.title });
+  mountUpdateBanner();
 }

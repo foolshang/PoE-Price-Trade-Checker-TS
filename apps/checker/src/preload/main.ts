@@ -1,5 +1,6 @@
 /** Preload of the main window: window.checker = the named calls of shared/api.ts (MainApi), nothing else. */
 import { contextBridge, ipcRenderer } from "electron";
+import type { UpdateState, UpdaterApi } from "@poe/desktop/updater-api";
 import type { GameId, Hotkeys, MainApi, Tag } from "../shared/api.ts";
 
 const api: MainApi = {
@@ -15,3 +16,13 @@ const api: MainApi = {
   onHotkeys: (cb) => { ipcRenderer.on("main:hotkeys", (_e, hk: Hotkeys) => cb(hk)); },
 };
 contextBridge.exposeInMainWorld("checker", api);
+
+// window.updater (the update banner). Written out here, not imported from @poe/desktop/preload: two preload files that share a module
+// would be built with a shared chunk, and a sandboxed preload cannot load another file.
+const updater: UpdaterApi = {
+  get: () => ipcRenderer.invoke("upd:get"),
+  onState: (cb) => { ipcRenderer.on("upd:state", (_e, s: UpdateState) => cb(s)); },
+  install: () => ipcRenderer.send("upd:install"),
+  openRelease: () => ipcRenderer.send("upd:open-release"),
+};
+contextBridge.exposeInMainWorld("updater", updater);

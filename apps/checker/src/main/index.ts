@@ -15,9 +15,10 @@ import { baseDb, f5, filterService, hubClient, itemLang, league as leagueMod, me
 const { PyFloat } = py;
 type PyFloat = InstanceType<typeof PyFloat>;
 import type { HttpPort, models } from "@poe/core";
-import { AppConfig, CHECKER_DEFAULTS, NodeFs, NodeHttp, importOldConfig } from "@poe/node";
+import { AppConfig, CHECKER_DEFAULTS, NodeFs, NodeHttp, PRICE_MODE_KEYS, importOldConfig } from "@poe/node";
 import { isExternalLink } from "@poe/desktop/guard";
 import { FilterHost } from "@poe/desktop/host";
+import { AppUpdater } from "@poe/desktop/updater";
 import type { GameId, Hotkeys, MainInit, PickerFilter, SettingsErrors, SettingsInit, SettingsResult, SettingsValues, SkillDetail, Tag } from "../shared/api.ts";
 import { checkHotkeys, parseHotkey } from "./hotkeys.ts";
 import { MessageOverlay, OK_COLOR, WARN_COLOR } from "./overlay.ts";
@@ -72,6 +73,7 @@ protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { standard: t
 // ---------------------------------------------------------------------------------------------- state
 const config = new AppConfig(configDir, CHECKER_DEFAULTS);
 let importNote = "";
+const importDetails: string[] = [];
 let game: GameId = "poe2";
 let league = "";
 let leagues: string[] = [];
@@ -106,6 +108,17 @@ const filterHost = new FilterHost({
   importNote: () => importNote,
   // the game of the filter page is the game of the Checker (like the original's Filter Generator window)
   gameStore: { get: () => game, set: (g) => setGame(g, "filter") },
+});
+
+// updates of the program itself: GitHub Releases, channel "checker" (checker.yml next to the Filter Generator's latest.yml) - where the Checker is
+// released is Winai's decision (docs/PHASE5.md, B0); the feed is the one electron-builder wrote into the program
+const updater = new AppUpdater({
+  version: VERSION, isPackaged: app.isPackaged, exePath: process.execPath, channel: "checker",
+  releasesUrl: "https://github.com/foolshang/PoE-Filter-Generator/releases/latest", log: fileLog,
+  windows: () => [mainWin, filterWin].filter((w): w is BrowserWindow => !!w && !w.isDestroyed()),
+  allow: (e) => [mainWin, filterWin].some((w) => w && !w.isDestroyed() && e.sender === w.webContents) && (e.senderFrame?.url ?? "").startsWith("app://local/"),
+  openExternal: (u) => void shell.openExternal(u),
+  onInstallRequested: () => quit(), // (saves, closes, and the last step of quit() starts the installer)
 });
 
 // ---------------------------------------------------------------------------------------------- databases (per game, like the original)
@@ -913,7 +926,7 @@ function quit(): void {
   quitting = true;
   fileLog("INFO", "quit: closing");
   setTimeout(() => app.exit(0), 6000).unref?.(); // (a program that cannot close is worse than one that closes a little rough)
-  for (const step of [() => globalShortcut.unregisterAll(), () => watcher.stop(), () => tray.stop(), () => overlayWin.destroy()]) {
+  for (const step of [() => globalShortcut.unregisterAll(), () => watcher.stop(), () => updater.stop(), () => tray.stop(), () => overlayWin.destroy()]) {
     try { step(); } catch (e) { fileLog("WARNING", `quit step failed: ${(e as Error).message}`); }
   }
   void (async () => {
@@ -925,7 +938,7 @@ function quit(): void {
       await fsp.writeFile(path.join(debugDir, "last_session.md"), body, "utf-8");
     } catch { /* the program is closing */ }
     fileLog("INFO", "quit: saved");
-    app.exit(0);
+    if (!updater.installAtExit()) app.exit(0); // (a downloaded update is installed now; quitAndInstall quits by itself)
   })();
 }
 
@@ -934,6 +947,9 @@ function exposeTestHooks(): void {
   if (process.env.POE_CHECKER_TEST !== "1") return;
   (globalThis as any).__poeChecker = {
     trayOk: () => trayOk,
+    updaterMode: () => updater.currentMode,
+    updaterState: () => updater.current,
+    updaterInject: (s: any) => updater.inject(s),
     trayPending: () => tray.pendingState,
     overlayText: () => lastOverlayText,
     quitting: () => quitting,
@@ -960,6 +976,12 @@ if (!gotLock) {
     const r = await importOldConfig(configDir, oldConfigDir, { defaults: CHECKER_DEFAULTS, marker: "imported-from-PoePriceTrade.txt" });
     if (r.message) importNote = r.message;
     fileLog("INFO", `config import: ${r.status}`);
+    if (r.kept) importDetails.push(`ℹ นำเข้า ${r.kept.length} ค่า: ${r.kept.join(", ") || "-"}`);
+    if (r.dropped?.length) {
+      const price = r.dropped.filter((k) => PRICE_MODE_KEYS.includes(k));
+      const other = r.dropped.filter((k) => !PRICE_MODE_KEYS.includes(k));
+      importDetails.push(`ℹ ไม่นำเข้า (โหมดราคา/OCR ที่โปรแกรมนี้ไม่มี): ${price.join(", ") || "-"}${other.length ? ` · ไม่รู้จัก: ${other.join(", ")}` : ""}`);
+    }
     await config.load();
     await filterHost.load();
     game = cfgStr("game_version", "poe2") === "poe1" ? "poe1" : "poe2";
@@ -976,6 +998,7 @@ if (!gotLock) {
     filterHost.register();
     say(`PoE Price & Trade Checker v${VERSION} — config: ${configDir}`, "info"); // the version marker first (CLAUDE.md rule 5)
     if (importNote) say(importNote, "info");
+    for (const d of importDetails) say(d, "dim");
     const sz = screen.getPrimaryDisplay().size;
     say(`v${VERSION} · ${game.toUpperCase()} · league: ${league} · จอ ${sz.width}×${sz.height}`, "dim");
     startHotkeys();
@@ -986,6 +1009,7 @@ if (!gotLock) {
     if (trayOk) fileLog("INFO", "tray icon created");
     else fileLog("WARNING", `tray icon unavailable (${tray.lastError}) - the X button closes the program`);
     watcher.start();
+    updater.start();
     exposeTestHooks();
     void fetchLeagues(cfgBool("auto_league", true));
   });

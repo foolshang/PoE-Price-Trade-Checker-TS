@@ -9,7 +9,10 @@
     "./guard": "./src/guard.ts",
     "./host": "./src/host.ts",
     "./preload": "./src/preload.ts",
-    "./page": "./src/page.ts"
+    "./page": "./src/page.ts",
+    "./updater": "./src/updater.ts",
+    "./updater-api": "./src/updater_api.ts",
+    "./banner": "./src/banner.ts"
   },
   "dependencies": {
     "@poe/core": "*",

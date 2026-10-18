@@ -1,6 +1,7 @@
 /** The main window of the Checker: game, league, the Status and the buttons that open the settings and the filter page. */
 import "@poe/ui/src/style.css";
 import "./checker.css";
+import { mountUpdateBanner } from "@poe/desktop/banner";
 import { $, h, log } from "@poe/ui/src/dom.ts";
 import type { GameId, Hotkeys } from "../shared/api.ts";
 
@@ -41,6 +42,7 @@ async function main(): Promise<void> {
   fillLeagues(league, init.leagues, init.league);
   for (const [text, tag] of init.log) log(text, tag);
   api.onLog((text, tag) => log(text, tag));
+  mountUpdateBanner();
   api.onLeagues((leagues, picked) => fillLeagues(league, leagues, picked));
   api.onGame((g) => {
     game = g;

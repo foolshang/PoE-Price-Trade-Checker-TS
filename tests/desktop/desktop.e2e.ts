@@ -506,3 +506,26 @@ describe("K) offline", () => {
     await inet.close();
   }, 120000);
 });
+
+describe("Z) the update banner of the Filter Generator", () => {
+  it("shows what the update machinery says (a newer version being fetched / ready) and nothing for a failed check", async () => {
+    const sbx = sandbox();
+    const { app, page } = await start(sbx);
+    const send = (s) => app.evaluate(({ BrowserWindow }, st) => BrowserWindow.getAllWindows()[0].webContents.send("upd:state", st), s);
+    expect(await page.locator("#update-banner").isHidden()).toBe(true);
+    await send({ kind: "error", message: "offline" });
+    await wait(200);
+    expect(await page.locator("#update-banner").isHidden()).toBe(true);
+    await send({ kind: "downloading", version: "9.9.9", percent: 12 });
+    await page.locator("#update-banner").waitFor({ state: "visible" });
+    expect(await page.locator("#update-text").innerText()).toBe("มีรุ่นใหม่ v9.9.9 กำลังดาวน์โหลดเบื้องหลัง… 12%");
+    await send({ kind: "ready", version: "9.9.9" });
+    await page.waitForFunction(() => document.querySelector("#update-text").innerText.includes("ติดตั้งเมื่อปิดโปรแกรม"));
+    expect(await page.locator("#update-action").innerText()).toBe("รีสตาร์ทเพื่ออัปเดต");
+    // clicking it with nothing downloaded does not close the program
+    await page.locator("#update-action").click();
+    await wait(1200);
+    expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1);
+    expect(await page.evaluate(() => Object.keys(window.updater).sort())).toEqual(["get", "install", "onState", "openRelease"]);
+  }, 120000);
+});

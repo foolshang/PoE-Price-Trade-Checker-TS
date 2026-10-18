@@ -105,7 +105,13 @@ export class AppConfig {
 export interface ImportResult {
   status: "imported" | "already" | "no-old-config" | "unreadable";
   message: string;
+  /** the keys taken over / the keys left behind (the price-scan mode of the original and anything unknown) - for the log */
+  kept?: string[];
+  dropped?: string[];
 }
+
+/** keys of the original's config that belong to its price-scan mode (OCR, overlay, hover): this program has no such mode */
+export const PRICE_MODE_KEYS = ["f4_mode", "currency_unit", "overlay_opacity", "price_offset_px", "match_threshold"];
 
 /**
  * First start of the app: take the original's config (`oldDir`\config.json) once. The new folder gets the merged config and
@@ -127,9 +133,14 @@ export async function importOldConfig(newDir: string, oldDir: string, opts: { de
   const parsed = parseConfigText(text);
   if (parsed === null) return { status: "unreadable", message: `ค่าเดิมอ่านไม่ได้ (${oldFile}) — เริ่มด้วยค่าเริ่มต้น ไฟล์เดิมไม่ถูกแตะ` };
   await fsp.mkdir(newDir, { recursive: true });
+  const kept = Object.keys(parsed).filter((k) => k in defaults);
+  const dropped = Object.keys(parsed).filter((k) => !(k in defaults));
   await fsp.writeFile(mine, JSON.stringify(mergeSaved(parsed, defaults), null, 2), "utf-8");
   await fsp.writeFile(marker, `imported once from ${oldFile} at ${new Date().toISOString()}\nthe original's files are never written\n`, "utf-8");
-  return { status: "imported", message: `นำเข้าค่าจากโปรแกรมเดิมแล้ว (${oldFile}) — ไฟล์เดิมไม่ถูกแก้` };
+  return {
+    status: "imported", kept, dropped,
+    message: `นำเข้าค่าจากโปรแกรมเดิมแล้ว (${oldFile}) — ไฟล์เดิมไม่ถูกแก้`,
+  };
 }
 
 /**

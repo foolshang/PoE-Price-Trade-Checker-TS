@@ -12,6 +12,7 @@ import { pathToFileURL } from "node:url";
 import { AppConfig, IMPORT_MARKER, importOldConfig } from "@poe/node";
 import { isExternalLink, isInside } from "@poe/desktop/guard";
 import { FilterHost } from "@poe/desktop/host";
+import { AppUpdater } from "@poe/desktop/updater";
 
 declare const __APP_VERSION__: string;
 declare const __BUILD_TIME__: string;
@@ -68,6 +69,16 @@ const host = new FilterHost({
   config, configDir, version: VERSION, buildTime: __BUILD_TIME__, exeName, documentsDir, log,
   allow: (e) => !!win && e.sender === win.webContents && (e.senderFrame?.url ?? "").startsWith("app://local/"),
   importNote: () => importNote,
+});
+
+// updates of the program itself: GitHub Releases of the Filter Generator (channel "latest" = latest.yml)
+const updater = new AppUpdater({
+  version: VERSION, isPackaged: app.isPackaged, exePath: process.execPath, channel: "latest",
+  releasesUrl: "https://github.com/foolshang/PoE-Filter-Generator/releases/latest", log,
+  windows: () => (win && !win.isDestroyed() ? [win] : []),
+  allow: (e) => !!win && e.sender === win.webContents && (e.senderFrame?.url ?? "").startsWith("app://local/"),
+  openExternal: (u) => void shell.openExternal(u),
+  onInstallRequested: () => app.quit(), // (the windows save what is in their boxes while they close; the installer starts when they are gone)
 });
 
 async function loadAll(): Promise<void> {
@@ -147,6 +158,11 @@ if (gotLock) {
         `v${VERSION}\n${new Date().toISOString()}\nfrozen=${app.isPackaged}\nbuild=${__BUILD_TIME__}\nimport_marker=${existsSync(path.join(configDir, IMPORT_MARKER))}\n`, "utf-8");
     } catch { /* not important */ }
     createWindow();
+    updater.start();
   });
-  app.on("window-all-closed", () => app.quit());
+  // the end of the program: a downloaded update is installed now (quitAndInstall quits by itself)
+  app.on("window-all-closed", () => {
+    updater.stop();
+    if (!updater.installAtExit()) app.quit();
+  });
 }

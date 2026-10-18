@@ -4,6 +4,7 @@
  */
 import { contextBridge, ipcRenderer } from "electron";
 import type { DesktopApi, GameId, RegenRequest, RegenResult } from "./api.ts";
+import type { UpdateState, UpdaterApi } from "./updater_api.ts";
 
 const call = (channel: string, ...args: unknown[]): Promise<any> => ipcRenderer.invoke(channel, ...args);
 
@@ -43,4 +44,15 @@ export function exposeDesktopApi(): void {
     },
   };
   contextBridge.exposeInMainWorld("desktop", api);
+}
+
+/** window.updater: what the update banner needs (the state, "restart to update", the release page) and nothing else. */
+export function exposeUpdaterApi(): void {
+  const api: UpdaterApi = {
+    get: () => call("upd:get"),
+    onState: (cb) => { ipcRenderer.on("upd:state", (_e, s: UpdateState) => cb(s)); },
+    install: () => ipcRenderer.send("upd:install"),
+    openRelease: () => ipcRenderer.send("upd:open-release"),
+  };
+  contextBridge.exposeInMainWorld("updater", api);
 }

@@ -23,6 +23,9 @@ win:
   target:
     - target: nsis
       arch: [x64]
+    - target: zip                 # no install: unpack anywhere and run (this copy cannot update itself: it says a newer release exists)
+      arch: [x64]
+  artifactName: PoE-Price-Trade-Checker-TS-Portable-${version}.zip
 nsis:
   oneClick: true
   perMachine: false
@@ -33,3 +36,9 @@ nsis:
   deleteAppDataOnUninstall: false  # the settings (%LOCALAPPDATA%\PoePriceTradeTS) are never removed
   runAfterFinish: true
   artifactName: PoE-Price-Trade-Checker-TS-Setup-${version}.exe
+publish:
+  - provider: github
+    owner: foolshang
+    repo: PoE-Filter-Generator
+    releaseType: release
+    channel: checker                 # checker.yml in the release (the Checker: where it is released is open, see docs/PHASE5.md B0)
