@@ -26,10 +26,10 @@ function altTap() {
   keybd_event(0x12, 0, 2, 0);
 }
 
-export async function openTextBox(file, title) {
+export async function openTextBox(file, title, { grab = false } = {}) {
   const ready = path.join(os.tmpdir(), `pfg-box-${process.pid}-${Date.now()}.ready`);
   const keyLog = ready.replace(/\.ready$/, ".keys");
-  const proc = spawn("powershell", ["-NoProfile", "-STA", "-File", path.join(import.meta.dirname, "textbox.ps1"), file, title, ready, keyLog], { stdio: "ignore", windowsHide: true });
+  const proc = spawn("powershell", ["-NoProfile", "-STA", "-File", path.join(import.meta.dirname, "textbox.ps1"), file, title, ready, keyLog, grab ? "1" : "0"], { stdio: "ignore", windowsHide: true });
   let hwnd = null;
   for (let i = 0; i < 100 && !hwnd; i++) {
     await sleep(100);
@@ -90,4 +90,43 @@ const SetCursorPos = user32.func("bool __stdcall SetCursorPos(int x, int y)");
 /** move the mouse pointer (screen pixels) */
 export function setCursor(x, y) {
   return SetCursorPos(x, y);
+}
+
+// ---- what windows exist: the OS's own list (EnumWindows), not Electron's
+const EnumWindowsProc = koffi.proto("bool __stdcall EnumWindowsProc(void *hwnd, intptr_t lparam)");
+const EnumWindows = user32.func("bool __stdcall EnumWindows(EnumWindowsProc *cb, intptr_t lparam)");
+const IsWindowVisible = user32.func("bool __stdcall IsWindowVisible(void *h)");
+const GetWindowThreadProcessId = user32.func("uint32 __stdcall GetWindowThreadProcessId(void *h, _Out_ uint32_t *pid)");
+const GetClassNameW = user32.func("int __stdcall GetClassNameW(void *h, _Out_ uint16_t *buf, int n)");
+const GetWindowRect = user32.func("bool __stdcall GetWindowRect(void *h, _Out_ int32_t *rect)");
+const IsIconic = user32.func("bool __stdcall IsIconic(void *h)");
+const text16 = (fn, h) => { const b = new Uint16Array(256); const n = fn(h, b, 256); return String.fromCharCode(...b.slice(0, n)); };
+
+/** every visible top-level window of the given process ids: [{title, cls, x, y, w, h, minimized}] */
+export function visibleWindowsOf(pids) {
+  const want = new Set(pids);
+  const out = [];
+  const cb = koffi.register((h) => {
+    if (!IsWindowVisible(h)) return true;
+    const pid = [0];
+    GetWindowThreadProcessId(h, pid);
+    if (!want.has(pid[0])) return true;
+    const r = [0, 0, 0, 0];
+    GetWindowRect(h, r);
+    out.push({ title: text16(GetWindowTextW, h), cls: text16(GetClassNameW, h), x: r[0], y: r[1], w: r[2] - r[0], h: r[3] - r[1], minimized: !!IsIconic(h) });
+    return true;
+  }, koffi.pointer(EnumWindowsProc));
+  try { EnumWindows(cb, 0); } finally { koffi.unregister(cb); }
+  return out;
+}
+
+/** titles of the visible top-level windows, top of the z-order first */
+export function zOrderTitles() {
+  const out = [];
+  const cb = koffi.register((h) => {
+    if (IsWindowVisible(h)) { const t = text16(GetWindowTextW, h); if (t) out.push(t); }
+    return true;
+  }, koffi.pointer(EnumWindowsProc));
+  try { EnumWindows(cb, 0); } finally { koffi.unregister(cb); }
+  return out;
 }

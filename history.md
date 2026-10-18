@@ -5,6 +5,14 @@
 
 ---
 
+## 2026-10-18 (5) - phase 4 bug fix: window flash on F5 / popup close, v1.0.0-beta.10 (committed, no tag, no release)
+
+- Cause (docs/PHASE4.md): closing the popup (or the F4 window) while it held the focus made Windows give the focus to the Checker's main window, which jumped up over
+  the game. Fix: remember the window in front at F5 / F4, give the focus back to it before closing. Also fixed: a picture on the clipboard made F5 fail.
+- New in log.txt: the popup's life (shown at, hide / blur, who closed it, covered-by check at +150 / +600 / +1500 ms, raised again when covered).
+- Tests: e2e 53 (new: M no window but the popup shows during F5, N focus back after Esc / Enter, O F4 window, picture on the clipboard). Dev tool: tests/checker/probe_windows.mjs.
+- Not proven: why only PoE1 for Winai; the real game's focus rules.
+
 ## 2026-10-18 (4) - phase 4 round-fix: how F5 copies, v1.0.0-beta.9 (committed, no tag, no release)
 
 - Ideas from EE2 (cca3066) and APT (3188208), **written from scratch - no code copied** (only the localized first lines of an item were

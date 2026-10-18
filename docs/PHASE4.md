@@ -53,6 +53,30 @@ left down after F5 (`GetAsyncKeyState`), clipboard restored (success / time out 
 or popup or error, the popup near the first mouse position, the ini byte-identical after F5. Known limit of the test: the box does not see the
 player's own Ctrl-up, so for Ctrl+F5 the test checks only what the program does (one Ctrl-down, none of its own Ctrl-up).
 
+## Bug fix (beta.10): "a Checker-looking window flashes on F5"
+
+Report: PoE1, F5, a window like the Checker's shows for a moment and goes (not a console).
+
+Evidence (nothing guessed; `tests/checker/probe_windows.mjs` logs every window event and samples the OS's own window list every 10 ms):
+- F5 itself shows, focuses, restores or flashes **no** window of the program except the popup (OS list: only the main window and "เลือก mod";
+  the main window gets no show / focus / restore event). Unique items (no popup) create no window. The popup is created hidden, sized and
+  placed first, shown after its page has painted, and is never seen at any other place. The code path of PoE1 and PoE2 for windows is the same.
+- **Closing the popup (Esc, Enter / search, the cancel button) gave the keyboard focus to the Checker's main window** (event `focus` on it,
+  reproduced with a plain window standing in for the game; the new tests N failed before the fix). When the window that holds the focus is
+  destroyed, Windows hands the focus to another window of the same program, not to the game: the main window jumps up over the game and
+  disappears again when the browser / game takes the focus back. The F4 window did the same.
+- Another real bug found on the way: when the clipboard held a **picture**, restoring it failed (`clipboard.write cannot accept a
+  ClipboardItem returned from clipboard.read()`) and F5 ended with an error and no popup. Fixed (the picture is kept as bytes).
+
+Fix: the window in front when F5 / F4 is pressed is remembered (`native.ts foregroundWindow`); before the popup / skill window is closed,
+the focus is given back to it (`focusWindow`) when the popup still has the focus. `log.txt` now has the popup's life: shown at (bounds + mouse),
+hide / blur / minimize, who closed it, renderer gone, and what Windows says 150 / 600 / 1500 ms after it is shown (visible, focus,
+windows covering it; a covered popup is raised again).
+
+Not proven here: why Winai saw it on PoE1 only (the code is the same for both games), and the behaviour of the real game (fullscreen / borderless
+focus rules). Tests: M (no window except the popup during F5, 4 items, PoE1 and PoE2, popup/no popup), N (Esc / Enter give the focus back), O (F4 window),
+picture on the clipboard.
+
 ## Parity with the original (byte for byte)
 
 4,108 cases run on the original (Python, read only) and on the core: the parser (47 fixture clipboards x both games: rare / magic / unique /

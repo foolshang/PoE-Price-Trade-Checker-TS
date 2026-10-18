@@ -99,6 +99,76 @@ export async function sendCopyChord(chord: number[]): Promise<SendResult> {
   return { sent, total, blocked: sent < total && denied };
 }
 
+export interface WindowFacts {
+  visible: boolean;
+  minimized: boolean;
+  /** title of the window that has the keyboard focus now ("" = none / another program's without a title) */
+  foreground: string;
+  /** visible windows above this one in the z-order that overlap it (titles), nearest first */
+  covering: string[];
+}
+
+let facts: { fg: () => bigint; visible: (h: bigint) => boolean; iconic: (h: bigint) => boolean; prev: (h: bigint, cmd: number) => bigint; title: (h: bigint, buf: Uint16Array, n: number) => number; rect: (h: bigint, r: number[]) => boolean; cloaked: (h: bigint, attr: number, out: number[], size: number) => number; isWindow: (h: bigint) => boolean; setForeground: (h: bigint) => boolean } | null = null;
+
+/** What Windows itself says about one of our windows (`hwnd` = BrowserWindow.getNativeWindowHandle()): shown? covered by what? who has the focus? */
+function loadFacts(): NonNullable<typeof facts> {
+  if (!facts) {
+    const user32 = koffi.load("user32.dll");
+    facts = {
+      fg: user32.func("uintptr_t __stdcall GetForegroundWindow()") as never,
+      visible: user32.func("bool __stdcall IsWindowVisible(uintptr_t h)") as never,
+      iconic: user32.func("bool __stdcall IsIconic(uintptr_t h)") as never,
+      prev: user32.func("uintptr_t __stdcall GetWindow(uintptr_t h, uint32 cmd)") as never,
+      title: user32.func("int __stdcall GetWindowTextW(uintptr_t h, _Out_ uint16_t *buf, int n)") as never,
+      rect: user32.func("bool __stdcall GetWindowRect(uintptr_t h, _Out_ int32_t *r)") as never,
+      isWindow: user32.func("bool __stdcall IsWindow(uintptr_t h)") as never,
+      setForeground: user32.func("bool __stdcall SetForegroundWindow(uintptr_t h)") as never,
+      cloaked: koffi.load("dwmapi.dll").func("int __stdcall DwmGetWindowAttribute(uintptr_t h, uint32 attr, _Out_ uint32_t *v, uint32 size)") as never,
+    };
+  }
+  return facts;
+}
+
+/** The window that has the keyboard focus right now (0n = none). */
+export function foregroundWindow(): bigint {
+  return loadFacts().fg();
+}
+
+/** Give the keyboard focus back to `h` (a window of another program, remembered earlier); false when it is gone or Windows refuses. */
+export function focusWindow(h: bigint): boolean {
+  const f = loadFacts();
+  return !!h && !!f.isWindow(h) && !!f.setForeground(h);
+}
+
+export function windowFacts(hwndBuf: Buffer): WindowFacts {
+  const f = loadFacts();
+  const h = hwndBuf.readBigUInt64LE(0);
+  const titleOf = (w: bigint): string => {
+    const b = new Uint16Array(128);
+    const n = f.title(w, b, 128);
+    return String.fromCharCode(...b.slice(0, n));
+  };
+  const rectOf = (w: bigint): number[] => {
+    const r = [0, 0, 0, 0];
+    f.rect(w, r);
+    return r;
+  };
+  const isCloaked = (w: bigint): boolean => {
+    const out = [0];
+    return f.cloaked(w, 14, out, 4) === 0 && out[0] !== 0; // DWMWA_CLOAKED
+  };
+  const mine = rectOf(h);
+  const covering: string[] = [];
+  let w = f.prev(h, 3); // GW_HWNDPREV: the window above
+  for (let i = 0; w && i < 400 && covering.length < 6; i++, w = f.prev(w, 3)) {
+    if (!f.visible(w) || isCloaked(w)) continue; // (Windows keeps cloaked shell windows - Start, hidden UWP apps - "visible" in the list)
+    const r = rectOf(w);
+    const overlaps = r[0] < mine[2] && r[2] > mine[0] && r[1] < mine[3] && r[3] > mine[1];
+    if (overlaps && r[2] > r[0] && r[3] > r[1]) covering.push(titleOf(w) || "(no title)");
+  }
+  return { visible: !!f.visible(h), minimized: !!f.iconic(h), foreground: titleOf(f.fg()), covering };
+}
+
 function elevationOf(proc: unknown): boolean | null {
   const a = load();
   const token = [null as unknown];

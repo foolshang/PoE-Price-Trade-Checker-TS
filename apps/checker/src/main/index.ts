@@ -5,7 +5,7 @@
  * config (%LOCALAPPDATA%\PoePriceTradeTS, imported once from the original's PoePriceTrade) and the windows. The windows show pages
  * from the app:// protocol and can call only what their preload exposes (shared/api.ts).
  */
-import { app, BrowserWindow, clipboard, globalShortcut, ipcMain, Menu, net, protocol, screen, session, shell } from "electron";
+import { app, BrowserWindow, clipboard, ClipboardItem, globalShortcut, ipcMain, Menu, net, protocol, screen, session, shell } from "electron";
 import type { IpcMainEvent, IpcMainInvokeEvent } from "electron";
 import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { promises as fsp } from "node:fs";
@@ -19,7 +19,7 @@ import { AppConfig, CHECKER_DEFAULTS, NodeFs, NodeHttp, importOldConfig } from "
 import type { GameId, MainInit, PickerFilter, SkillDetail, Tag } from "../shared/api.ts";
 import { copyChord, keyName, readAdvancedKey } from "./game_keys.ts";
 import { copyItemText } from "./item_copy.ts";
-import { foregroundElevated, selfElevated, sendCopyChord } from "./native.ts";
+import { foregroundElevated, selfElevated, focusWindow, foregroundWindow, sendCopyChord, windowFacts } from "./native.ts";
 import { pickerInit } from "./picker_data.ts";
 
 declare const __APP_VERSION__: string;
@@ -144,7 +144,7 @@ function setGame(g: GameId): void {
   league = leagues[0] ?? "";
   saveSoon();
   sendLeagues();
-  closePicker();
+  closePicker("game switched");
   closeSkill();
   void fetchLeagues(cfgBool("auto_league", true));
 }
@@ -174,6 +174,7 @@ async function onF5(): Promise<void> {
   if (f5Busy) return;
   f5Busy = true;
   const pressPoint = screen.getCursorScreenPoint(); // the popup goes where the mouse was when the key was pressed
+  const gameWindow = foregroundToReturnTo(); // and the focus goes back there when it is closed
   try {
     const gv = game;
     const { chord, label } = await copyKeys(gv);
@@ -181,15 +182,26 @@ async function onF5(): Promise<void> {
       snapshot: async () => {
         const text = (await clipboard.readText()) || "";
         // no text but a picture on the clipboard: keep the picture, so the copy does not cost the player it
-        let image: unknown = null;
+        // (kept as bytes: a ClipboardItem that was read cannot be written back, Electron wants a new one)
+        let image: Buffer | null = null;
         try {
-          if (!text && (await clipboard.has("image/png"))) image = await clipboard.read();
+          if (!text && (await clipboard.has("image/png"))) {
+            for (const item of await clipboard.read()) {
+              if (item.types.includes("image/png")) image = Buffer.from(await (await item.getType("image/png")).arrayBuffer());
+            }
+          }
         } catch { /* not readable: the text (empty) is what is kept */ }
         return { text, image };
       },
       restore: async (snap) => {
-        if (snap.image) await clipboard.write(snap.image as Electron.ClipboardItem[]);
-        else await clipboard.writeText(snap.text);
+        // a clipboard that cannot be put back must never cost the player the F5 itself
+        try {
+          const png = snap.image as Buffer | null;
+          if (png) await clipboard.write([new ClipboardItem({ "image/png": new Blob([new Uint8Array(png)], { type: "image/png" }) })]);
+          else await clipboard.writeText(snap.text);
+        } catch (e) {
+          fileLog("WARNING", `F5: could not put the clipboard back: ${(e as Error).message}`);
+        }
       },
       writeText: (t) => clipboard.writeText(t),
       readText: () => clipboard.readText(),
@@ -228,7 +240,7 @@ async function onF5(): Promise<void> {
     if (result.kind === "picker") {
       debugEvent(`F5 picker '${result.item.item_name}' rarity=${result.item.rarity} mods=${result.rows.length} resolved=${result.rows.filter((r) => r.statId).length}`);
       say(`🧩 เลือก mod: ${result.item.item_name}`, "info");
-      openPicker(result, pressPoint);
+      openPicker(result, pressPoint, gameWindow);
       return;
     }
     debugEvent(`F5 '${result.item.item_name}' rarity=${result.item.rarity} base='${result.item.base_type}' url=${result.url.slice(0, 80)}`);
@@ -293,27 +305,78 @@ function clamp(v: number, lo: number, hi: number): number {
 }
 
 // ---- picker
-interface PickerSession { rows: f5.PickerRow[]; item: models.ParsedItem; pressPoint: Electron.Point }
+interface PickerSession { rows: f5.PickerRow[]; item: models.ParsedItem; pressPoint: Electron.Point; returnTo: bigint }
 let pickerSession: PickerSession | null = null;
 
-function closePicker(): void {
-  const w = pickerWin;
-  pickerWin = null;
-  pickerSession = null;
-  if (w && !w.isDestroyed()) w.destroy();
+/**
+ * The window that has the keyboard focus (the game), unless it is one of ours. When a window that holds the focus is closed, Windows
+ * hands the focus to ANOTHER window of the same program - the Checker's main window - which then jumps up over the game and goes away
+ * again: the "window that flashes". So the focus is given back to the game before the popup / skill window is closed.
+ */
+function foregroundToReturnTo(): bigint {
+  const h = foregroundWindow();
+  const ours = [mainWin, pickerWin, skillWin].some((w) => w && !w.isDestroyed() && w.getNativeWindowHandle().readBigUInt64LE(0) === h);
+  return ours ? 0n : h;
 }
 
-function openPicker(result: Extract<f5.F5Result, { kind: "picker" }>, pressPoint: Electron.Point): void {
-  closePicker();
-  pickerSession = { rows: result.rows, item: result.item, pressPoint };
+function giveFocusBack(win: BrowserWindow, to: bigint): void {
+  try {
+    if (to && !win.isDestroyed() && win.isFocused()) fileLog("INFO", `focus given back to the window in front before (${focusWindow(to) ? "ok" : "refused"})`);
+  } catch (e) {
+    fileLog("WARNING", `could not give the focus back: ${(e as Error).message}`);
+  }
+}
+
+function closePicker(reason: string): void {
+  const w = pickerWin;
+  const to = pickerSession?.returnTo ?? 0n;
+  pickerWin = null;
+  pickerSession = null;
+  if (w && !w.isDestroyed()) {
+    fileLog("INFO", `popup closed by the program: ${reason}`);
+    giveFocusBack(w, to);
+    w.destroy();
+  }
+}
+
+/** What Windows says about the popup just after it is shown (visible? covered by what? who has the focus?) - in log.txt; a covered popup is raised again */
+function watchPopup(win: BrowserWindow): void {
+  for (const ms of [150, 600, 1500]) {
+    setTimeout(() => {
+      if (win.isDestroyed() || pickerWin !== win) return;
+      try {
+        const f = windowFacts(win.getNativeWindowHandle());
+        const hidden = !f.visible || f.minimized || f.covering.length > 0;
+        fileLog(hidden ? "WARNING" : "INFO", `popup +${ms}ms: visible=${f.visible} minimized=${f.minimized} focus='${f.foreground}' covered-by=[${f.covering.join(" | ")}]${hidden ? " -> raised again" : ""}`);
+        if (hidden) {
+          win.setAlwaysOnTop(true, "screen-saver");
+          win.show();
+          win.moveTop();
+        }
+      } catch (e) {
+        fileLog("WARNING", `popup check failed: ${(e as Error).message}`);
+      }
+    }, ms);
+  }
+}
+
+function openPicker(result: Extract<f5.F5Result, { kind: "picker" }>, pressPoint: Electron.Point, returnTo: bigint): void {
+  closePicker("replaced by a new F5");
+  pickerSession = { rows: result.rows, item: result.item, pressPoint, returnTo };
   const win = createToolWindow("เลือก mod", "picker.cjs", "picker.html");
   pickerWin = win;
   win.on("closed", () => {
     if (pickerWin === win) {
+      fileLog("WARNING", "popup window was closed by something else (not by the program)");
       pickerWin = null;
       pickerSession = null;
     }
   });
+  win.on("hide", () => fileLog("INFO", "popup hide"));
+  win.on("blur", () => fileLog("INFO", "popup blur (lost the keyboard focus)"));
+  win.on("minimize", () => fileLog("INFO", "popup minimize"));
+  win.webContents.on("render-process-gone", (_e, d) => fileLog("ERROR", `popup renderer gone: ${d.reason} (${d.exitCode})`));
+  win.webContents.on("did-fail-load", (_e, code, desc) => fileLog("ERROR", `popup page failed to load: ${code} ${desc}`));
   win.webContents.once("did-finish-load", () => win.webContents.send("picker:init", pickerInit(result)));
 }
 
@@ -333,7 +396,7 @@ function showFocused(win: BrowserWindow): void {
 function runPickerSearch(filters: PickerFilter[]): void {
   const s = pickerSession;
   if (!s) return;
-  closePicker();
+  closePicker("search");
   const stat: tradeUrl.StatFilter[] = [];
   for (const f of filters) {
     const row = s.rows[f.row];
@@ -363,14 +426,20 @@ function runPickerSearch(filters: PickerFilter[]): void {
 
 // ---- skill reference (F4)
 let skillDb: skillRef.SkillRefDB | null = null;
+let skillReturnTo = 0n;
 function closeSkill(): void {
   const w = skillWin;
   skillWin = null;
-  if (w && !w.isDestroyed()) w.destroy();
+  if (w && !w.isDestroyed()) {
+    giveFocusBack(w, skillReturnTo);
+    w.destroy();
+  }
 }
 
 async function onF4(): Promise<void> {
+  const back = foregroundToReturnTo();
   closeSkill();
+  skillReturnTo = back;
   say("⟳ โหลดข้อมูล skill จาก hub…", "dim");
   const db = new skillRef.SkillRefDB(game, hub, (m) => fileLog("WARNING", m)); // loaded again at every open: no stale hub data for a whole session
   try {
@@ -381,6 +450,7 @@ async function onF4(): Promise<void> {
   skillDb = db;
   const win = createToolWindow("Skill Mod Reference", "skill.cjs", "skillref.html");
   skillWin = win;
+  win.on("close", () => giveFocusBack(win, skillReturnTo)); // (the player closes it: X / Alt+F4)
   win.on("closed", () => {
     if (skillWin === win) skillWin = null;
   });
@@ -435,13 +505,15 @@ function setupIpc(): void {
     if (!isFrom(e, pickerWin) || !pickerWin || !size || !(size.width > 0) || !(size.height > 0)) return;
     placeAtPoint(pickerWin, size, pickerSession?.pressPoint ?? screen.getCursorScreenPoint());
     showFocused(pickerWin);
+    fileLog("INFO", `popup shown at ${JSON.stringify(pickerWin.getBounds())} (the mouse was at ${JSON.stringify(pickerSession?.pressPoint ?? null)})`);
+    watchPopup(pickerWin);
   });
   ipcMain.on("picker:search", (e, filters: unknown) => {
     if (!isFrom(e, pickerWin) || !Array.isArray(filters)) return;
     runPickerSearch(filters.filter((f) => f && Number.isInteger(f.row)).map((f) => ({ row: f.row, min: String(f.min ?? ""), max: String(f.max ?? "") })));
   });
   ipcMain.on("picker:cancel", (e) => {
-    if (isFrom(e, pickerWin)) closePicker();
+    if (isFrom(e, pickerWin)) closePicker("cancel (Esc / button)");
   });
 
   ipcMain.handle("skill:init", (e) => (isFrom(e, skillWin) ? { available: !!skillDb?.available() } : { available: false }));

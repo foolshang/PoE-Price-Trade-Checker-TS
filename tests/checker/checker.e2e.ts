@@ -16,7 +16,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { CHECKER_DIR, launch, sandbox, wait, ROOT } from "../desktop/harness.mjs";
 import { fakeInternet, fixtureData } from "../desktop/stubs.mjs";
-import { openTextBox, pressKey, foregroundTitle, modifiersDown, setCursor } from "./win.mjs";
+import { openTextBox, pressKey, foregroundTitle, modifiersDown, setCursor, visibleWindowsOf } from "./win.mjs";
 import { pickerRowText, defaultChecked } from "../../apps/checker/src/shared/picker_text.ts";
 
 const exe = process.env.PFG_CHECKER_EXE;
@@ -624,5 +624,129 @@ describe("L) the popup opens where the mouse was when F5 was pressed", () => {
     const near = (a, c) => Math.abs(a - c);
     expect(near(b.x, 300)).toBeLessThan(near(b.x, 1500));
     expect(b.x).toBeLessThan(900);
+  }, 180000);
+});
+
+// ---------------------------------------------------------------------------------------------- the bug report "a window flashes on F5"
+/** sample the OS's own list of visible windows of the program (every 10 ms) and hook the main window's show / focus events */
+async function watchWindows(app) {
+  const pids = await app.evaluate(({ app: a }) => a.getAppMetrics().map((m) => m.pid));
+  await app.evaluate(({ BrowserWindow }) => {
+    globalThis.__mainEvents = [];
+    const w = BrowserWindow.getAllWindows()[0];
+    for (const ev of ["show", "focus", "restore", "minimize", "hide"]) w.on(ev, () => globalThis.__mainEvents.push(ev + "@" + Date.now()));
+  });
+  const seen = new Map();
+  let stop = false;
+  const loop = (async () => {
+    while (!stop) {
+      for (const w of visibleWindowsOf(pids)) {
+        const e = seen.get(w.title) ?? { rects: new Set(), n: 0 };
+        e.rects.add(`${w.x},${w.y},${w.w},${w.h}`);
+        e.n++;
+        seen.set(w.title, e);
+      }
+      await wait(10);
+    }
+  })();
+  return {
+    async done() {
+      stop = true;
+      await loop;
+      return { seen, mainEvents: await app.evaluate(() => globalThis.__mainEvents) };
+    },
+  };
+}
+const MAIN_TITLE = `PoE Price & Trade Checker (TypeScript) v${ver}`;
+
+describe("M) F5 shows no window except the popup", () => {
+  it.each([
+    ["poe1", "poe1_rare_body", true],
+    ["poe2", "poe2_rare_ring", true],
+    ["poe1", "poe1_unique_dying_sun", false],
+    ["poe2", "poe2_unique_identified", false],
+  ])("%s %s (popup: %s): only the main window and the popup are visible; the main window is not shown, focused or restored; the popup appears once, in its final place", async (game, item, popup) => {
+    const sbx = sandbox();
+    const { app, page } = await start(sbx, { game });
+    const box = await openTextBox(path.join(ITEMS, item + ".txt"), "PFG-TEST-BOX-W" + Math.random().toString(36).slice(2, 6));
+    extra.push(() => box.close());
+    await wait(500);
+    const watch = await watchWindows(app); // (from here on: only what F5 does)
+    await pressKey("F5");
+    if (popup) {
+      const w = await windowWith(app, "picker.html");
+      await w.waitForSelector(".p-row, .p-head");
+    } else {
+      await statusHas(page, /เปิด trade/);
+    }
+    await wait(1800); // (the popup watcher checks at 150 / 600 / 1500 ms)
+    const { seen, mainEvents } = await watch.done();
+    const titles = [...seen.keys()].filter((t) => !t.startsWith("PFG-TEST-BOX"));
+    expect(titles.sort()).toEqual(popup ? [MAIN_TITLE, "เลือก mod"].sort() : [MAIN_TITLE]);
+    expect(mainEvents).toEqual([]);
+    if (popup) {
+      const p = seen.get("เลือก mod");
+      expect(p.rects.size).toBe(1); // never seen anywhere but where it stays (no flash at a default place, no resize after it is shown)
+      const log = fs.readFileSync(path.join(sbx.checkerDir, "log.txt"), "utf-8");
+      expect(log).toMatch(/popup shown at/);
+      expect(log).toMatch(/popup \+1500ms: visible=true minimized=false .* covered-by=\[\]/);
+      expect(log).not.toMatch(/closed by something else|raised again|renderer gone/);
+    }
+    expect(await logText(page)).not.toMatch(/✗/);
+  }, 180000);
+
+  it("a picture on the clipboard does not stop F5, and is still there afterwards", async () => {
+    execFileSync("powershell", ["-NoProfile", "-STA", "-Command", "Add-Type -AssemblyName System.Windows.Forms,System.Drawing; $b = New-Object System.Drawing.Bitmap 40,40; [System.Windows.Forms.Clipboard]::SetImage($b)"], { windowsHide: true });
+    const { app, page } = await start(sandbox(), { game: "poe1" });
+    const box = await openTextBox(path.join(ITEMS, "poe1_rare_body.txt"), "PFG-TEST-BOX-IMG");
+    extra.push(() => box.close());
+    await pressKey("F5");
+    const w = await windowWith(app, "picker.html");
+    await w.waitForSelector(".p-row, .p-head");
+    expect(await logText(page)).not.toMatch(/✗/);
+    await wait(300);
+    const has = execFileSync("powershell", ["-NoProfile", "-STA", "-Command", "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Clipboard]::ContainsImage()"], { encoding: "utf-8", windowsHide: true });
+    expect(has.trim()).toBe("True");
+  }, 180000);
+});
+
+describe("N) closing the popup gives the keyboard back to the game, not to the Checker's main window", () => {
+  it.each([["Escape"], ["Enter"]])("popup closed with %s", async (key) => {
+    const { app } = await start(sandbox(), { game: "poe1" });
+    const title = "PFG-TEST-BOX-N" + key.length;
+    const box = await openTextBox(path.join(ITEMS, "poe1_rare_body.txt"), title);
+    extra.push(() => box.close());
+    await wait(500);
+    const watch = await watchWindows(app);
+    await pressKey("F5");
+    const w = await windowWith(app, "picker.html");
+    await w.waitForSelector(".p-row, .p-head");
+    await wait(400);
+    await pressIn(w, key);
+    await wait(1500);
+    const { mainEvents, seen } = await watch.done();
+    expect(mainEvents).toEqual([]); // the main window never came to the front
+    expect([...seen.keys()]).not.toContain("เลือก mod" + "x");
+    expect(foregroundTitle()).toBe(title);
+  }, 180000);
+});
+
+describe("O) the F4 window gives the keyboard back to the game too", () => {
+  it("closed like the player does (the X / Alt+F4)", async () => {
+    const { app } = await start(sandbox(), { game: "poe1" });
+    const title = "PFG-TEST-BOX-F4";
+    const box = await openTextBox(path.join(ITEMS, "poe1_rare_body.txt"), title);
+    extra.push(() => box.close());
+    await wait(500);
+    const watch = await watchWindows(app);
+    await pressKey("F4");
+    const w = await windowWith(app, "skillref.html");
+    await w.waitForSelector("#q, input", { timeout: 20000 });
+    await wait(500);
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().includes("skillref.html")).close());
+    await wait(1500);
+    const { mainEvents } = await watch.done();
+    expect(mainEvents).toEqual([]);
+    expect(foregroundTitle()).toBe(title);
   }, 180000);
 });
