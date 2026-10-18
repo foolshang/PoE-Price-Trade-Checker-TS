@@ -70,3 +70,17 @@ Close the **original Checker** first (it holds F4 / F5).
 
 `docs/release-draft/`: `release.yml` (workflow), `README_public.draft.md`, `old-repo-release-guard.diff` (a change for the ORIGINAL repo's
 release.yml so it cannot publish over "Latest"; **not applied**), `B0-where-does-the-checker-go.md` (the question for Winai).
+
+## Addendum (beta.14): game buttons + follow the game in front
+
+Asked by Winai after the beta.13 test: (1) the PoE 1 / PoE 2 buttons moved into the League row, in front of League; (2) the program switches
+PoE 1 / PoE 2 by itself to the game that is in front (F8 > Game: "Switch PoE 1 / PoE 2 by itself ...", default on).
+
+- **How the game is told apart**: PoE1 and PoE2 have the same exe names (Steam: `PathOfExileSteam.exe`, `PathOfExile_x64Steam.exe` in both; the standalone ones
+  `PathOfExile.exe` / `PathOfExile_x64.exe` in both). The window is a PoE client when its class is `POEWindowClass` or its exe starts with `PathOfExile`;
+  the game then comes from the install folder name (`Path of Exile 2` -> PoE 2, `Path of Exile` -> PoE 1), and when the folder says nothing from the window
+  title (`Path of Exile 2` / `Path of Exile`). Covers standalone, Steam, Epic (when the folder keeps GGG's name). `game_detect.ts`, 14 unit tests.
+- **When**: a poll once a second (`GetForegroundWindow`, nothing else while the window is the same), `game window in front: ...` lines in `log.txt` give the
+  class / title / path that were read. A game coming to the front that is not the game that was in front before -> switch + league list + Status line.
+  A switch by hand stays until the other game comes to the front. F4 / F5 read the front window at the key press itself. No focus is ever taken.
+- Not proven here: a live game (the stand-in windows copy the folder names and the title of the real ones; the class `POEWindowClass` is not exercised).

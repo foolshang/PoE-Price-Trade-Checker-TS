@@ -108,6 +108,8 @@ export interface SettingsValues {
   prefer_hardcore: boolean;
   mod_badge_archetype: string;
   f5_restore_clipboard: boolean;
+  /** follow the game that is in front (PoE 1 / PoE 2) */
+  auto_game: boolean;
   hotkey_scan: string;
   hotkey_trade: string;
   hotkey_settings: string;

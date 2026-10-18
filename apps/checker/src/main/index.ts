@@ -26,7 +26,8 @@ import { NeverSinkWatcher } from "./regen.ts";
 import { TrayIcon } from "./tray.ts";
 import { copyChord, keyName, readAdvancedKey } from "./game_keys.ts";
 import { copyItemText } from "./item_copy.ts";
-import { foregroundElevated, selfElevated, focusWindow, foregroundWindow, sendCopyChord, windowFacts } from "./native.ts";
+import { describeWindow, foregroundElevated, selfElevated, focusWindow, foregroundWindow, sendCopyChord, windowFacts } from "./native.ts";
+import { gameOfWindow, onFront } from "./game_detect.ts";
 import { pickerInit } from "./picker_data.ts";
 
 declare const __APP_VERSION__: string;
@@ -168,7 +169,7 @@ function sendLeagues(): void {
   if (mainWin && !mainWin.isDestroyed() && ready) mainWin.webContents.send("main:leagues", leagues, league);
 }
 
-function setGame(g: GameId, from: "main" | "settings" | "filter" = "main"): void {
+function setGame(g: GameId, from: "main" | "settings" | "filter" | "auto" = "main"): void {
   if (g === game) return;
   game = g;
   config.set("game_version", g);
@@ -185,6 +186,59 @@ function setGame(g: GameId, from: "main" | "settings" | "filter" = "main"): void
     void filterHost.flushPage(w).then(() => { if (!w.isDestroyed()) w.webContents.reloadIgnoringCache(); }); // the page follows the game
   }
   void fetchLeagues(cfgBool("auto_league", true));
+}
+
+// ---------------------------------------------------------------------------------------------- the game in front
+// The program follows the game that is in front (option auto_game, on by default): when a PoE1 / PoE2 window comes to the front the game
+// switches to it, and the key presses F4 / F5 use the game of the window they were pressed in. Polled once a second: one GetForegroundWindow
+// call; the window is looked at (class, program path, title) only when it is a different one than a second ago.
+const GAME_NAME: Record<GameId, string> = { poe1: "PoE 1", poe2: "PoE 2" };
+let lastFront: GameId | null = null; // the game that was in front the last time a game was in front
+let polledHwnd = 0n;
+let polledGame: GameId | null = null;
+
+const autoGameOn = (): boolean => cfgBool("auto_game", true);
+
+function gameOfFront(fresh: boolean): GameId | null {
+  let hwnd: bigint;
+  try { hwnd = foregroundWindow(); } catch { return null; }
+  if (!hwnd) return null;
+  if (!fresh && hwnd === polledHwnd) return polledGame;
+  try {
+    const w = describeWindow(hwnd);
+    polledHwnd = hwnd;
+    polledGame = gameOfWindow(w);
+    if (polledGame) fileLog("INFO", `game window in front: ${GAME_NAME[polledGame]} (class=${w.cls} title='${w.title}' exe='${w.exePath}')`);
+  } catch (e) {
+    fileLog("WARNING", `game in front: could not look at the window: ${(e as Error).message}`);
+    polledGame = null;
+  }
+  return polledGame;
+}
+
+function followFront(front: GameId | null, why: string, force: boolean): void {
+  const r = onFront(front, lastFront);
+  lastFront = r.lastFront;
+  const target = force ? front : r.switchTo;
+  if (!target || target === game) return;
+  say(`⇄ สลับเป็น ${GAME_NAME[target]} ตามเกมที่เปิดอยู่หน้าสุด${why ? ` (${why})` : ""} — โหลด league ใหม่`, "info");
+  debugEvent(`auto game: ${game} -> ${target} (${why || "front window"})`);
+  setGame(target, "auto");
+}
+
+/** F4 / F5: the game of the window the key was pressed in (a switch the poll has not made yet) */
+function gameOfKeyPress(): void {
+  if (!autoGameOn()) return;
+  followFront(gameOfFront(true), "ตอนกดปุ่ม", true);
+}
+
+let gamePoll: NodeJS.Timeout | null = null;
+function startGamePoll(): void {
+  gamePoll = setInterval(() => {
+    if (quitting || !autoGameOn()) return;
+    try { followFront(gameOfFront(false), "", false); } catch (e) { fileLog("WARNING", `game poll: ${(e as Error).message}`); }
+  }, Number(process.env.POE_CHECKER_GAME_POLL_MS) || 1000); // (the env value: tests only)
+  gamePoll.unref();
 }
 
 // ---------------------------------------------------------------------------------------------- F5
@@ -211,6 +265,7 @@ async function copyKeys(gv: GameId): Promise<{ chord: number[]; label: string }>
 async function onF5(): Promise<void> {
   if (f5Busy) return;
   f5Busy = true;
+  gameOfKeyPress();
   const pressPoint = screen.getCursorScreenPoint(); // the popup goes where the mouse was when the key was pressed
   const gameWindow = foregroundToReturnTo(); // and the focus goes back there when it is closed
   try {
@@ -490,6 +545,7 @@ function closeSkill(): void {
 }
 
 async function onF4(): Promise<void> {
+  gameOfKeyPress();
   const back = foregroundToReturnTo();
   closeSkill();
   skillReturnTo = back;
@@ -668,6 +724,7 @@ function currentSettings(): SettingsValues {
     prefer_hardcore: cfgBool("prefer_hardcore", false),
     mod_badge_archetype: ARCHETYPES.includes(cfgStr("mod_badge_archetype", "all")) ? cfgStr("mod_badge_archetype", "all") : "all",
     f5_restore_clipboard: cfgBool("f5_restore_clipboard", true),
+    auto_game: autoGameOn(),
     hotkey_scan: cfgStr("hotkey_scan", "F4"),
     hotkey_trade: cfgStr("hotkey_trade", "F5"),
     hotkey_settings: cfgStr("hotkey_settings", "F8"),
@@ -688,6 +745,7 @@ function cleanSettings(v: unknown): SettingsValues {
     auto_league: bool("auto_league"), prefer_hardcore: bool("prefer_hardcore"),
     mod_badge_archetype: ARCHETYPES.includes(str("mod_badge_archetype")) ? str("mod_badge_archetype") : "all",
     f5_restore_clipboard: bool("f5_restore_clipboard"),
+    auto_game: bool("auto_game"),
     hotkey_scan: str("hotkey_scan"), hotkey_trade: str("hotkey_trade"), hotkey_settings: str("hotkey_settings"), hotkey_quit: str("hotkey_quit"),
     log_level: LOG_LEVELS.includes(str("log_level")) ? str("log_level") : "INFO",
     close_action: str("close_action") === "exit" ? "exit" : "minimize",
@@ -772,9 +830,11 @@ async function applySettings(raw: unknown): Promise<SettingsResult> {
   config.set("prefer_hardcore", v.prefer_hardcore);
   config.set("mod_badge_archetype", v.mod_badge_archetype);
   config.set("f5_restore_clipboard", v.f5_restore_clipboard);
+  config.set("auto_game", v.auto_game);
   config.set("log_level", v.log_level);
   config.set("close_action", v.close_action);
-  if (v.game_version !== game) setGame(v.game_version, "settings");
+  // (the settings window shows the game it was opened with: a game that followed the front window meanwhile is not switched back by a Save)
+  if (v.game_version !== game && v.game_version !== settingsGameAtOpen) setGame(v.game_version, "settings");
   saveSoon();
   if (mainWin && !mainWin.isDestroyed() && ready) mainWin.webContents.send("main:hotkeys", currentHotkeys());
   say("✓ บันทึก settings แล้ว", "ok");
@@ -789,6 +849,7 @@ function closeSettings(): void {
   if (w && !w.isDestroyed()) w.destroy();
 }
 
+let settingsGameAtOpen: GameId = game;
 function openSettings(): void {
   if (settingsWin && !settingsWin.isDestroyed()) {
     if (settingsWin.isMinimized()) settingsWin.restore();
@@ -801,6 +862,7 @@ function openSettings(): void {
     show: false, resizable: false, maximizable: false, minimizable: false, autoHideMenuBar: true, webPreferences: secureWebPreferences("settings.cjs"),
   });
   settingsWin = win;
+  settingsGameAtOpen = game;
   hardenWindow(win);
   win.once("ready-to-show", () => win.show());
   win.on("closed", () => {
@@ -964,6 +1026,9 @@ function exposeTestHooks(): void {
     showMain: () => showMain(),
     openFilter: () => openFilterWindow(),
     openSettings: () => openSettings(),
+    game: () => game,
+    lastFront: () => lastFront,
+    pollNow: () => followFront(gameOfFront(false), "", false),
   };
 }
 
@@ -1002,6 +1067,7 @@ if (!gotLock) {
     const sz = screen.getPrimaryDisplay().size;
     say(`v${VERSION} · ${game.toUpperCase()} · league: ${league} · จอ ${sz.width}×${sz.height}`, "dim");
     startHotkeys();
+    startGamePoll();
     const hk = currentHotkeys();
     say(`${hk.scan} Skill Reference  |  ${hk.trade} Trade browser  |  ${hk.settings} Settings  |  ${hk.quit} Quit`, "dim");
     createMainWindow();

@@ -5,6 +5,25 @@
 
 ---
 
+## 2026-10-18 (7) - beta.14: game buttons in the League row + PoE1 / PoE2 follows the game in front (committed, no tag, no release)
+
+- Main window: `[PoE 1|PoE 2]  League: [dropdown]  [Refresh Leagues]` in one row (the toggle left the top right).
+- New `auto_game` option (F8 > Game tab, default on). A 1 s poll of `GetForegroundWindow` (one cheap call; class / program path / title are read
+  only when the window is a different one). **How the game is told**: the two games run from exes with the SAME names (checked on this machine:
+  the Steam installs of both hold `PathOfExileSteam.exe` and `PathOfExile_x64Steam.exe`), so: a window is "a PoE client" when its class is
+  `POEWindowClass` or its exe starts with `PathOfExile`; then the game = the install folder (`...\Path of Exile 2\` vs `...\Path of Exile\`:
+  standalone, Steam, Epic that keeps GGG's folder name), and for a renamed folder the window title (`Path of Exile` / `Path of Exile 2`).
+  Not seen on a live game here (none installed-and-running on this machine during the work): tested with stand-in windows in such folders.
+- Rules: a game window comes to the front and is not the game that was in front before -> switch + new league list + a line in the Status
+  and the log; a choice by hand stays until the OTHER game comes to the front; no game in front -> nothing changes; F4 / F5 use the game of
+  the window they were pressed in (before anything else); the settings window does not switch the game back on Apply when the game moved while it was open.
+- Files: `apps/checker/src/main/{game_detect.ts (new), native.ts (describeWindow), index.ts}`, `renderer/{main,settings}.ts`, `shared/api.ts`,
+  `packages/node/src/config.ts`, `tests/checker/{game_detect.test.ts, phase6.e2e.ts, standin_game.{mjs,cs}}`.
+- Tests: unit 14 (the game of a window, the rule), e2e 8 with stand-in game windows (layout, follow, both open, none, by hand, F5 key press before the poll,
+  option off, title fallback, F8 option, F8 Apply). Version 1.0.0-beta.14.
+
+---
+
 ## 2026-10-18 (6) - phase 5 part A: the Checker complete (committed, no tag, no release)
 
 - `@poe/desktop` (new package): the filter page's main-process side, preload, renderer glue and the updater, shared by the Filter Generator and the Checker.

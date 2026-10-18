@@ -123,6 +123,8 @@ logs `version + build timestamp` first (CLAUDE.md rule 5).
 Total about 37-52 developer-days. Phases 1-3 give a shippable Filter Generator and web page before the Checker work
 starts (the Checker's filter page reuses phase 2-3 output).
 
+**Phase 5 addendum (beta.14):** the game buttons sit in the League row; PoE 1 / PoE 2 follows the game window in front (`auto_game`, F8) - see docs/PHASE5.md.
+
 ## P5. Notes carried into phase 5 and after (from the phase-4 copy round-fix)
 
 1. **Settings window (F8) - hotkey rules.** The hotkey fields refuse a key that clashes with the game or with editing keys, and refuse

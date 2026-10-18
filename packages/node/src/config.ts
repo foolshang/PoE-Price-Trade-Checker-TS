@@ -161,5 +161,6 @@ export const CHECKER_DEFAULTS: Record<string, any> = {
   close_action: "minimize",
   f5_mod_picker: true,
   f5_restore_clipboard: true, // F5 puts back what was on the clipboard before it copied the item
+  auto_game: true, // PoE 1 / PoE 2 follows the game window that is in front
   filter_gen: structuredClone(DEFAULTS.filter_gen),
 };

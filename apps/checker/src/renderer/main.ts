@@ -29,9 +29,9 @@ async function main(): Promise<void> {
   const legendText = (hk: Hotkeys): string => `${hk.scan} Skill Reference  |  ${hk.trade} Trade browser  |  ${hk.settings} Settings  |  ${hk.quit} Quit`;
   root.replaceChildren(h("main", {},
     h("header", { class: "top" },
-      h("h1", {}, "PoE Price & Trade Checker ", h("small", { id: "ver", class: "muted", title: "ใช้ตอนแจ้งบั๊ก" }, `เวอร์ชัน ${init.version}`)),
-      h("div", { class: "game-toggle", role: "radiogroup", "aria-label": "เกม" }, gameBtns)),
-    h("div", { class: "row" }, h("label", { class: "l", for: "league" }, "League:"), league,
+      h("h1", {}, "PoE Price & Trade Checker ", h("small", { id: "ver", class: "muted", title: "ใช้ตอนแจ้งบั๊ก" }, `เวอร์ชัน ${init.version}`))),
+    h("div", { class: "row" }, h("div", { class: "game-toggle", role: "radiogroup", "aria-label": "เกม" }, gameBtns),
+      h("label", { class: "l", for: "league" }, "League:"), league,
       h("button", { type: "button", id: "btn-leagues", class: "secondary", onclick: () => api.refreshLeagues() }, "Refresh Leagues")),
     h("div", { class: "row" },
       h("button", { type: "button", id: "btn-settings", onclick: () => api.openSettings() }, `Settings (${init.hotkeys.settings})`),

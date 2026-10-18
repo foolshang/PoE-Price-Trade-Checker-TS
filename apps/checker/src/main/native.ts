@@ -208,3 +208,43 @@ export function foregroundElevated(): boolean | null {
     a.CloseHandle(proc);
   }
 }
+
+let describe: { cls: (h: bigint, buf: Uint16Array, n: number) => number; title: (h: bigint, buf: Uint16Array, n: number) => number; pid: (h: bigint, pid: number[]) => number; open: (access: number, inherit: boolean, pid: number) => bigint; image: (p: bigint, flags: number, buf: Uint16Array, size: number[]) => boolean; close: (h: bigint) => boolean } | null = null;
+
+/** Class, title and program path of a window (the path is "" when Windows does not let us read it: another user's / elevated program). */
+export function describeWindow(h: bigint): { exePath: string; cls: string; title: string } {
+  if (!describe) {
+    const user32 = koffi.load("user32.dll");
+    const kernel32 = koffi.load("kernel32.dll");
+    describe = {
+      cls: user32.func("int __stdcall GetClassNameW(uintptr_t h, _Out_ uint16_t *buf, int n)") as never,
+      title: user32.func("int __stdcall GetWindowTextW(uintptr_t h, _Out_ uint16_t *buf, int n)") as never,
+      pid: user32.func("uint32 __stdcall GetWindowThreadProcessId(uintptr_t h, _Out_ uint32 *pid)") as never,
+      open: kernel32.func("uintptr_t __stdcall OpenProcess(uint32 access, bool inherit, uint32 pid)") as never,
+      image: kernel32.func("bool __stdcall QueryFullProcessImageNameW(uintptr_t p, uint32 flags, _Out_ uint16_t *buf, _Inout_ uint32 *size)") as never,
+      close: kernel32.func("bool __stdcall CloseHandle(uintptr_t h)") as never,
+    };
+  }
+  const d = describe;
+  const text = (fn: typeof d.cls | typeof d.title): string => {
+    const b = new Uint16Array(260);
+    const n = fn(h, b, 260);
+    return String.fromCharCode(...b.slice(0, Math.max(0, n)));
+  };
+  let exePath = "";
+  const pid = [0];
+  d.pid(h, pid);
+  if (pid[0]) {
+    const proc = d.open(PROCESS_QUERY_LIMITED_INFORMATION, false, pid[0]);
+    if (proc) {
+      try {
+        const b = new Uint16Array(1024);
+        const size = [1024];
+        if (d.image(proc, 0, b, size)) exePath = String.fromCharCode(...b.slice(0, size[0]));
+      } finally {
+        d.close(proc);
+      }
+    }
+  }
+  return { exePath, cls: text(d.cls), title: text(d.title) };
+}
