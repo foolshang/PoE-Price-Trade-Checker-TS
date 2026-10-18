@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cleanHeaders, collectSoundPaths, enforceGameDirs, isAllowedName, isAllowedUrl, isExternalLink, isInside, looksLikeSoundPath,
-} from "../../apps/filtergen/src/main/guard.ts";
+} from "../../packages/desktop/src/guard.ts";
 
 describe("file names the page may use", () => {
   it.each(["poe-checker.filter", "My Filter.FILTER", "sound one.mp3", "a.wav", "x.ogg", "ไทย.filter"])("allows %s", (n) => {

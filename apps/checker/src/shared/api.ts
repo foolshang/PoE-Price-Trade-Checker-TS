@@ -1,7 +1,8 @@
 /**
- * What each window of the Checker gets from the main process. Three windows, three small bridges: the main window cannot search
- * skills, the picker cannot change the game, the skill window cannot open the browser. No window gets the network, the file system
- * or a path; the main process does the work and sends the result.
+ * What each window of the Checker gets from the main process. Small bridges, one per window: the main window cannot search skills, the
+ * picker cannot change the game, the skill window cannot open the browser, the settings window cannot read the file system. (The filter
+ * page has the bridge of @poe/desktop.) No window gets the network, the file system or a path; the main process does the work and
+ * sends the result.
  */
 export type GameId = "poe1" | "poe2";
 export type Tag = "ok" | "err" | "warn" | "info" | "dim";
@@ -14,18 +15,25 @@ export interface MainInit {
   game: GameId;
   league: string;
   leagues: string[];
-  hotkeys: { scan: string; trade: string; quit: string };
+  hotkeys: Hotkeys;
   /** lines for the Status that were produced before the window was ready (hotkey problems, config import ...) */
   log: [string, Tag][];
 }
 
+export interface Hotkeys { scan: string; trade: string; settings: string; quit: string }
+
 export interface MainApi {
   init(): Promise<MainInit>;
+  openSettings(): void;
+  openFilter(): void;
   setGame(game: GameId): void;
   setLeague(league: string): void;
   refreshLeagues(): void;
   onLog(cb: (text: string, tag: Tag) => void): void;
   onLeagues(cb: (leagues: string[], picked: string) => void): void;
+  /** the game was changed somewhere else (settings window, filter page) */
+  onGame(cb: (game: GameId) => void): void;
+  onHotkeys(cb: (hotkeys: Hotkeys) => void): void;
 }
 
 // ------------------------------------------------------------------------------------------------ picker (F5)
@@ -93,10 +101,56 @@ export interface SkillApi {
   close(): void;
 }
 
+// ------------------------------------------------------------------------------------------------ settings (F8)
+export interface SettingsValues {
+  game_version: GameId;
+  auto_league: boolean;
+  prefer_hardcore: boolean;
+  mod_badge_archetype: string;
+  f5_restore_clipboard: boolean;
+  hotkey_scan: string;
+  hotkey_trade: string;
+  hotkey_settings: string;
+  hotkey_quit: string;
+  log_level: string;
+  close_action: "minimize" | "exit";
+}
+
+export interface SettingsInit {
+  values: SettingsValues;
+  /** false = the tray icon could not be made: the X button always closes the program */
+  trayOk: boolean;
+  version: string;
+  archetypes: string[];
+  logLevels: string[];
+}
+
+/** field -> the message to show next to it */
+export type SettingsErrors = Partial<Record<keyof SettingsValues, string>>;
+export type SettingsResult = { ok: true } | { ok: false; errors: SettingsErrors };
+
+export interface SettingsApi {
+  init(): Promise<SettingsInit>;
+  /** the problems of these values (nothing is changed): hotkeys that clash with the game, duplicates ... */
+  check(values: SettingsValues): Promise<SettingsErrors>;
+  /** check, register the hotkeys at once, save; ok = the window may close */
+  apply(values: SettingsValues): Promise<SettingsResult>;
+  cancel(): void;
+}
+
+// ------------------------------------------------------------------------------------------------ the message over the game
+export interface OverlayApi {
+  onShow(cb: (text: string, color: string) => void): void;
+  /** the label is drawn: its size, so the window can be sized, put at the bottom right and shown without taking the focus */
+  ready(size: { width: number; height: number }): void;
+}
+
 declare global {
   interface Window {
     checker?: MainApi;
     picker?: PickerApi;
     skillRef?: SkillApi;
+    settings?: SettingsApi;
+    overlay?: OverlayApi;
   }
 }

@@ -417,7 +417,7 @@ describe("J) what the page can and cannot do", () => {
     expect(r.process).toBe("undefined");
     expect(r.ipc).toBe("undefined");
     expect(r.module).toBe("undefined");
-    expect(r.keys).toEqual(["adoptPickedDir", "clearFolder", "fileExists", "flushDone", "folderInfo", "httpGet", "init", "listFilters", "listNames", "onFlush", "pickFilterFile", "pickFolder", "readFile", "readLegacySound", "storeDel", "storeSet", "tradeNames", "writeFile"]);
+    expect(r.keys).toEqual(["adoptPickedDir", "clearFolder", "fileExists", "flushDone", "folderInfo", "httpGet", "init", "listFilters", "listNames", "onFlush", "onRegen", "pickFilterFile", "pickFolder", "readFile", "readLegacySound", "ready", "storeDel", "storeSet", "tradeNames", "writeFile"]);
   }, 120000);
 
   it("names are checked in the main process: no folders, no other file types, no other hosts", async () => {

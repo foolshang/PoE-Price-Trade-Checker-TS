@@ -7,7 +7,8 @@ export interface HttpResult { ok: boolean; status: number; text: string }
 
 export interface Controls {
   game(): string;
-  generate(mode: "tier" | "whitelist", refresh: boolean): Promise<void>;
+  /** true when a filter was made and handed over */
+  generate(mode: "tier" | "whitelist", refresh: boolean): Promise<boolean>;
   log(text: string, tag?: string): void;
   /** the NeverSink version recorded by the last tier generate (config `neversink_tag_<game>`) etc. live in the config */
   cfg(): Record<string, any>;

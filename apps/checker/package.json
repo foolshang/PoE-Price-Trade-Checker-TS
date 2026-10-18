@@ -11,6 +11,7 @@
   "devDependencies": {
     "@poe/core": "*",
     "@poe/node": "*",
+    "@poe/desktop": "*",
     "@poe/ui": "*",
     "electron": "44.9.0",
     "electron-builder": "26.15.3",

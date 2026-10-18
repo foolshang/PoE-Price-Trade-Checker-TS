@@ -3,7 +3,7 @@
  * game's own folder on disk and every call goes to the main process by game id + file name (never a path).
  */
 import { S, sha256Hex, store, KEY_CFG } from "@poe/ui";
-import type { DesktopApi, FolderInfo, GameId } from "../shared/api.ts";
+import type { DesktopApi, FolderInfo, GameId } from "./api.ts";
 
 const FOLDER_NAME: Record<string, string> = { poe1: "Path of Exile", poe2: "Path of Exile 2" };
 

@@ -1,0 +1,19 @@
+{
+  "name": "@poe/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The filter page for the Electron apps: main-process host, preload, and the renderer glue around @poe/ui",
+  "exports": {
+    "./api": "./src/api.ts",
+    "./guard": "./src/guard.ts",
+    "./host": "./src/host.ts",
+    "./preload": "./src/preload.ts",
+    "./page": "./src/page.ts"
+  },
+  "dependencies": {
+    "@poe/core": "*",
+    "@poe/node": "*",
+    "@poe/ui": "*"
+  }
+}

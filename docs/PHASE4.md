@@ -77,6 +77,13 @@ Not proven here: why Winai saw it on PoE1 only (the code is the same for both ga
 focus rules). Tests: M (no window except the popup during F5, 4 items, PoE1 and PoE2, popup/no popup), N (Esc / Enter give the focus back), O (F4 window),
 picture on the clipboard.
 
+### Known normal behaviour: the item comparison box of PoE1 flashes on F5
+
+Confirmed by Winai in the game (beta.10): the item-comparison box that PoE1 shows for a moment when F5 is pressed is the **game's own
+behaviour when Ctrl is pressed over an item** (the same happens when he presses Ctrl+C himself). It is not a window of this program, and it is
+not changed: F5 must hold Ctrl to copy. (PoE2 does not show it because its copy chord is read from the player's own "show advanced item
+descriptions" key.)
+
 ## Parity with the original (byte for byte)
 
 4,108 cases run on the original (Python, read only) and on the core: the parser (47 fixture clipboards x both games: rare / magic / unique /

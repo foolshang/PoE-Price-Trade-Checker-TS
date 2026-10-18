@@ -65,6 +65,8 @@ export interface SendResult {
   total: number;
   /** true when Windows refused because the target runs with more rights (UIPI) */
   blocked: boolean;
+  /** ms between C and the release of the modifiers (about 10) */
+  gapMs: number;
 }
 
 /** The modifier keys that are physically down right now (virtual-key codes). */
@@ -94,9 +96,11 @@ export async function sendCopyChord(chord: number[]): Promise<SendResult> {
     if (n < events.length && koffi.errno() === ERROR_ACCESS_DENIED) denied = true;
   };
   run([...stray.map((vk) => key(vk, true)), ...press.map((vk) => key(vk, false)), key(VK_C, false), key(VK_C, true)]);
+  const t0 = performance.now();
   await sleep(RELEASE_DELAY_MS);
+  const gapMs = performance.now() - t0;
   run([...press].reverse().map((vk) => key(vk, true)));
-  return { sent, total, blocked: sent < total && denied };
+  return { sent, total, blocked: sent < total && denied, gapMs };
 }
 
 export interface WindowFacts {

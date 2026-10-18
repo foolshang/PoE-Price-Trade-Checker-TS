@@ -30,9 +30,25 @@ beforeAll(async () => {
   net = await fakeInternet(data);
   net.state.realItems = true;
 });
+/** the sandboxes of the test: when it is over, the log of the program must not hold an error nobody caught (Electron shows a dialog and the process stays) */
+const sandboxes = [];
+function noUncaught() {
+  for (const sbx of sandboxes.splice(0)) {
+    let log = "";
+    try { log = fs.readFileSync(path.join(sbx.checkerDir, "log.txt"), "utf-8"); } catch { /* none */ }
+    const bad = log.split("\n").filter((l) => /uncaught exception|unhandled rejection/.test(l));
+    if (bad.length) throw new Error("UNCAUGHT: " + bad.join(" | "));
+  }
+}
 afterEach(async () => {
-  for (const a of opened.splice(0)) { try { await a.close(); } catch { /* gone */ } }
+  for (const a of opened.splice(0)) {
+    const t0 = Date.now();
+    const r = await Promise.race([a.close().then(() => "closed", () => "gone"), wait(30000).then(() => "HANG")]);
+    if (r === "HANG") { console.warn("AFTEREACH: app.close() hangs, killing it"); try { a.process().kill(); } catch { /* gone */ } }
+    else if (Date.now() - t0 > 5000) console.warn(`AFTEREACH: app.close() took ${Date.now() - t0} ms`);
+  }
   for (const f of extra.splice(0)) { try { await f(); } catch { /* gone */ } }
+  noUncaught();
 });
 
 const sha = (b) => createHash("sha256").update(b).digest("hex");
@@ -47,6 +63,7 @@ function expected(args) {
 }
 
 async function start(sbx, { cfg, game, waitLeagues = true, inet = net } = {}) {
+  sandboxes.push(sbx);
   if (cfg || game) {
     fs.mkdirSync(sbx.checkerDir, { recursive: true });
     fs.writeFileSync(path.join(sbx.checkerDir, "config.json"), JSON.stringify({ ...(cfg ?? {}), ...(game ? { game_version: game } : {}) }));
@@ -384,10 +401,11 @@ describe("F) hotkeys taken by another program", () => {
     const sbx = sandbox();
     const { app, page } = await start(sbx, { game: "poe2", waitLeagues: false });
     const log = await logText(page);
-    for (const key of ["F4", "F5"]) expect(log).toContain(`ลงทะเบียนปุ่ม ${key}`); // (the original does not hold Ctrl+Alt+Q in practice: RegisterHotKey of it succeeds beside the running original)
+    for (const key of ["F4", "F5"]) expect(log).toContain(`ปุ่ม ${key} (`); // (the original does not hold Ctrl+Alt+Q in practice: RegisterHotKey of it succeeds beside the running original)
     expect(log).toContain("ปิดโปรแกรมนั้น");
+    expect(log).toContain("ถูกโปรแกรมอื่นจองอยู่");
     expect(await app.evaluate(({ globalShortcut }) => globalShortcut.isRegistered("F5"))).toBe(false);
-    expect(fs.readFileSync(path.join(sbx.checkerDir, "log.txt"), "utf-8")).toContain("ลงทะเบียนปุ่ม F5");
+    expect(fs.readFileSync(path.join(sbx.checkerDir, "log.txt"), "utf-8")).toContain("ปุ่ม F5 (F5 trade) ถูกโปรแกรมอื่นจองอยู่");
   }, 180000);
 });
 
@@ -396,7 +414,7 @@ describe("G) what the windows can and cannot do", () => {
     const sbx = sandbox();
     const { app, page } = await start(sbx, { game: "poe2" });
     const m = await page.evaluate(() => ({ keys: Object.keys(window.checker).sort(), others: [typeof window.picker, typeof window.skillRef], node: [typeof require, typeof process, typeof window.electron] }));
-    expect(m.keys).toEqual(["init", "onLeagues", "onLog", "refreshLeagues", "setGame", "setLeague"]);
+    expect(m.keys).toEqual(["init", "onGame", "onHotkeys", "onLeagues", "onLog", "openFilter", "openSettings", "refreshLeagues", "setGame", "setLeague"]);
     expect(m.others).toEqual(["undefined", "undefined"]);
     expect(m.node).toEqual(["undefined", "undefined", "undefined"]);
     const blocked = await page.evaluate(() => fetch("https://example.com/").then(() => "fetched", () => "blocked"));
@@ -440,7 +458,8 @@ describe("H) the real key press path", () => {
     expect(foregroundTitle()).toBe("PFG-TEST-BOX-S");
     const native = await import("../../apps/checker/src/main/native.ts");
     const r = await native.sendCopyChord([0x11]);
-    expect(r).toEqual({ sent: 4, total: 4, blocked: false });
+    expect(r).toMatchObject({ sent: 4, total: 4, blocked: false });
+    expect(r.gapMs).toBeGreaterThanOrEqual(9); // (the modifiers are let go about 10 ms after C)
     await wait(400);
     const clip = execFileSync("powershell", ["-NoProfile", "-Command", "Get-Clipboard -Raw"], { encoding: "utf-8", windowsHide: true });
     expect(clip.trim()).toBe(fs.readFileSync(f, "utf-8").trim());
@@ -479,7 +498,7 @@ describe("I) the copy keys (round-fix: PoE1 Ctrl+C, PoE2 Ctrl+<advanced key>+C, 
     const { page, box } = await copyRun({ game: "poe1" });
     expect(seq(box)).toEqual(["D17", "D67", "U67", "U17"]);
     const ev = box.keys().filter((e) => e.vk !== F5_VK);
-    expect(ev[3].ms - ev[2].ms).toBeGreaterThanOrEqual(3); // (the release comes ~10 ms after C; the box's own clock jitters a few ms)
+    expect(ev[3].ms - ev[2].ms).toBeGreaterThan(0); // (the release comes ~10 ms after C - measured in the program, see H; the box's own clock squeezes it)
     expect(modifiersDown()).toEqual([]);
     const log = await logText(page);
     expect(log).toContain("F5 (Ctrl+C): ข้อความ item ไม่มีหัวข้อ { Modifier }");

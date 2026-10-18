@@ -11,12 +11,18 @@ import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { promises as fsp } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { baseDb, f5, hubClient, itemLang, league as leagueMod, metaDb, modBadge, modDb, profiles, py, pyextra, skillRef, tradeUrl } from "@poe/core";
+import { baseDb, f5, filterService, hubClient, itemLang, league as leagueMod, metaDb, modBadge, modDb, neversinkSource, profiles, py, pyextra, skillRef, tradeUrl } from "@poe/core";
 const { PyFloat } = py;
 type PyFloat = InstanceType<typeof PyFloat>;
 import type { HttpPort, models } from "@poe/core";
 import { AppConfig, CHECKER_DEFAULTS, NodeFs, NodeHttp, importOldConfig } from "@poe/node";
-import type { GameId, MainInit, PickerFilter, SkillDetail, Tag } from "../shared/api.ts";
+import { isExternalLink } from "@poe/desktop/guard";
+import { FilterHost } from "@poe/desktop/host";
+import type { GameId, Hotkeys, MainInit, PickerFilter, SettingsErrors, SettingsInit, SettingsResult, SettingsValues, SkillDetail, Tag } from "../shared/api.ts";
+import { checkHotkeys, forbiddenReason, parseHotkey } from "./hotkeys.ts";
+import { MessageOverlay, OK_COLOR, WARN_COLOR } from "./overlay.ts";
+import { NeverSinkWatcher } from "./regen.ts";
+import { TrayIcon } from "./tray.ts";
 import { copyChord, keyName, readAdvancedKey } from "./game_keys.ts";
 import { copyItemText } from "./item_copy.ts";
 import { foregroundElevated, selfElevated, focusWindow, foregroundWindow, sendCopyChord, windowFacts } from "./native.ts";
@@ -45,6 +51,9 @@ function fileLog(level: string, msg: string): void {
   try { appendFileSync(logFile, `${new Date().toISOString()} ${level} main: ${msg}\n`, "utf-8"); } catch { /* nothing to do */ }
 }
 fileLog("INFO", `PoE Price & Trade Checker v${VERSION} started (frozen=${app.isPackaged}) build=${__BUILD_TIME__}`);
+// an error nobody caught: into log.txt (Electron would show a dialog and keep the process, and its hotkeys, alive)
+process.on("uncaughtException", (e) => fileLog("ERROR", `uncaught exception: ${e?.stack ?? e}`));
+process.on("unhandledRejection", (e) => fileLog("ERROR", `unhandled rejection: ${(e as Error)?.stack ?? e}`));
 
 const nodeFs = new NodeFs();
 const http: HttpPort = new NodeHttp(20000, net.fetch as typeof fetch);
@@ -69,6 +78,9 @@ let leagues: string[] = [];
 let mainWin: BrowserWindow | null = null;
 let pickerWin: BrowserWindow | null = null;
 let skillWin: BrowserWindow | null = null;
+let settingsWin: BrowserWindow | null = null;
+let filterWin: BrowserWindow | null = null; // the filter page the player sees
+let regenWin: BrowserWindow | null = null; // the same page, not shown: generates in the background (auto-regenerate, the tray's Generate Now)
 const earlyLog: [string, Tag][] = [];
 
 /** a line for the Status of the main window (kept until the window can show it) and for log.txt */
@@ -87,6 +99,14 @@ function saveSoon(): void {
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => void config.save(), 300);
 }
+
+const filterHost = new FilterHost({
+  config, configDir, version: VERSION, buildTime: __BUILD_TIME__, exeName: process.execPath, documentsDir: () => documentsDir(), log: fileLog,
+  allow: (e) => [filterWin, regenWin].some((w) => w && !w.isDestroyed() && e.sender === w.webContents) && (e.senderFrame?.url ?? "").startsWith("app://local/"),
+  importNote: () => importNote,
+  // the game of the filter page is the game of the Checker (like the original's Filter Generator window)
+  gameStore: { get: () => game, set: (g) => setGame(g, "filter") },
+});
 
 // ---------------------------------------------------------------------------------------------- databases (per game, like the original)
 interface Dbs {
@@ -135,7 +155,7 @@ function sendLeagues(): void {
   if (mainWin && !mainWin.isDestroyed() && ready) mainWin.webContents.send("main:leagues", leagues, league);
 }
 
-function setGame(g: GameId): void {
+function setGame(g: GameId, from: "main" | "settings" | "filter" = "main"): void {
   if (g === game) return;
   game = g;
   config.set("game_version", g);
@@ -146,6 +166,11 @@ function setGame(g: GameId): void {
   sendLeagues();
   closePicker("game switched");
   closeSkill();
+  if (from !== "main" && mainWin && !mainWin.isDestroyed() && ready) mainWin.webContents.send("main:game", g);
+  if (from !== "filter" && filterWin && !filterWin.isDestroyed()) {
+    const w = filterWin;
+    void filterHost.flushPage(w).then(() => { if (!w.isDestroyed()) w.webContents.reloadIgnoringCache(); }); // the page follows the game
+  }
   void fetchLeagues(cfgBool("auto_league", true));
 }
 
@@ -281,6 +306,21 @@ function createMainWindow(): void {
   });
   hardenWindow(mainWin);
   mainWin.once("ready-to-show", () => mainWin?.show());
+  // the X button: hide to the tray, or close the program. Only when the tray icon really exists is the window ever hidden - with no
+  // tray there would be no way to bring it back (the original's rule)
+  mainWin.on("close", (e) => {
+    if (!quitting && !appQuitting && trayOk && cfgStr("close_action", "minimize") === "minimize") {
+      e.preventDefault();
+      hiddenToTray = true;
+      mainWin?.hide();
+    }
+  });
+  mainWin.on("minimize", () => {
+    if (trayOk && !quitting && !appQuitting) {
+      hiddenToTray = true;
+      mainWin?.hide();
+    }
+  });
   mainWin.on("closed", () => {
     mainWin = null;
     quit();
@@ -377,7 +417,7 @@ function openPicker(result: Extract<f5.F5Result, { kind: "picker" }>, pressPoint
   win.on("minimize", () => fileLog("INFO", "popup minimize"));
   win.webContents.on("render-process-gone", (_e, d) => fileLog("ERROR", `popup renderer gone: ${d.reason} (${d.exitCode})`));
   win.webContents.on("did-fail-load", (_e, code, desc) => fileLog("ERROR", `popup page failed to load: ${code} ${desc}`));
-  win.webContents.once("did-finish-load", () => win.webContents.send("picker:init", pickerInit(result)));
+  win.webContents.once("did-finish-load", () => { if (!win.isDestroyed()) win.webContents.send("picker:init", pickerInit(result)); }); // (a second F5 may have replaced this popup already)
 }
 
 function placeAtPoint(win: BrowserWindow, size: { width: number; height: number }, pt: Electron.Point): void {
@@ -472,6 +512,290 @@ function skillDetail(db: skillRef.SkillRefDB, t: string, s: string): Promise<Ski
   });
 }
 
+// ---------------------------------------------------------------------------------------------- tray, message over the game, NeverSink check
+let trayOk = false;
+let hiddenToTray = false; // the main window is hidden because of the X / minimize button
+let appQuitting = false; // app.quit() was called (Windows shutdown, another program's close request): the windows must close then
+const tray = new TrayIcon({
+  onShow: () => showMain(),
+  onGenerate: () => void generateNow(),
+  onSettings: () => { showMain(); openSettings(); },
+  onQuit: () => quit(),
+}, () => iconPath(), "PoE Price & Trade Checker");
+const overlayWin = new MessageOverlay({
+  preload: path.join(__dirname, "../preload/overlay.cjs"), url: "app://local/overlay.html", iconPath: undefined, log: (m) => fileLog("WARNING", m),
+});
+
+function showMain(): void {
+  if (!mainWin || mainWin.isDestroyed()) return;
+  if (mainWin.isMinimized()) mainWin.restore();
+  mainWin.show();
+  mainWin.focus();
+  hiddenToTray = false;
+  tray.setPending(false);
+}
+
+/** the NeverSink-update notice: the Status, the tray (icon dot + balloon) and the message over the game */
+let lastOverlayText = "";
+function notifyNeverSink(msg: string, regenerated: boolean): void {
+  lastOverlayText = msg;
+  say(msg, regenerated ? "ok" : "warn");
+  tray.notify("PoE Price & Trade Checker", msg);
+  tray.setPending(true);
+  void overlayWin.show(msg, regenerated ? OK_COLOR : WARN_COLOR);
+}
+
+// ---- the filter page (the same page as the Filter Generator, in a window of its own)
+const FILTER_TITLE = `PoE Price & Trade Checker — Filter Generator v${VERSION}`;
+
+function createFilterWindow(visible: boolean): BrowserWindow {
+  const win = new BrowserWindow({
+    width: 1000, height: 920, minWidth: 720, minHeight: 560, title: FILTER_TITLE, icon: iconPath(), backgroundColor: "#141414", show: false,
+    webPreferences: secureWebPreferences("filter.cjs"),
+  });
+  win.setMenu(null);
+  win.on("page-title-updated", (e) => e.preventDefault());
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (isExternalLink(url)) void shell.openExternal(url);
+    return { action: "deny" };
+  });
+  win.webContents.on("will-navigate", (e, url) => {
+    if (!url.startsWith("app://local/")) {
+      e.preventDefault();
+      if (isExternalLink(url)) void shell.openExternal(url);
+    }
+  });
+  filterHost.attach(win); // closing = the page saves what is in its boxes first
+  win.webContents.on("console-message", (e) => {
+    if (e.level === "error" || e.level === "warning") fileLog(e.level === "error" ? "ERROR" : "WARNING", `filter page (${visible ? "shown" : "background"}): ${e.message} [${e.sourceId}:${e.lineNumber}]`);
+  });
+  win.webContents.on("render-process-gone", (_e, d) => fileLog("ERROR", `filter page renderer gone: ${d.reason}`));
+  win.webContents.on("did-fail-load", (_e, code, desc) => fileLog("ERROR", `filter page failed to load: ${code} ${desc}`));
+  if (visible) win.once("ready-to-show", () => win.show());
+  void win.loadURL("app://local/filter.html");
+  return win;
+}
+
+function openFilterWindow(): void {
+  if (filterWin && !filterWin.isDestroyed()) {
+    if (filterWin.isMinimized()) filterWin.restore();
+    filterWin.show();
+    filterWin.focus();
+    return;
+  }
+  if (regenWin && !regenWin.isDestroyed()) { // the page that works in the background is the one the player sees now
+    filterWin = regenWin;
+    regenWin = null;
+    filterWin.show();
+  } else filterWin = createFilterWindow(true);
+  const win = filterWin;
+  win.on("closed", () => {
+    if (filterWin === win) filterWin = null;
+  });
+}
+
+let regenChain: Promise<unknown> = Promise.resolve();
+/** Generate through the filter page (shown or not): the same Generate as the button - sounds, game folder, byte-identical filter. */
+function runGenerate(req: { mode: "tier" | "whitelist"; refresh: boolean }): Promise<{ ok: boolean; tag: string | null; message: string }> {
+  const job = regenChain.then(async () => {
+    let win = filterWin && !filterWin.isDestroyed() ? filterWin : regenWin && !regenWin.isDestroyed() ? regenWin : null;
+    let temporary = false;
+    if (!win) {
+      win = regenWin = createFilterWindow(false);
+      temporary = true;
+    }
+    try {
+      if (!(await filterHost.waitReady(win))) return { ok: false, tag: null, message: "หน้า generate เปิดไม่ขึ้น" };
+      const r = await filterHost.requestRegen(win, req);
+      await filterHost.flushSave();
+      return r;
+    } finally {
+      if (temporary && regenWin === win && !win.isDestroyed()) { // (still the hidden one: nobody opened it meanwhile)
+        regenWin = null;
+        win.destroy();
+      }
+    }
+  });
+  regenChain = job.catch(() => undefined);
+  return job;
+}
+
+/** The tray's "Generate Now": the tab that was open last, like the original's. */
+async function generateNow(): Promise<void> {
+  const fg = filterHost.fg();
+  const mode = fg.whitelist_enabled ? "whitelist" : "tier";
+  say(`⟳ Generate filter (${game.toUpperCase()}, ${mode === "whitelist" ? "Whitelist" : "NeverSink"})…`, "info");
+  const r = await runGenerate({ mode, refresh: false });
+  say(r.ok ? "✓ Generate เสร็จแล้ว — reload filter ในเกม (Options → Game)" : `✗ Generate ไม่สำเร็จ${r.message ? `: ${r.message}` : ""} (เปิด Filter Generator เพื่อดูรายละเอียด)`, r.ok ? "ok" : "err");
+}
+
+const watcher = new NeverSinkWatcher({
+  game: () => game,
+  check: (g) => filterService.checkNeversinkUpdate(config, g, (gv) => neversinkSource.getLatestTag(gv, { http, warn: (m) => fileLog("WARNING", m) })),
+  regenerate: async () => (await runGenerate({ mode: "tier", refresh: true })).ok,
+  message: filterService.neversinkUpdateMessage,
+  notify: notifyNeverSink,
+  debug: debugEvent,
+  warn: (m) => fileLog("WARNING", m),
+}, Number(process.env.POE_CHECKER_REGEN_FIRST_MS) || undefined, Number(process.env.POE_CHECKER_REGEN_EVERY_MS) || undefined);
+
+// ---- settings (F8)
+const ARCHETYPES = ["all", "attack-melee", "attack-bow", "attack-crossbow", "spell-fire", "spell-cold", "spell-lightning", "spell-chaos", "spell-physical", "minion", "totem-trap-mine"];
+const LOG_LEVELS = ["DEBUG", "INFO", "WARNING", "ERROR"];
+const HOTKEY_FIELDS = ["hotkey_scan", "hotkey_trade", "hotkey_settings", "hotkey_quit"] as const;
+type HotkeyField = (typeof HOTKEY_FIELDS)[number];
+const HOTKEY_LABELS: Record<HotkeyField, string> = { hotkey_scan: "Skill Reference", hotkey_trade: "Trade Browser", hotkey_settings: "Settings", hotkey_quit: "Quit" };
+const HOTKEY_DEFAULTS: Record<HotkeyField, string> = { hotkey_scan: "F4", hotkey_trade: "F5", hotkey_settings: "F8", hotkey_quit: "Ctrl+Alt+Q" };
+const HOTKEY_WHAT: Record<HotkeyField, string> = { hotkey_scan: "F4 skill reference", hotkey_trade: "F5 trade", hotkey_settings: "settings", hotkey_quit: "quit" };
+
+function currentSettings(): SettingsValues {
+  return {
+    game_version: game,
+    auto_league: cfgBool("auto_league", true),
+    prefer_hardcore: cfgBool("prefer_hardcore", false),
+    mod_badge_archetype: ARCHETYPES.includes(cfgStr("mod_badge_archetype", "all")) ? cfgStr("mod_badge_archetype", "all") : "all",
+    f5_restore_clipboard: cfgBool("f5_restore_clipboard", true),
+    hotkey_scan: cfgStr("hotkey_scan", "F4"),
+    hotkey_trade: cfgStr("hotkey_trade", "F5"),
+    hotkey_settings: cfgStr("hotkey_settings", "F8"),
+    hotkey_quit: cfgStr("hotkey_quit", "Ctrl+Alt+Q"),
+    log_level: LOG_LEVELS.includes(cfgStr("log_level", "INFO")) ? cfgStr("log_level", "INFO") : "INFO",
+    close_action: cfgStr("close_action", "minimize") === "exit" ? "exit" : "minimize",
+  };
+}
+
+/** what the settings window sent, made safe: anything unknown falls back to the current value (the window is ours, but be strict anyway) */
+function cleanSettings(v: unknown): SettingsValues {
+  const cur = currentSettings();
+  const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+  const str = (k: keyof SettingsValues): string => (typeof o[k] === "string" ? (o[k] as string).slice(0, 80) : String(cur[k]));
+  const bool = (k: keyof SettingsValues): boolean => (typeof o[k] === "boolean" ? (o[k] as boolean) : !!cur[k]);
+  return {
+    game_version: str("game_version") === "poe1" ? "poe1" : "poe2",
+    auto_league: bool("auto_league"), prefer_hardcore: bool("prefer_hardcore"),
+    mod_badge_archetype: ARCHETYPES.includes(str("mod_badge_archetype")) ? str("mod_badge_archetype") : "all",
+    f5_restore_clipboard: bool("f5_restore_clipboard"),
+    hotkey_scan: str("hotkey_scan"), hotkey_trade: str("hotkey_trade"), hotkey_settings: str("hotkey_settings"), hotkey_quit: str("hotkey_quit"),
+    log_level: LOG_LEVELS.includes(str("log_level")) ? str("log_level") : "INFO",
+    close_action: str("close_action") === "exit" ? "exit" : "minimize",
+  };
+}
+
+function checkSettings(v: SettingsValues): SettingsErrors {
+  return checkHotkeys({ values: v, order: [...HOTKEY_FIELDS], labels: HOTKEY_LABELS });
+}
+
+// ---- hotkeys
+const HOTKEY_PROBLEM = (spec: string, what: string): string =>
+  `ปุ่ม ${spec} (${what}) ถูกโปรแกรมอื่นจองอยู่ (เช่น PoE Price & Trade Checker ตัวเดิม) — ปิดโปรแกรมนั้น หรือเลือกปุ่มอื่น`;
+
+const hotkeyActions: Record<HotkeyField, () => void> = {
+  hotkey_scan: () => void onF4(),
+  hotkey_trade: () => void onF5(),
+  hotkey_settings: () => openSettings(),
+  hotkey_quit: () => quit(),
+};
+let registered: Partial<Record<HotkeyField, string>> = {}; // field -> the hotkey registered for it (canonical text)
+
+/** Register `specs` (field -> canonical text); the fields that could not be registered are returned with the reason. */
+function registerAll(specs: Record<HotkeyField, string>): Partial<Record<HotkeyField, string>> {
+  globalShortcut.unregisterAll();
+  registered = {};
+  const failed: Partial<Record<HotkeyField, string>> = {};
+  for (const f of HOTKEY_FIELDS) {
+    const p = parseHotkey(specs[f]);
+    if (!p.ok) { failed[f] = p.reason; continue; }
+    let ok = false;
+    try {
+      ok = globalShortcut.register(p.hotkey.accelerator, hotkeyActions[f]);
+    } catch (e) {
+      failed[f] = `ใช้ปุ่มนี้ไม่ได้: ${(e as Error).message}`;
+      continue;
+    }
+    if (ok) {
+      registered[f] = p.hotkey.canonical;
+      fileLog("INFO", `hotkey ${p.hotkey.canonical} (${HOTKEY_WHAT[f]}) registered`);
+    } else failed[f] = HOTKEY_PROBLEM(p.hotkey.canonical, HOTKEY_WHAT[f]);
+  }
+  return failed;
+}
+
+/** At start: the saved hotkeys. One that clashes with the game, is a duplicate or is no hotkey at all (a hand-edited or imported config) is replaced by its default, with a line saying so. */
+function startHotkeys(): void {
+  const saved = Object.fromEntries(HOTKEY_FIELDS.map((f) => [f, cfgStr(f, HOTKEY_DEFAULTS[f])])) as Record<HotkeyField, string>;
+  const specs = { ...saved };
+  const replaced = new Set<HotkeyField>();
+  for (let round = 0; round < HOTKEY_FIELDS.length; round++) { // (the defaults are distinct, so every round removes one problem for good)
+    const errs = checkHotkeys({ values: specs, order: [...HOTKEY_FIELDS], labels: HOTKEY_LABELS });
+    const f = HOTKEY_FIELDS.find((x) => errs[x] && !replaced.has(x));
+    if (!f) break;
+    say(`⚠ ปุ่ม ${HOTKEY_LABELS[f]} ที่ตั้งไว้ (${saved[f]}) ใช้ไม่ได้: ${errs[f]} — ใช้ ${HOTKEY_DEFAULTS[f]} แทน`, "warn");
+    specs[f] = HOTKEY_DEFAULTS[f];
+    replaced.add(f);
+  }
+  const failed = registerAll(specs);
+  for (const why of Object.values(failed)) say(`✗ ${why}`, "err");
+}
+
+function currentHotkeys(): Hotkeys {
+  const r = (f: HotkeyField): string => registered[f] ?? cfgStr(f, HOTKEY_DEFAULTS[f]);
+  return { scan: r("hotkey_scan"), trade: r("hotkey_trade"), settings: r("hotkey_settings"), quit: r("hotkey_quit") };
+}
+
+async function applySettings(raw: unknown): Promise<SettingsResult> {
+  const v = cleanSettings(raw);
+  const errors = checkSettings(v);
+  if (Object.keys(errors).length) return { ok: false, errors };
+  // the new hotkeys are taken at once; if the system refuses one, the old ones are put back and the window says which
+  const specs = Object.fromEntries(HOTKEY_FIELDS.map((f) => [f, (parseHotkey(v[f]) as { ok: true; hotkey: { canonical: string } }).hotkey.canonical])) as Record<HotkeyField, string>;
+  const before = { ...registered };
+  const failed = registerAll(specs);
+  if (Object.keys(failed).length) {
+    registerAll(Object.fromEntries(HOTKEY_FIELDS.map((f) => [f, before[f] ?? HOTKEY_DEFAULTS[f]])) as Record<HotkeyField, string>);
+    return { ok: false, errors: failed as SettingsErrors };
+  }
+  for (const f of HOTKEY_FIELDS) config.set(f, specs[f]);
+  config.set("auto_league", v.auto_league);
+  config.set("prefer_hardcore", v.prefer_hardcore);
+  config.set("mod_badge_archetype", v.mod_badge_archetype);
+  config.set("f5_restore_clipboard", v.f5_restore_clipboard);
+  config.set("log_level", v.log_level);
+  config.set("close_action", v.close_action);
+  if (v.game_version !== game) setGame(v.game_version, "settings");
+  saveSoon();
+  if (mainWin && !mainWin.isDestroyed() && ready) mainWin.webContents.send("main:hotkeys", currentHotkeys());
+  say("✓ บันทึก settings แล้ว", "ok");
+  debugEvent(`settings applied hotkeys=${JSON.stringify(registered)} close=${v.close_action} restoreClipboard=${v.f5_restore_clipboard}`);
+  closeSettings();
+  return { ok: true };
+}
+
+function closeSettings(): void {
+  const w = settingsWin;
+  settingsWin = null;
+  if (w && !w.isDestroyed()) w.destroy();
+}
+
+function openSettings(): void {
+  if (settingsWin && !settingsWin.isDestroyed()) {
+    if (settingsWin.isMinimized()) settingsWin.restore();
+    settingsWin.show();
+    settingsWin.focus();
+    return;
+  }
+  const win = new BrowserWindow({
+    width: 560, height: 430, useContentSize: true, title: "PoE Price & Trade Checker — Settings", icon: iconPath(), backgroundColor: "#1c1c1c",
+    show: false, resizable: false, maximizable: false, minimizable: false, autoHideMenuBar: true, webPreferences: secureWebPreferences("settings.cjs"),
+  });
+  settingsWin = win;
+  hardenWindow(win);
+  win.once("ready-to-show", () => win.show());
+  win.on("closed", () => {
+    if (settingsWin === win) settingsWin = null;
+  });
+  void win.loadURL("app://local/settings.html");
+}
+
 // ---------------------------------------------------------------------------------------------- ipc
 const isFrom = (e: IpcMainEvent | IpcMainInvokeEvent, win: BrowserWindow | null): boolean =>
   !!win && !win.isDestroyed() && e.sender === win.webContents && (e.senderFrame?.url ?? "").startsWith("app://local/");
@@ -483,11 +807,31 @@ function setupIpc(): void {
     const lines = earlyLog.splice(0);
     return {
       version: VERSION, buildTime: __BUILD_TIME__, configDir, game, league, leagues,
-      hotkeys: { scan: cfgStr("hotkey_scan", "F4"), trade: cfgStr("hotkey_trade", "F5"), quit: cfgStr("hotkey_quit", "Ctrl+Alt+Q") }, log: lines,
+      hotkeys: currentHotkeys(), log: lines,
     };
   });
   ipcMain.on("main:set-game", (e, g: unknown) => {
     if (isFrom(e, mainWin) && (g === "poe1" || g === "poe2")) setGame(g);
+  });
+  ipcMain.on("main:open-settings", (e) => {
+    if (isFrom(e, mainWin)) openSettings();
+  });
+  ipcMain.on("main:open-filter", (e) => {
+    if (isFrom(e, mainWin)) openFilterWindow();
+  });
+
+  ipcMain.handle("settings:init", (e): SettingsInit | null => {
+    if (!isFrom(e, settingsWin)) return null;
+    return { values: currentSettings(), trayOk, version: VERSION, archetypes: ARCHETYPES, logLevels: LOG_LEVELS };
+  });
+  ipcMain.handle("settings:check", (e, v: unknown): SettingsErrors => (isFrom(e, settingsWin) ? checkSettings(cleanSettings(v)) : {}));
+  ipcMain.handle("settings:apply", (e, v: unknown): Promise<SettingsResult> | SettingsResult => (isFrom(e, settingsWin) ? applySettings(v) : { ok: false, errors: {} }));
+  ipcMain.on("settings:cancel", (e) => {
+    if (isFrom(e, settingsWin)) closeSettings();
+  });
+
+  ipcMain.on("overlay:ready", (e, size: { width: number; height: number }) => {
+    if (isFrom(e, overlayWin.window)) overlayWin.onReady(size);
   });
   ipcMain.on("main:set-league", (e, l: unknown) => {
     if (isFrom(e, mainWin) && typeof l === "string" && leagues.includes(l)) {
@@ -543,12 +887,13 @@ function setupIpc(): void {
 
 function setupSession(): void {
   const csp = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; " +
-    "connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+    "connect-src 'self'; media-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
   session.defaultSession.webRequest.onHeadersReceived((details, cb) => {
     cb({ responseHeaders: { ...details.responseHeaders, "Content-Security-Policy": [csp] } });
   });
-  session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
-  session.defaultSession.setPermissionCheckHandler(() => false);
+  // nothing is asked of the player: every permission is refused except writing text to the clipboard (the filter page's Copy button)
+  session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) => cb(perm === "clipboard-sanitized-write"));
+  session.defaultSession.setPermissionCheckHandler((_wc, perm) => perm === "clipboard-sanitized-write");
   const root = path.join(__dirname, "..", "renderer");
   protocol.handle("app", (request) => {
     const url = new URL(request.url);
@@ -561,67 +906,62 @@ function setupSession(): void {
   });
 }
 
-// ---------------------------------------------------------------------------------------------- hotkeys
-const HOTKEY_PROBLEM = (spec: string, what: string): string =>
-  `✗ ลงทะเบียนปุ่ม ${spec} (${what}) ไม่ได้ — มีโปรแกรมอื่นจองปุ่มนี้อยู่ (เช่น PoE Price & Trade Checker ตัวเดิม) ` +
-  "ปิดโปรแกรมนั้นแล้วเปิดโปรแกรมนี้ใหม่";
-
-function toAccelerator(spec: string): string {
-  return spec.split("+").map((p) => p.trim()).map((p) => (p.toLowerCase() === "win" ? "Super" : p)).join("+");
-}
-
-function registerHotkeys(): void {
-  const items: [string, string, () => void][] = [
-    [cfgStr("hotkey_scan", "F4"), "F4 skill reference", () => void onF4()],
-    [cfgStr("hotkey_trade", "F5"), "F5 trade", () => void onF5()],
-    [cfgStr("hotkey_quit", "Ctrl+Alt+Q"), "quit", () => quit()],
-  ];
-  for (const [spec, what, cb] of items) {
-    let ok = false;
-    try {
-      ok = globalShortcut.register(toAccelerator(spec), cb);
-    } catch (e) {
-      say(`✗ ปุ่ม ${spec} (${what}) ใช้ไม่ได้: ${(e as Error).message}`, "err");
-      continue;
-    }
-    if (ok) fileLog("INFO", `hotkey ${spec} (${what}) registered`);
-    else say(HOTKEY_PROBLEM(spec, what), "err");
-  }
-}
-
 // ---------------------------------------------------------------------------------------------- lifecycle
 let quitting = false;
 function quit(): void {
   if (quitting) return;
   quitting = true;
-  globalShortcut.unregisterAll();
+  fileLog("INFO", "quit: closing");
+  setTimeout(() => app.exit(0), 6000).unref?.(); // (a program that cannot close is worse than one that closes a little rough)
+  for (const step of [() => globalShortcut.unregisterAll(), () => watcher.stop(), () => tray.stop(), () => overlayWin.destroy()]) {
+    try { step(); } catch (e) { fileLog("WARNING", `quit step failed: ${(e as Error).message}`); }
+  }
   void (async () => {
     try {
+      await filterHost.flushSave();
       await config.save();
       await fsp.mkdir(debugDir, { recursive: true });
-      const body = `# PoE Price & Trade Checker — Session Log\n\n\`\`\`\n${sessionEvents.join("\n")}\n\`\`\`\n`;
+      const body = ["# PoE Price & Trade Checker — Session Log", "", "```", ...sessionEvents, "```", ""].join("\n");
       await fsp.writeFile(path.join(debugDir, "last_session.md"), body, "utf-8");
     } catch { /* the program is closing */ }
+    fileLog("INFO", "quit: saved");
     app.exit(0);
   })();
+}
+
+/** What the tests may look at and ask for (POE_CHECKER_TEST=1 only; nothing of this exists in a normal run). */
+function exposeTestHooks(): void {
+  if (process.env.POE_CHECKER_TEST !== "1") return;
+  (globalThis as any).__poeChecker = {
+    trayOk: () => trayOk,
+    trayPending: () => tray.pendingState,
+    overlayText: () => lastOverlayText,
+    quitting: () => quitting,
+    hotkeys: () => ({ ...registered }),
+    checkNeverSinkNow: () => watcher.runOnce(),
+    overlay: () => overlayWin.window,
+    showOverlay: (t: string, c: string) => overlayWin.show(t, c),
+    filterWindows: () => ({ shown: filterWin && !filterWin.isDestroyed(), hidden: regenWin && !regenWin.isDestroyed() }),
+    generateNow: () => generateNow(),
+    hiddenToTray: () => hiddenToTray,
+    mainVisible: () => !!mainWin && !mainWin.isDestroyed() && mainWin.isVisible(),
+    showMain: () => showMain(),
+    openFilter: () => openFilterWindow(),
+    openSettings: () => openSettings(),
+  };
 }
 
 if (!gotLock) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
-    if (mainWin) {
-      if (mainWin.isMinimized()) mainWin.restore();
-      mainWin.show();
-      mainWin.focus();
-    }
-  });
+  app.on("second-instance", () => showMain());
   void app.whenReady().then(async () => {
     Menu.setApplicationMenu(null);
     const r = await importOldConfig(configDir, oldConfigDir, { defaults: CHECKER_DEFAULTS, marker: "imported-from-PoePriceTrade.txt" });
     if (r.message) importNote = r.message;
     fileLog("INFO", `config import: ${r.status}`);
     await config.load();
+    await filterHost.load();
     game = cfgStr("game_version", "poe2") === "poe1" ? "poe1" : "poe2";
     dbs = makeDbs(game);
     const prof = profiles.profileFor(game);
@@ -633,15 +973,30 @@ if (!gotLock) {
     } catch { /* not important */ }
     setupSession();
     setupIpc();
+    filterHost.register();
     say(`PoE Price & Trade Checker v${VERSION} — config: ${configDir}`, "info"); // the version marker first (CLAUDE.md rule 5)
     if (importNote) say(importNote, "info");
     const sz = screen.getPrimaryDisplay().size;
     say(`v${VERSION} · ${game.toUpperCase()} · league: ${league} · จอ ${sz.width}×${sz.height}`, "dim");
-    say(`${cfgStr("hotkey_scan", "F4")} Skill Reference  |  ${cfgStr("hotkey_trade", "F5")} Trade browser  |  ${cfgStr("hotkey_quit", "Ctrl+Alt+Q")} Quit`, "dim");
-    registerHotkeys();
+    startHotkeys();
+    const hk = currentHotkeys();
+    say(`${hk.scan} Skill Reference  |  ${hk.trade} Trade browser  |  ${hk.settings} Settings  |  ${hk.quit} Quit`, "dim");
     createMainWindow();
+    trayOk = tray.start();
+    if (trayOk) fileLog("INFO", "tray icon created");
+    else fileLog("WARNING", `tray icon unavailable (${tray.lastError}) - the X button closes the program`);
+    watcher.start();
+    exposeTestHooks();
     void fetchLeagues(cfgBool("auto_league", true));
   });
   app.on("window-all-closed", () => quit());
+  // app.quit() from anywhere (Windows shutdown, a test): do our own closing first (save, tray, log), it ends with app.exit
+  app.on("before-quit", (e) => {
+    appQuitting = true;
+    if (!quitting) {
+      e.preventDefault();
+      quit();
+    }
+  });
   app.on("will-quit", () => globalShortcut.unregisterAll());
 }

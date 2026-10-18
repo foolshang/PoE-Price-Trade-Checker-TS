@@ -69,7 +69,7 @@ export async function openTextBox(file, title, { grab = false } = {}) {
   };
 }
 
-const VK = { F4: 0x73, F5: 0x74, Q: 0x51, CTRL: 0x11, ALT: 0x12, SHIFT: 0x10 };
+const VK = { F4: 0x73, F5: 0x74, F6: 0x75, F7: 0x76, F8: 0x77, F9: 0x78, Q: 0x51, CTRL: 0x11, ALT: 0x12, SHIFT: 0x10 };
 /** a real key press (down, up) - the hotkeys of the program are system-wide, so they react to it */
 export async function pressKey(name, mods = [], { holdMs = 0 } = {}) {
   for (const m of mods) keybd_event(VK[m], 0, 0, 0);
@@ -129,4 +129,40 @@ export function zOrderTitles() {
   }, koffi.pointer(EnumWindowsProc));
   try { EnumWindows(cb, 0); } finally { koffi.unregister(cb); }
   return out;
+}
+
+const GetWindowLongW = user32.func("int32 __stdcall GetWindowLongW(void *h, int idx)");
+const WindowFromPoint = user32.func("void* __stdcall WindowFromPoint(int32 x, int32 y)");
+const mouse_event = user32.func("void __stdcall mouse_event(uint32 flags, int32 dx, int32 dy, uint32 data, uintptr_t extra)");
+
+/** the extended style bits of the window with this title (0 when there is none) */
+export function exStyleOf(title) {
+  const h = FindWindowW(null, title);
+  return h ? GetWindowLongW(h, -20) >>> 0 : 0;
+}
+/** [x, y, w, h] of the window with this title, null when there is none */
+export function rectOfTitle(title) {
+  const h = FindWindowW(null, title);
+  if (!h) return null;
+  const r = [0, 0, 0, 0];
+  GetWindowRect(h, r);
+  return [r[0], r[1], r[2] - r[0], r[3] - r[1]];
+}
+/** does the window with this title answer a hit test at (x, y)? (click-through windows do not) */
+export function titleAtPoint(x, y) {
+  const h = WindowFromPoint(x, y);
+  return h ? text16(GetWindowTextW, h) : "";
+}
+export function clickAt(x, y) {
+  setCursor(x, y);
+  mouse_event(0x0002, 0, 0, 0, 0);
+  mouse_event(0x0004, 0, 0, 0, 0);
+}
+
+const RegisterHotKey = user32.func("bool __stdcall RegisterHotKey(void *h, int id, uint32 mods, uint32 vk)");
+const UnregisterHotKey = user32.func("bool __stdcall UnregisterHotKey(void *h, int id)");
+/** hold a hotkey like "another program" does; returns the release function (false when it is taken) */
+export function holdHotkey(vk, id = 77) {
+  if (!RegisterHotKey(null, id, 0x4000, vk)) return null;
+  return () => UnregisterHotKey(null, id);
 }

@@ -112,14 +112,15 @@ function askConflicts(conflicts: { name: string; new_name: string }[]): Promise<
   });
 }
 
-async function generate(mode: "tier" | "whitelist", refresh: boolean): Promise<void> {
+/** true when a filter was made and handed over (written to the folder / offered for download) */
+async function generate(mode: "tier" | "whitelist", refresh: boolean): Promise<boolean> {
   const cfg = collectCfg(mode);
   saveCfg(cfg);
   const key = mode === "whitelist" ? "filter_name_whitelist" : "filter_name_tier";
   const v = S.api.validateName(cfg[key]);
   if (v.error) {
     log(`✗ ชื่อ filter ใช้ไม่ได้: ${v.error}`, "err");
-    return;
+    return false;
   }
   const name = v.name || cfg[key];
   setBusy(true);
@@ -130,7 +131,7 @@ async function generate(mode: "tier" | "whitelist", refresh: boolean): Promise<v
       ({ hub, base, baseTag: tag, names } = S.data);
       if (!base) {
         log("⚠ ไม่มี NeverSink base filter — whitelist ไม่มี tier เริ่มต้น ไม่ generate", "warn");
-        return;
+        return false;
       }
     } else {
       log(`⟳ ดึง NeverSink base filter (${game})…`, "info");
@@ -138,7 +139,7 @@ async function generate(mode: "tier" | "whitelist", refresh: boolean): Promise<v
       [base, tag] = await fetchBase(game, Number.isInteger(s) ? s : 2, !!refresh);
       if (base === null) {
         log("⚠ ไม่มี NeverSink base filter ให้ใช้ (GitHub ล่ม + ไม่มี cache)", "warn");
-        return;
+        return false;
       }
       log(`✓ NeverSink base filter พร้อม (tag=${tag})`, "ok");
       tabNs.showTag(game);
@@ -161,13 +162,16 @@ async function generate(mode: "tier" | "whitelist", refresh: boolean): Promise<v
       if (res.status !== "ask") break;
       decisions = await askConflicts(res.conflicts!);
     }
-    if (res!.status === "error") { log(`✗ ${res!.message}`, "err"); return; }
-    if (res!.status === "none") { log("⚠ ยังไม่ได้เลือกอะไร — ไม่ generate", "warn"); return; }
-    if (res!.status !== "ok") { log("✗ สร้าง filter ไม่สำเร็จ", "err"); return; }
+    if (res!.status === "error") { log(`✗ ${res!.message}`, "err"); return false; }
+    if (res!.status === "none") { log("⚠ ยังไม่ได้เลือกอะไร — ไม่ generate", "warn"); return false; }
+    if (res!.status !== "ok") { log("✗ สร้าง filter ไม่สำเร็จ", "err"); return false; }
     log(res!.mode === "whitelist" ? `✓ filter โหมดโชว์เฉพาะ (${res!.count} รายการ)` : "✓ สร้าง filter แล้ว", "ok");
-    if (await deliver(res!, name)) await platform().afterGenerate?.({ mode: res!.mode as string, game, name, baseTag: res!.base_tag ?? null });
+    if (!(await deliver(res!, name))) return false;
+    await platform().afterGenerate?.({ mode: res!.mode as string, game, name, baseTag: res!.base_tag ?? null });
+    return true;
   } catch (e: any) {
     log(`✗ ${e.message || e}`, "err");
+    return false;
   } finally {
     setBusy(false);
   }

@@ -4,7 +4,7 @@ import path from "node:path";
 
 const root = JSON.parse(readFileSync(path.resolve(import.meta.dirname, "../../package.json"), "utf-8"));
 const define = { __APP_VERSION__: JSON.stringify(root.version), __BUILD_TIME__: JSON.stringify(new Date().toISOString()) };
-const bundleOurPackages = { exclude: ["@poe/core", "@poe/node", "@poe/ui"] };
+const bundleOurPackages = { exclude: ["@poe/core", "@poe/node", "@poe/ui", "@poe/desktop"] };
 
 export default defineConfig({
   main: {

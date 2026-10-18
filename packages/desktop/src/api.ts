@@ -1,5 +1,5 @@
 /**
- * The whole surface the renderer gets from the main process (window.desktop, made by the preload). Typed, small, and every
+ * The whole surface the filter page gets from the main process (window.desktop, made by the preload of @poe/desktop). Typed, small, and every
  * member does one named thing: there is no generic fs / ipc / require for the page. Paths never come from the page: the main
  * process knows the game folder of each game (the default or the folder the player picked with Browse…) and takes file NAMES.
  */
@@ -79,6 +79,24 @@ export interface DesktopApi {
   /** the main process asks the page to save before closing; the page answers with flushDone */
   onFlush(cb: () => void): void;
   flushDone(): void;
+  /** the page is up and has registered onRegen (a window that is not shown waits for this before it is asked to generate) */
+  ready(): void;
+  /** the main process asks the page to generate (the NeverSink check: tier tab, newest base; the tray's "Generate Now": the saved tab); the answer says how it went */
+  onRegen(cb: (req: RegenRequest) => Promise<RegenResult>): void;
+}
+
+export interface RegenRequest {
+  mode: "tier" | "whitelist";
+  /** fetch the NeverSink base filter again (not from the cache) */
+  refresh: boolean;
+}
+
+export interface RegenResult {
+  ok: boolean;
+  /** the NeverSink tag the new filter was built from */
+  tag: string | null;
+  /** the page's last message when it did not work */
+  message: string;
 }
 
 declare global {

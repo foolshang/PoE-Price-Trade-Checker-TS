@@ -13,7 +13,7 @@ export interface ListData {
 export interface Ctx {
   cfg: Record<string, any>;
   changed(): void;
-  generate(mode: "tier" | "whitelist", refresh: boolean): Promise<void>;
+  generate(mode: "tier" | "whitelist", refresh: boolean): Promise<boolean>;
   openFile(file: File): Promise<void>;
   gotoNsTab(): void;
   reloadLists(): Promise<void>;
