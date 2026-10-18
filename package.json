@@ -25,6 +25,7 @@
     "lint": "eslint packages apps tests tools",
     "parity:regen": "python -B tools/parity/gen_golden.py",
     "parity:check": "python -B tools/parity/gen_golden.py --check",
+    "mod-meta:build": "rolldown tools/build-mod-meta-main.ts -d dist-tools --platform node -f esm && node dist-tools/build-mod-meta-main.js",
     "names:refresh": "rolldown tools/refresh-names-main.ts -d dist-tools --platform node -f esm && node dist-tools/refresh-names-main.js",
     "web:dev": "npm run dev -w @poe/web",
     "web:build": "npm run build -w @poe/web",

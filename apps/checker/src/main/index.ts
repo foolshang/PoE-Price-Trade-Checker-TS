@@ -19,7 +19,7 @@ import { AppConfig, CHECKER_DEFAULTS, NodeFs, NodeHttp, importOldConfig } from "
 import { isExternalLink } from "@poe/desktop/guard";
 import { FilterHost } from "@poe/desktop/host";
 import type { GameId, Hotkeys, MainInit, PickerFilter, SettingsErrors, SettingsInit, SettingsResult, SettingsValues, SkillDetail, Tag } from "../shared/api.ts";
-import { checkHotkeys, forbiddenReason, parseHotkey } from "./hotkeys.ts";
+import { checkHotkeys, parseHotkey } from "./hotkeys.ts";
 import { MessageOverlay, OK_COLOR, WARN_COLOR } from "./overlay.ts";
 import { NeverSinkWatcher } from "./regen.ts";
 import { TrayIcon } from "./tray.ts";

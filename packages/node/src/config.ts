@@ -77,7 +77,16 @@ export class AppConfig {
   }
 
   /** Written to a temp file and renamed over config.json: a program that is killed in the middle of a save leaves the old file, never a half one. */
-  async save(): Promise<void> {
+  save(): Promise<void> {
+    // saves run one after the other: the main process saves from several places (a timer, the page, closing) and two renames of one temp file would fail
+    const run = this.saving.then(() => this.writeNow());
+    this.saving = run.catch(() => undefined);
+    return run;
+  }
+
+  private saving: Promise<void> = Promise.resolve();
+
+  private async writeNow(): Promise<void> {
     await fsp.mkdir(this.dir, { recursive: true });
     const file = path.join(this.dir, CONFIG_FILE);
     const tmp = `${file}.${process.pid}.tmp`;

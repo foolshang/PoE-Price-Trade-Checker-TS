@@ -6,6 +6,7 @@ import difflib
 import gzip
 import json
 import math
+import sys
 import tempfile
 import types
 import urllib.parse
@@ -293,3 +294,38 @@ def register(ns: dict) -> None:
     CALLS["py.close_matches"] = lambda word, poss, n=1, cutoff=0.6: difflib.get_close_matches(word, poss, n, cutoff)
     CALLS["py.ratio"] = lambda a, b: difflib.SequenceMatcher(None, a, b).ratio()
     CALLS["py.json_float"] = lambda x: json.dumps({"v": float(x)}, separators=(",", ":"))
+
+    # ------------------------------------------------------------------ tools/build_mod_meta.py (the tier-ladder builder)
+    def c_mod_meta(game, bases, mods):
+        """Run the original's builder on these two files; the result is the file (the time stamp made constant) or its failure."""
+        import contextlib
+        import hashlib
+        import importlib.util
+        import io
+        import os
+        import re
+        spec = importlib.util.spec_from_file_location("build_mod_meta_orig", Path(os.environ.get("OLD_REPO", r"D:\Projects\PoE_Price-Trade_Checker")) / "tools" / "build_mod_meta.py")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        d = Path(tempfile.mkdtemp(prefix="pfg-modmeta-"))
+        (d / "base_items.json").write_text(json.dumps(bases), encoding="utf-8")
+        (d / "mods.json").write_text(json.dumps(mods), encoding="utf-8")
+        out = d / "out.json"
+        argv, code = sys.argv, 0
+        err = io.StringIO()
+        try:
+            sys.argv = ["build_mod_meta.py", "--game", game, "--local", str(d), "-o", str(out)]
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+                try:
+                    mod.main()
+                except SystemExit as e:
+                    code = e.code or 0
+        finally:
+            sys.argv = argv
+        if code:
+            return {"exit": code, "errors": err.getvalue().splitlines()}
+        text = re.sub(r'"generated":"[^"]*"', '"generated":"T"', out.read_text(encoding="utf-8"), count=1)
+        return {"exit": 0, "len": len(text), "sha": hashlib.sha256(text.encode("utf-8")).hexdigest(), "meta": json.loads(text)}
+
+    CALLS["tools.build_mod_meta"] = c_mod_meta
+

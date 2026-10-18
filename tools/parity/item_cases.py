@@ -216,7 +216,8 @@ def item_cases() -> dict:
     for a_, b_ in (("abcd", "bcde"), ("", ""), ("a", ""), ("abc", "abc"), ("ab" * 120, "ba" * 120), ("the quick brown fox", "the quick red fox"), ("日本語", "日本"), ("😀a", "a😀"), ("aaa", "aa"), ("abab", "baba")):
         pyb.append(_call("pyb", f"ratio-{len(pyb)}", "py.ratio", a_, b_))
 
-    groups = {"parse": parse, "url": urls, "f5": f5 + texts, "modfind": modq, "base": basecases, "meta": meta, "badge": badge, "skill": skill, "league": league, "pyb": pyb}
+    from mod_meta_cases import mod_meta_cases
+    groups = {"parse": parse, "url": urls, "f5": f5 + texts, "modfind": modq, "base": basecases, "meta": meta, "badge": badge, "skill": skill, "league": league, "pyb": pyb, "modmeta": mod_meta_cases()}
     out = {}
     for k, cases in groups.items():
         seen: dict = {}

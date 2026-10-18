@@ -1,4 +1,5 @@
 /** The TypeScript twin of tools/parity/item_calls.py: the item pipeline (F5 / F4) run on the fixtures. */
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { gunzipSync } from "node:zlib";
@@ -226,4 +227,15 @@ export const ITEM_CALLS: Record<string, (...a: any[]) => any> = {
   "py.close_matches": (word, poss, n = 1, cutoff = 0.6) => difflib.getCloseMatches(word, poss, n, cutoff),
   "py.ratio": (a, b) => { const m = new difflib.SequenceMatcher(); m.setSeq2(b); m.setSeq1(a); return m.ratio(); },
   "py.json_float": (x) => py.dumps({ v: new py.PyFloat(x) }, { separators: [",", ":"] }),
+
+  "tools.build_mod_meta": (game, bases, mods) => {
+    try {
+      const { meta } = core.modMetaBuild.buildModMeta(game, bases, mods, "T");
+      const text = core.modMetaBuild.serialize(meta);
+      return { exit: 0, len: [...text].length, sha: createHash("sha256").update(text, "utf-8").digest("hex"), meta: JSON.parse(text) };
+    } catch (e) {
+      if (!(e instanceof core.modMetaBuild.ModMetaError)) throw e;
+      return { exit: 1, errors: [`✗ validation ล้มเหลวสำหรับ --game ${game}:`, ...e.problems.map((p) => `  - ${p}`)] };
+    }
+  },
 };

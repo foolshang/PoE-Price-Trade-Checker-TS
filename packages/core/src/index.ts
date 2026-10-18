@@ -28,3 +28,4 @@ export * as skillRef from "./skill_ref.ts";
 export * as f5 from "./f5.ts";
 export * as league from "./league.ts";
 export * as itemLang from "./item_lang.ts";
+export * as modMetaBuild from "./mod_meta_build.ts";
