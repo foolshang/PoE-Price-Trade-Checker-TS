@@ -454,6 +454,7 @@ describe("D) NeverSink check: regenerate + the three notices", () => {
     const before = fs.readFileSync(f, "utf-8");
     const mtime0 = fs.statSync(f).mtimeMs;
     net.state.tag = "v-test-2";
+    await hook(app, "minimizeMain"); // (not looking at the window: the dot goes on)
     await hook(app, "checkNeverSinkNow");
     const msg = "NeverSink อัปเดต v-test → v-test-2 สร้าง filter ใหม่แล้ว";
     await page.waitForFunction((m) => document.querySelector("#log").innerText.includes(m), msg, { timeout: 30000 });
@@ -481,6 +482,7 @@ describe("D) NeverSink check: regenerate + the three notices", () => {
     const f = filterFile(sbx);
     const before = fs.readFileSync(f, "utf-8");
     net.state.tag = "v-test-3";
+    await hook(app, "minimizeMain");
     await hook(app, "checkNeverSinkNow");
     const msg = "NeverSink มีเวอร์ชันใหม่ v-test-3 (filter ปัจจุบันสร้างจาก v-test) — กด Generate เพื่ออัปเดต";
     await page.waitForFunction((m) => document.querySelector("#log").innerText.includes(m), msg, { timeout: 30000 });

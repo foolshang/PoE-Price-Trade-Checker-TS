@@ -62,10 +62,10 @@ describe.skipIf(!fs.existsSync(ZIP))("the zip copy", () => {
     expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getTitle())).toBe(`PoE Price & Trade Checker (TypeScript) v${ver}`);
     expect(await app.evaluate(() => globalThis.__poeChecker.updaterMode())).toBe("manual");
     // the banner: a newer release exists, here is where to get it; no "restart" button
-    await page.locator("#update-banner").waitFor({ state: "visible", timeout: 60000 });
-    expect(await page.locator("#update-text").innerText()).toContain("มีรุ่นใหม่ v9.9.9");
-    expect(await page.locator("#update-text").innerText()).toContain("zip");
-    expect(await page.locator("#update-action").innerText()).toBe("เปิดหน้าดาวน์โหลด");
+    await page.locator("#update-bar").waitFor({ state: "visible", timeout: 60000 });
+    expect(await page.locator("#update-bar .update-text").innerText()).toContain("มีรุ่นใหม่ v9.9.9");
+    expect(await page.locator("#update-bar .update-text").innerText()).toContain("zip");
+    expect(await page.locator("#update-bar button").allInnerTexts()).toEqual(["อัปเดต (เปิดหน้าดาวน์โหลด)"]); // (the button opens the download page: this copy cannot install)
     expect(feed.requests.map((r) => r.name)).toEqual(["checker.yml"]); // nothing was downloaded
     // the settings are in the user's folder, not next to the exe
     expect(fs.existsSync(path.join(sbx.checkerDir, "log.txt"))).toBe(true);

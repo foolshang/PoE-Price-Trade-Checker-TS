@@ -12,7 +12,16 @@
     "./page": "./src/page.ts",
     "./updater": "./src/updater.ts",
     "./updater-api": "./src/updater_api.ts",
-    "./banner": "./src/banner.ts"
+    "./banner": "./src/banner.ts",
+    "./tray": "./src/tray.ts",
+    "./changelog": "./src/changelog.ts",
+    "./managed-updater": "./src/managed_updater.ts",
+    "./update-api": "./src/update_api.ts",
+    "./update-view": "./src/update_view.ts",
+    "./update-ui": "./src/update_ui.ts",
+    "./about": "./src/about.ts",
+    "./about-api": "./src/about_api.ts",
+    "./modal": "./src/modal.ts"
   },
   "dependencies": {
     "@poe/core": "*",

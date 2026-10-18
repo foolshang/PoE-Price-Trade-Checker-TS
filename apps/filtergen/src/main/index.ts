@@ -5,7 +5,7 @@
  * the original's PoeFilterGen), the game folders, the network for the few allowed hosts, logging, the single instance.
  * The window shows packages/ui from the app:// protocol; the page can only call what preload/index.ts exposes.
  */
-import { app, BrowserWindow, Menu, net, protocol, session, shell } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, net, protocol, session, shell } from "electron";
 import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -13,6 +13,7 @@ import { AppConfig, IMPORT_MARKER, importOldConfig } from "@poe/node";
 import { isExternalLink, isInside } from "@poe/desktop/guard";
 import { FilterHost } from "@poe/desktop/host";
 import { AppUpdater } from "@poe/desktop/updater";
+import { TrayIcon } from "@poe/desktop/tray";
 
 declare const __APP_VERSION__: string;
 declare const __BUILD_TIME__: string;
@@ -49,15 +50,46 @@ const documentsDir = (): string => process.env.POE_FILTERGEN_DOCUMENTS || app.ge
 
 // ---------------------------------------------------------------------------------------------- single instance
 let win: BrowserWindow | null = null;
+let trayOk = false;
+let hiddenToTray = false; // the window is hidden because of the X button
+let quitting = false; // the program is closing for real (the tray menu, Windows shutdown, a test)
+const TRAY_HINT = path.join(configDir, "tray-hint-shown.txt"); // the first time the window goes to the tray the player is told, once
+
+/** bring the window back (from the tray, from a second start of the program, from the taskbar) */
+function showWindow(): void {
+  if (!win || win.isDestroyed()) return;
+  if (win.isMinimized()) win.restore();
+  win.show();
+  win.focus();
+  hiddenToTray = false;
+}
 if (!gotLock) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
-    if (win) {
-      if (win.isMinimized()) win.restore();
-      win.focus();
-    }
-  });
+  app.on("second-instance", () => showWindow());
+}
+
+const closeAction = (): "minimize" | "exit" => (config.get("close_action", "minimize") === "exit" ? "exit" : "minimize");
+const tray = new TrayIcon({
+  items: [{ label: "เปิดหน้าต่าง", click: () => showWindow() }, "-", { label: "ออก", click: () => { quitting = true; app.quit(); } }],
+  onClick: () => showWindow(), iconPath: () => iconFile(), tip: "PoE Filter Generator", disableEnv: "POE_FILTERGEN_NO_TRAY",
+});
+function iconFile(): string | undefined {
+  return [path.join(process.resourcesPath, "icon.ico"), path.join(__dirname, "..", "..", "build", "icon.ico")].find((p) => existsSync(p));
+}
+
+/** the X button: hide to the tray (and say so, once), or close the program. With no tray icon the window is never hidden: there would be no way back. */
+function hideInsteadOfClose(): boolean {
+  if (quitting || !trayOk || closeAction() !== "minimize" || !win || win.isDestroyed()) return false;
+  win.hide();
+  hiddenToTray = true;
+  if (!existsSync(TRAY_HINT)) {
+    tray.notify("PoE Filter Generator", "โปรแกรมยังทำงานอยู่ใน tray (ไอคอนข้างนาฬิกา) — คลิกที่ไอคอนเพื่อเปิดหน้าต่างอีกครั้ง หรือเลือก \"ออก\" เพื่อปิดโปรแกรม");
+    log("INFO", "tray hint shown (once)");
+    try { writeFileSync(TRAY_HINT, "shown\n", "utf-8"); } catch { /* the hint comes again next time */ }
+  }
+  log("INFO", "window hidden to the tray");
+  return true;
 }
 
 protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
@@ -91,7 +123,7 @@ async function loadAll(): Promise<void> {
 
 // ---------------------------------------------------------------------------------------------- window
 function createWindow(): void {
-  const iconPath = [path.join(process.resourcesPath, "icon.ico"), path.join(__dirname, "..", "..", "build", "icon.ico")].find((p) => existsSync(p));
+  const iconPath = iconFile();
   win = new BrowserWindow({
     width: 1000, height: 920, minWidth: 720, minHeight: 560, title: TITLE, icon: iconPath, backgroundColor: "#16181d", show: false,
     webPreferences: {
@@ -114,11 +146,38 @@ function createWindow(): void {
       if (isExternalLink(url)) void shell.openExternal(url);
     }
   });
-  host.attach(win); // closing = the page saves what is in its boxes first
+  host.attach(win, hideInsteadOfClose); // closing = the page saves what is in its boxes first (the X may only hide the window: the tray)
   win.on("closed", () => {
     win = null;
   });
   void win.loadURL("app://local/index.html");
+}
+
+/** the About window asks what the X button does and sets it (the Filter Generator has no F8) */
+function setupTrayOption(): void {
+  const ok = (e: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): boolean => !!win && e.sender === win.webContents && (e.senderFrame?.url ?? "").startsWith("app://local/");
+  ipcMain.handle("tray:get", (e) => (ok(e) ? { action: closeAction(), trayOk } : { action: "minimize", trayOk: false }));
+  ipcMain.on("tray:set", (e, action: unknown) => {
+    if (!ok(e) || (action !== "minimize" && action !== "exit")) return;
+    config.set("close_action", action);
+    void config.save();
+    log("INFO", `close_action = ${action}`);
+  });
+}
+
+/** What the tests may look at (POE_CHECKER_TEST=1 only). */
+function exposeTestHooks(): void {
+  if (process.env.POE_CHECKER_TEST !== "1") return;
+  (globalThis as any).__poeFG = {
+    trayOk: () => trayOk,
+    hiddenToTray: () => hiddenToTray,
+    visible: () => !!win && !win.isDestroyed() && win.isVisible(),
+    closeAction: () => closeAction(),
+    showWindow: () => showWindow(),
+    quitting: () => quitting,
+    updaterInject: (s: any) => updater.inject(s),
+    updaterMode: () => updater.currentMode,
+  };
 }
 
 function setupSession(): void {
@@ -157,12 +216,21 @@ if (gotLock) {
       writeFileSync(path.join(configDir, "last_run.txt"),
         `v${VERSION}\n${new Date().toISOString()}\nfrozen=${app.isPackaged}\nbuild=${__BUILD_TIME__}\nimport_marker=${existsSync(path.join(configDir, IMPORT_MARKER))}\n`, "utf-8");
     } catch { /* not important */ }
+    setupTrayOption();
     createWindow();
+    trayOk = tray.start();
+    log(trayOk ? "INFO" : "WARNING", trayOk ? "tray icon created" : `tray icon unavailable (${tray.lastError}) - the X button closes the program`);
     updater.start();
+    exposeTestHooks();
+  });
+  // app.quit() from anywhere (the tray menu, Windows shutdown, a test, the installer of an update): the windows really close then
+  app.on("before-quit", () => {
+    quitting = true;
   });
   // the end of the program: a downloaded update is installed now (quitAndInstall quits by itself)
   app.on("window-all-closed", () => {
     updater.stop();
+    tray.stop();
     if (!updater.installAtExit()) app.quit();
   });
 }

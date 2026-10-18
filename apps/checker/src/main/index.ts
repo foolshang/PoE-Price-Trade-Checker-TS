@@ -18,12 +18,12 @@ import type { HttpPort, models } from "@poe/core";
 import { AppConfig, CHECKER_DEFAULTS, NodeFs, NodeHttp, PRICE_MODE_KEYS, importOldConfig } from "@poe/node";
 import { isExternalLink } from "@poe/desktop/guard";
 import { FilterHost } from "@poe/desktop/host";
-import { AppUpdater } from "@poe/desktop/updater";
-import type { GameId, Hotkeys, MainInit, PickerFilter, SettingsErrors, SettingsInit, SettingsResult, SettingsValues, SkillDetail, Tag } from "../shared/api.ts";
+import { ManagedUpdater } from "@poe/desktop/managed-updater";
+import { TrayIcon, dotIcon } from "@poe/desktop/tray";
+import type { Details, GameId, Hotkeys, MainInit, PickerFilter, SettingsErrors, SettingsInit, SettingsResult, SettingsValues, SkillDetail, Tag } from "../shared/api.ts";
 import { checkHotkeys, parseHotkey } from "./hotkeys.ts";
 import { MessageOverlay, OK_COLOR, WARN_COLOR } from "./overlay.ts";
 import { NeverSinkWatcher } from "./regen.ts";
-import { TrayIcon } from "./tray.ts";
 import { copyChord, keyName, readAdvancedKey } from "./game_keys.ts";
 import { copyItemText } from "./item_copy.ts";
 import { describeWindow, foregroundElevated, selfElevated, focusWindow, foregroundWindow, sendCopyChord, windowFacts } from "./native.ts";
@@ -111,14 +111,17 @@ const filterHost = new FilterHost({
   gameStore: { get: () => game, set: (g) => setGame(g, "filter") },
 });
 
-// updates of the program itself: GitHub Releases, channel "checker" (checker.yml next to the Filter Generator's latest.yml) - where the Checker is
-// released is Winai's decision (docs/PHASE5.md, B0); the feed is the one electron-builder wrote into the program
-const updater = new AppUpdater({
+// updates of the program itself: the Releases of the Checker's own repo (public), channel "checker" (checker.yml); the feed is the one
+// electron-builder wrote into the program. The player chooses what happens (see managed_updater.ts); a newer version raises the red dot.
+const REPO_URL = "https://github.com/foolshang/PoE-Price-Trade-Checker-TS";
+const updater = new ManagedUpdater({
   version: VERSION, isPackaged: app.isPackaged, exePath: process.execPath, channel: "checker",
-  releasesUrl: "https://github.com/foolshang/PoE-Filter-Generator/releases/latest", log: fileLog,
-  windows: () => [mainWin, filterWin].filter((w): w is BrowserWindow => !!w && !w.isDestroyed()),
-  allow: (e) => [mainWin, filterWin].some((w) => w && !w.isDestroyed() && e.sender === w.webContents) && (e.senderFrame?.url ?? "").startsWith("app://local/"),
+  releasesUrl: `${REPO_URL}/releases/latest`, log: fileLog,
+  autoDownload: () => cfgBool("auto_update", true),
+  windows: () => (mainWin && !mainWin.isDestroyed() ? [mainWin] : []),
+  allow: (e) => !!mainWin && !mainWin.isDestroyed() && e.sender === mainWin.webContents && (e.senderFrame?.url ?? "").startsWith("app://local/"),
   openExternal: (u) => void shell.openExternal(u),
+  onFound: (version, notes) => noticeUpdate(version, notes),
   onInstallRequested: () => quit(), // (saves, closes, and the last step of quit() starts the installer)
 });
 
@@ -369,10 +372,15 @@ const iconPath = (): string | undefined =>
 
 function createMainWindow(): void {
   mainWin = new BrowserWindow({
-    width: 560, height: 520, minWidth: 460, minHeight: 420, title: TITLE, icon: iconPath(), backgroundColor: "#1c1c1c", show: false,
+    width: 680, height: 520, minWidth: 600, minHeight: 420, title: TITLE, icon: iconPath(), backgroundColor: "#1c1c1c", show: false,
     webPreferences: secureWebPreferences("main.cjs"),
   });
   hardenWindow(mainWin);
+  // the About window has links (GitHub): the browser opens them, nothing opens inside the program
+  mainWin.webContents.setWindowOpenHandler(({ url }) => {
+    if (isExternalLink(url)) void shell.openExternal(url);
+    return { action: "deny" };
+  });
   mainWin.once("ready-to-show", () => mainWin?.show());
   // the X button: hide to the tray, or close the program. Only when the tray icon really exists is the window ever hidden - with no
   // tray there would be no way to bring it back (the original's rule)
@@ -383,6 +391,7 @@ function createMainWindow(): void {
       mainWin?.hide();
     }
   });
+  mainWin.on("focus", () => acknowledge());
   mainWin.on("minimize", () => {
     if (trayOk && !quitting && !appQuitting) {
       hiddenToTray = true;
@@ -586,11 +595,15 @@ let trayOk = false;
 let hiddenToTray = false; // the main window is hidden because of the X / minimize button
 let appQuitting = false; // app.quit() was called (Windows shutdown, another program's close request): the windows must close then
 const tray = new TrayIcon({
-  onShow: () => showMain(),
-  onGenerate: () => void generateNow(),
-  onSettings: () => { showMain(); openSettings(); },
-  onQuit: () => quit(),
-}, () => iconPath(), "PoE Price & Trade Checker");
+  items: [
+    { label: "Show", click: () => showMain() },
+    { label: "Generate Now", click: () => void generateNow() },
+    { label: "Settings", click: () => { showMain(); openSettings(); } },
+    "-",
+    { label: "Quit", click: () => quit() },
+  ],
+  onClick: () => showMain(), iconPath: () => iconPath(), tip: "PoE Price & Trade Checker", disableEnv: "POE_CHECKER_NO_TRAY",
+});
 const overlayWin = new MessageOverlay({
   preload: path.join(__dirname, "../preload/overlay.cjs"), url: "app://local/overlay.html", iconPath: undefined, log: (m) => fileLog("WARNING", m),
 });
@@ -601,16 +614,67 @@ function showMain(): void {
   mainWin.show();
   mainWin.focus();
   hiddenToTray = false;
-  tray.setPending(false);
+}
+
+// ---- "something new" (a newer version, a NeverSink release): a red dot on the taskbar button and on the tray icon, like Discord's. The
+// player opens the program (the tray, the taskbar, Show) and gets the details of everything that waits; the dot goes away.
+let updateNotice: { version: string; notes: string } | null = null;
+let neversinkNotice: string | null = null;
+let dotOn = false;
+let taskbarDot = false;
+
+const mainSeen = (): boolean => !!mainWin && !mainWin.isDestroyed() && mainWin.isVisible() && !mainWin.isMinimized() && mainWin.isFocused();
+
+function setDot(on: boolean): void {
+  dotOn = on;
+  tray.setPending(on);
+  try {
+    if (mainWin && !mainWin.isDestroyed()) {
+      mainWin.setOverlayIcon(on ? dotIcon() : null, on ? "มีเรื่องใหม่" : "");
+      taskbarDot = on;
+    }
+  } catch (e) {
+    fileLog("WARNING", `taskbar overlay icon: ${(e as Error).message}`);
+  }
+}
+
+/** something new happened: the dot goes on unless the player is looking at the window right now (the Status / the update strip show it) */
+function raise(): void {
+  if (mainSeen()) {
+    updateNotice = null;
+    neversinkNotice = null;
+    return;
+  }
+  setDot(true);
+}
+
+/** the window got the focus (opened from the tray / the taskbar / Show): the details of what waited, then the dot goes */
+function acknowledge(): void {
+  if (!dotOn) return;
+  const d: Details = {};
+  if (updateNotice) d.update = updateNotice;
+  if (neversinkNotice) d.neversink = neversinkNotice;
+  updateNotice = null;
+  neversinkNotice = null;
+  setDot(false);
+  if (mainWin && !mainWin.isDestroyed() && ready && (d.update || d.neversink)) mainWin.webContents.send("main:details", d);
+}
+
+function noticeUpdate(version: string, notes: string): void {
+  updateNotice = { version, notes };
+  say(`⬆ มีรุ่นใหม่ v${version} — กดปุ่มอัปเดตด้านบนของหน้าต่าง`, "info");
+  tray.notify("PoE Price & Trade Checker", `มีรุ่นใหม่ v${version}`);
+  raise();
 }
 
 /** the NeverSink-update notice: the Status, the tray (icon dot + balloon) and the message over the game */
 let lastOverlayText = "";
 function notifyNeverSink(msg: string, regenerated: boolean): void {
   lastOverlayText = msg;
+  neversinkNotice = msg;
   say(msg, regenerated ? "ok" : "warn");
   tray.notify("PoE Price & Trade Checker", msg);
-  tray.setPending(true);
+  raise();
   void overlayWin.show(msg, regenerated ? OK_COLOR : WARN_COLOR);
 }
 
@@ -725,6 +789,7 @@ function currentSettings(): SettingsValues {
     mod_badge_archetype: ARCHETYPES.includes(cfgStr("mod_badge_archetype", "all")) ? cfgStr("mod_badge_archetype", "all") : "all",
     f5_restore_clipboard: cfgBool("f5_restore_clipboard", true),
     auto_game: autoGameOn(),
+    auto_update: cfgBool("auto_update", true),
     hotkey_scan: cfgStr("hotkey_scan", "F4"),
     hotkey_trade: cfgStr("hotkey_trade", "F5"),
     hotkey_settings: cfgStr("hotkey_settings", "F8"),
@@ -746,6 +811,7 @@ function cleanSettings(v: unknown): SettingsValues {
     mod_badge_archetype: ARCHETYPES.includes(str("mod_badge_archetype")) ? str("mod_badge_archetype") : "all",
     f5_restore_clipboard: bool("f5_restore_clipboard"),
     auto_game: bool("auto_game"),
+    auto_update: bool("auto_update"),
     hotkey_scan: str("hotkey_scan"), hotkey_trade: str("hotkey_trade"), hotkey_settings: str("hotkey_settings"), hotkey_quit: str("hotkey_quit"),
     log_level: LOG_LEVELS.includes(str("log_level")) ? str("log_level") : "INFO",
     close_action: str("close_action") === "exit" ? "exit" : "minimize",
@@ -831,6 +897,9 @@ async function applySettings(raw: unknown): Promise<SettingsResult> {
   config.set("mod_badge_archetype", v.mod_badge_archetype);
   config.set("f5_restore_clipboard", v.f5_restore_clipboard);
   config.set("auto_game", v.auto_game);
+  const autoUpdateChanged = cfgBool("auto_update", true) !== v.auto_update;
+  config.set("auto_update", v.auto_update);
+  if (autoUpdateChanged) updater.autoChanged();
   config.set("log_level", v.log_level);
   config.set("close_action", v.close_action);
   // (the settings window shows the game it was opened with: a game that followed the front window meanwhile is not switched back by a Save)
@@ -1010,8 +1079,14 @@ function exposeTestHooks(): void {
   (globalThis as any).__poeChecker = {
     trayOk: () => trayOk,
     updaterMode: () => updater.currentMode,
-    updaterState: () => updater.current,
+    updaterState: () => updater.snapshot(),
     updaterInject: (s: any) => updater.inject(s),
+    updaterCheck: () => updater.check(true),
+    notifyUpdate: (v: string, notes: string) => noticeUpdate(v, notes),
+    notifyNeverSink: (m: string) => notifyNeverSink(m, false),
+    minimizeMain: () => mainWin?.minimize(),
+    mainFocused: () => mainSeen(),
+    dot: () => ({ tray: tray.pendingState, taskbar: taskbarDot, update: updateNotice, neversink: neversinkNotice }),
     trayPending: () => tray.pendingState,
     overlayText: () => lastOverlayText,
     quitting: () => quitting,

@@ -125,6 +125,8 @@ starts (the Checker's filter page reuses phase 2-3 output).
 
 **Phase 5 addendum (beta.14):** the game buttons sit in the League row; PoE 1 / PoE 2 follows the game window in front (`auto_game`, F8) - see docs/PHASE5.md.
 
+**Phase 5 addendum 2 (beta.15):** Checker updates the player chooses (24 h check, automatic option, update now / on close), red dot + details window, About with a built-in changelog in both programs, Filter Generator tray - see docs/PHASE5.md.
+
 ## P5. Notes carried into phase 5 and after (from the phase-4 copy round-fix)
 
 1. **Settings window (F8) - hotkey rules.** The hotkey fields refuse a key that clashes with the game or with editing keys, and refuse

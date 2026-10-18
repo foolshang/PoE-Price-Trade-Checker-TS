@@ -15,6 +15,7 @@ import { readdirSync } from "node:fs";
 import path from "node:path";
 import { autoUpdater } from "electron-updater";
 import type { UpdateInfo } from "electron-updater";
+import { notesToText } from "./changelog.ts";
 import type { UpdateState } from "./updater_api.ts";
 import { decideOffer, isPrerelease } from "./updater_logic.ts";
 
@@ -82,10 +83,10 @@ export class AppUpdater {
     if (this.feed) u.setFeedURL({ provider: "generic", url: this.feed, channel: o.channel });
     u.on("update-available", (info: UpdateInfo) => this.onAvailable(info));
     u.on("update-not-available", () => this.set({ kind: "idle" }));
-    u.on("download-progress", (p: { percent: number }) => this.set({ kind: "downloading", version: this.state.version, percent: Math.round(p.percent) }, false));
+    u.on("download-progress", (p: { percent: number }) => this.set({ kind: "downloading", version: this.state.version, percent: Math.round(p.percent), notes: this.state.notes }, false));
     u.on("update-downloaded", (info: UpdateInfo) => {
       this.downloaded = true;
-      this.set({ kind: "ready", version: info.version });
+      this.set({ kind: "ready", version: info.version, notes: this.state.notes });
       o.log("INFO", `updater: ${info.version} downloaded - installed when the program is closed`);
     });
     u.on("error", (e: Error) => this.fail(e));
@@ -150,12 +151,12 @@ export class AppUpdater {
       return;
     }
     if (what === "manual") {
-      this.set({ kind: "manual", version: info.version, url: this.o.releasesUrl });
+      this.set({ kind: "manual", version: info.version, url: this.o.releasesUrl, notes: notesToText(info.releaseNotes) });
       this.o.log("INFO", `updater: ${info.version} exists (this copy is not installed, it cannot update itself): ${this.o.releasesUrl}`);
       return;
     }
     this.o.log("INFO", `updater: ${info.version} is available - downloading`);
-    this.set({ kind: "downloading", version: info.version, percent: 0 });
+    this.set({ kind: "downloading", version: info.version, percent: 0, notes: notesToText(info.releaseNotes) });
     autoUpdater.downloadUpdate().catch((e: Error) => this.fail(e));
   }
 

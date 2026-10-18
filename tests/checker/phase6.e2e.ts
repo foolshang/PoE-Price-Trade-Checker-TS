@@ -65,10 +65,10 @@ describe("1) the game buttons sit in the League row, before League", () => {
       return { kids, toggleInHeader: !!document.querySelector("header .game-toggle"), pressed: [...row.querySelectorAll(".game-toggle button")].map((b) => b.textContent) };
     });
     expect(layout.toggleInHeader).toBe(false);
-    expect(layout.kids).toEqual(["game-toggle", "l", "league", "btn-leagues"]);
+    expect(layout.kids).toEqual(["game-toggle", "l", "league", "btn-leagues", "btn-about"]);
     expect(layout.pressed).toEqual(["PoE 1", "PoE 2"]);
     // the order on the screen, left to right, and one line
-    const r = await page.evaluate(() => ["#game-poe1", "#game-poe2", "label[for=league]", "#league", "#btn-leagues"].map((s) => { const b = document.querySelector(s).getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right), Math.round(b.top)]; }));
+    const r = await page.evaluate(() => ["#game-poe1", "#game-poe2", "label[for=league]", "#league", "#btn-leagues", "#btn-about"].map((s) => { const b = document.querySelector(s).getBoundingClientRect(); return [Math.round(b.left), Math.round(b.right), Math.round(b.top)]; }));
     for (let i = 1; i < r.length; i++) expect(r[i][0]).toBeGreaterThanOrEqual(r[i - 1][1] - 1);
     expect(new Set(r.map((x) => Math.abs(x[2] - r[0][2]) < 12)).size).toBe(1);
     // by hand

@@ -34,6 +34,13 @@ export interface MainApi {
   /** the game was changed somewhere else (settings window, filter page) */
   onGame(cb: (game: GameId) => void): void;
   onHotkeys(cb: (hotkeys: Hotkeys) => void): void;
+  /** the player opened the program while something new waited (a newer version, a NeverSink release): the details of all of it */
+  onDetails(cb: (details: Details) => void): void;
+}
+
+export interface Details {
+  update?: { version: string; notes: string };
+  neversink?: string;
 }
 
 // ------------------------------------------------------------------------------------------------ picker (F5)
@@ -110,6 +117,8 @@ export interface SettingsValues {
   f5_restore_clipboard: boolean;
   /** follow the game that is in front (PoE 1 / PoE 2) */
   auto_game: boolean;
+  /** "automatic update": a newer version is downloaded in the background (nothing is installed unless the player chooses) */
+  auto_update: boolean;
   hotkey_scan: string;
   hotkey_trade: string;
   hotkey_settings: string;

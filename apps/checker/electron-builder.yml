@@ -39,6 +39,6 @@ nsis:
 publish:
   - provider: github
     owner: foolshang
-    repo: PoE-Filter-Generator
+    repo: PoE-Price-Trade-Checker-TS # the Checker has its own public repo (B0 answered); its release is not linked from the Filter Generator's README
     releaseType: release
-    channel: checker                 # checker.yml in the release (the Checker: where it is released is open, see docs/PHASE5.md B0)
+    channel: checker                 # checker.yml in the release

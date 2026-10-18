@@ -373,11 +373,16 @@ export class FilterHost {
   }
 
   /** Closing a window of the page: the page saves what is in its boxes first, then the config is saved, then the window goes. */
-  attach(win: BrowserWindow): void {
+  /** `veto` is asked first when the window is about to close: true = the app dealt with it (it hid the window), nothing is closed or flushed */
+  attach(win: BrowserWindow, veto?: () => boolean): void {
     const wcId = win.webContents.id;
     let closing = false;
     win.on("close", (e) => {
       if (closing) return;
+      if (veto?.()) {
+        e.preventDefault();
+        return;
+      }
       e.preventDefault();
       closing = true;
       void this.flushPage(win).then(async () => {

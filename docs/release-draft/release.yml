@@ -1,8 +1,9 @@
 # DRAFT - not active (it lives in docs/, GitHub only runs .github/workflows/). Moved to .github/workflows/release.yml when Winai orders part B.
 #
-# Tag v1.0.0 (or a prerelease tag v1.0.0-rc.1) -> build on a Windows runner -> the release on the PUBLIC repo foolshang/PoE-Filter-Generator:
-#   Filter Generator: Setup.exe + latest.yml + blockmap + Portable zip
-#   Checker:          Setup.exe + checker.yml + blockmap + Portable zip      (see B0 in docs/release-draft/B0-where-does-the-checker-go.md)
+# Tag v1.0.0 (or a prerelease tag v1.0.0-rc.1) -> build on a Windows runner -> two releases:
+#   Checker:          the Releases of THIS repo (foolshang/PoE-Price-Trade-Checker-TS): Setup.exe + checker.yml + blockmap + Portable zip   (B0 answered)
+#   Filter Generator: the public repo foolshang/PoE-Filter-Generator, as the original did: Setup.exe + latest.yml + blockmap + Portable zip
+# The text of each release page is the section of the tag in apps/<app>/CHANGELOG.md (tools/release-notes.mjs); a tag without such a section stops the release.
 # A tag with a "-" is a prerelease: it never becomes "Latest" and never touches the README or the web page (electron-updater of a
 # stable copy skips it as well).
 name: Build & Release (TypeScript)
@@ -89,7 +90,30 @@ jobs:
             test -s "$f" || { echo "::error::missing $f"; exit 1; }
           done
 
-      - name: Publish the release to the public repo
+      # the text of both release pages = the section of the tag in each app's CHANGELOG.md (also built into the program: the About window)
+      - name: Release notes from the CHANGELOGs
+        shell: bash
+        env:
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          node tools/release-notes.mjs checker "$TAG" > release-notes-checker.md
+          node tools/release-notes.mjs filtergen "$TAG" > release-notes-filtergen.md
+
+      # B0 (answered): the Checker is released in the Releases of THIS repo (public). Its README does not link to it; the program finds it by itself.
+      - name: Publish the Checker (the Releases of this repo)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.ver.outputs.tag }}
+        run: |
+          v="${TAG#v}"
+          PRERELEASE=""
+          case "$TAG" in *-*) PRERELEASE="--prerelease" ;; esac
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY"             --title "PoE Price & Trade Checker $TAG"             --notes-file release-notes-checker.md $PRERELEASE             "dist-checker/PoE-Price-Trade-Checker-TS-Setup-$v.exe" "dist-checker/PoE-Price-Trade-Checker-TS-Setup-$v.exe.blockmap" dist-checker/checker.yml             "dist-checker/PoE-Price-Trade-Checker-TS-Portable-$v.zip"
+
+      # the Filter Generator stays where the original published it (the public Filter Generator repo); WHEN it moves to the new update
+      # system is a separate order from Winai
+      - name: Publish the Filter Generator (the public Filter Generator repo)
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
@@ -98,13 +122,7 @@ jobs:
           v="${TAG#v}"
           PRERELEASE=""
           case "$TAG" in *-*) PRERELEASE="--prerelease" ;; esac
-          gh release create "$TAG" --repo foolshang/PoE-Filter-Generator \
-            --title "PoE Filter Generator & Price/Trade Checker $TAG" \
-            --notes-file release/NOTES.md $PRERELEASE \
-            "dist/PoE-Filter-Generator-TS-Setup-$v.exe" "dist/PoE-Filter-Generator-TS-Setup-$v.exe.blockmap" dist/latest.yml \
-            "dist/PoE-Filter-Generator-TS-Portable-$v.zip" \
-            "dist-checker/PoE-Price-Trade-Checker-TS-Setup-$v.exe" "dist-checker/PoE-Price-Trade-Checker-TS-Setup-$v.exe.blockmap" dist-checker/checker.yml \
-            "dist-checker/PoE-Price-Trade-Checker-TS-Portable-$v.zip"
+          gh release create "$TAG" --repo foolshang/PoE-Filter-Generator             --title "PoE Filter Generator $TAG"             --notes-file release-notes-filtergen.md $PRERELEASE             "dist/PoE-Filter-Generator-TS-Setup-$v.exe" "dist/PoE-Filter-Generator-TS-Setup-$v.exe.blockmap" dist/latest.yml             "dist/PoE-Filter-Generator-TS-Portable-$v.zip"
 
       - name: Update the README of the public repo (a real release only)
         if: ${{ !contains(steps.ver.outputs.tag, '-') && needs.web.result == 'success' }}

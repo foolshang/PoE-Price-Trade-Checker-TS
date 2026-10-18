@@ -428,7 +428,7 @@ describe("G) what the windows can and cannot do", () => {
     const sbx = sandbox();
     const { app, page } = await start(sbx, { game: "poe2" });
     const m = await page.evaluate(() => ({ keys: Object.keys(window.checker).sort(), others: [typeof window.picker, typeof window.skillRef], node: [typeof require, typeof process, typeof window.electron] }));
-    expect(m.keys).toEqual(["init", "onGame", "onHotkeys", "onLeagues", "onLog", "openFilter", "openSettings", "refreshLeagues", "setGame", "setLeague"]);
+    expect(m.keys).toEqual(["init", "onDetails", "onGame", "onHotkeys", "onLeagues", "onLog", "openFilter", "openSettings", "refreshLeagues", "setGame", "setLeague"]);
     expect(m.others).toEqual(["undefined", "undefined"]);
     expect(m.node).toEqual(["undefined", "undefined", "undefined"]);
     const blocked = await page.evaluate(() => fetch("https://example.com/").then(() => "fetched", () => "blocked"));

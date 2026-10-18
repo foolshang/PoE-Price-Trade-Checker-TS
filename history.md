@@ -5,6 +5,29 @@
 
 ---
 
+## 2026-10-18 (8) - beta.15: update system of the Checker, red dot + details, About (both programs), tray for the Filter Generator (committed, no tag, no release)
+
+- **Checker updates (new `ManagedUpdater` in `@poe/desktop`)**: check at start + every 24 h (with or without automatic update; a down net / bad feed is only a
+  log line); F8 option `auto_update` (default ON: a newer version is downloaded in the background; OFF: only announced, no download). Never installed unless the
+  player chooses: "update now" (download if needed -> close -> install -> start the new version) or "update when the program is closed" (the real exit, not the X
+  that goes to the tray; cancellable). A failed download shows the reason + "try again". The zip copy: the button opens the download page. A "check for updates"
+  button exists only without automatic update. The Checker's `publish` now points to its own public repo `foolshang/PoE-Price-Trade-Checker-TS` (B0 answered).
+  The Filter Generator keeps the beta.13 `AppUpdater` (banner) untouched (only `notes` added to its state so its About can show the release text).
+- **Red dot (Discord style)**: one "something new" flag for a newer version and for the NeverSink notice: overlay icon on the taskbar button + red dot on the tray icon;
+  opening the program (tray / taskbar / Show = the window gets the focus) shows a details window with everything that waited (version + release text, NeverSink message,
+  with the update buttons inside) and clears the dot. If the window is in front when the news arrives there is no dot.
+- **About** (both programs; Checker after Refresh Leagues, Filter Generator right after the PoE1/PoE2 buttons): name, version, the history of every release from
+  the program's own `CHANGELOG.md` (built in, no network), the newer version's release text when the updater knows it, the GitHub link. Details and About close with
+  the cross, Esc, or a click anywhere outside the program window (window blur). `apps/<app>/CHANGELOG.md` is the single source: `tools/release-notes.mjs` cuts the
+  section of the tag for the GitHub release page (a tag without a section stops the release).
+- **Filter Generator tray**: X goes to the tray (menu: open the window / quit), "still running in the tray" balloon ONCE (`tray-hint-shown.txt`), a second start brings the
+  window back, X-action option in About (default tray; saved in `close_action`), no tray icon = X closes the program. `TrayIcon` moved to `@poe/desktop/tray`.
+- Drafts for part B updated: release.yml (Checker -> Releases of this repo, notes from the CHANGELOGs), README draft without the Checker (not linked).
+- Files: `packages/desktop/src/{managed_updater,update_api,update_view,update_ui,changelog,modal,about,about_api,tray}.ts`, `apps/checker/*` (main, preload, renderer, settings),
+  `apps/filtergen/*`, `tools/release-notes.mjs`, `apps/*/CHANGELOG.md`, tests `tests/checker/{update.e2e,changelog_view.test}.ts`, `tests/desktop/tray.e2e.ts`. Version 1.0.0-beta.15.
+
+---
+
 ## 2026-10-18 (7) - beta.14: game buttons in the League row + PoE1 / PoE2 follows the game in front (committed, no tag, no release)
 
 - Main window: `[PoE 1|PoE 2]  League: [dropdown]  [Refresh Leagues]` in one row (the toggle left the top right).

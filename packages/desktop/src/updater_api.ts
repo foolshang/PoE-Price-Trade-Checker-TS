@@ -17,6 +17,8 @@ export interface UpdateState {
   message?: string;
   /** where to get it by hand, for "manual" */
   url?: string;
+  /** what the release page says about the newer version (plain text; the About window shows it) */
+  notes?: string;
 }
 
 export interface UpdaterApi {

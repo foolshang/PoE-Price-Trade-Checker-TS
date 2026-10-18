@@ -53,6 +53,8 @@ async function main(): Promise<void> {
   const game = h("div", { class: "set-grid" },
     h("label", { for: "f-game_version" }, "Game Version:"), select("game_version", [["poe2", "PoE 2"], ["poe1", "PoE 1"]]),
     check("auto_game", "Switch PoE 1 / PoE 2 by itself to the game that is in front"),
+    check("auto_update", "Automatic update: download a newer version in the background"),
+    h("div", { class: "set-note full" }, "(never installed unless you choose it: \"update now\" or \"update when the program is closed\"; off = it only tells you and gives a \"check for updates\" button)"),
     h("div", { class: "set-note full" }, "(F4 / F5 always use the game of the window they are pressed in; off = only the buttons / this setting choose)"),
     check("auto_league", "Auto-detect league on startup"),
     check("prefer_hardcore", "Prefer Hardcore league (HC)"),

@@ -84,3 +84,20 @@ PoE 1 / PoE 2 by itself to the game that is in front (F8 > Game: "Switch PoE 1 /
   class / title / path that were read. A game coming to the front that is not the game that was in front before -> switch + league list + Status line.
   A switch by hand stays until the other game comes to the front. F4 / F5 read the front window at the key press itself. No focus is ever taken.
 - Not proven here: a live game (the stand-in windows copy the folder names and the title of the real ones; the class `POEWindowClass` is not exercised).
+
+## Addendum 2 (beta.15): updates the player chooses, red dot, About, Filter Generator tray
+
+Brief of Winai after beta.13 (part A of that brief = the beta.14 addendum above, already done). Part B: Checker only; Filter Generator keeps its beta.13 update banner until Winai says otherwise.
+
+| | Done as |
+|---|---|
+| **B1 source** | Releases of `foolshang/PoE-Price-Trade-Checker-TS` (public); `electron-builder.yml` publish, the program's feed and its About link; not linked from the Filter Generator's README (draft). |
+| **B2 check** | 20 s after the start, then every 24 h, with or without automatic update. Net down / feed broken: log only (`updater: check failed ...`). Test: `POE_UPDATE_EVERY_MS` shortens the period. |
+| **B3 option** | F8 > Game: "Automatic update" (`auto_update`, **default ON** - proposal: a ~100 MB download in the background is cheap, and nothing is ever installed without a choice). OFF: announced only, no byte downloaded (tested: the feed saw no .exe request). |
+| **B4 button** | Strip at the top of the main window, only while there is something newer: **update now** / **update when the program is closed** (-> "จะอัปเดตตอนปิดโปรแกรม" + cancel; only the real exit installs, the X that goes to the tray does not) / progress / failure with reason + try again. "Check for updates" button only without automatic update. |
+| **B5 red dot** | Taskbar overlay icon + tray dot, one flag for the update and the NeverSink notice; focus on the main window (tray, taskbar, Show) opens the details (version + release text + NeverSink text + the update buttons) and clears the dot; closes with the cross or a click outside the program. Not set while the window is in front. |
+| **B6 zip** | The button is "อัปเดต (เปิดหน้าดาวน์โหลด)". |
+| **C About** | Both programs, built-in `CHANGELOG.md` (Thai, one per app, also the text of the GitHub release page via `tools/release-notes.mjs`), newer version's release text from the updater, GitHub links (Checker: its repo; Filter Generator: PoE-Filter-Generator). |
+| **D Filter Generator tray** | X -> tray (menu open / quit), one-time balloon, X-action in About (default tray), second start brings the window back, no tray icon = X closes. |
+
+Notes: the release text of a NEW version comes from the GitHub release body through electron-updater (HTML -> text in `changelog.ts`); it is only provable on a real release (part B). A local feed carries no release text, so the tests inject it.

@@ -4,6 +4,7 @@
  */
 import { contextBridge, ipcRenderer } from "electron";
 import type { DesktopApi, GameId, RegenRequest, RegenResult } from "./api.ts";
+import type { CloseAction, TrayOptionApi } from "./about_api.ts";
 import type { UpdateState, UpdaterApi } from "./updater_api.ts";
 
 const call = (channel: string, ...args: unknown[]): Promise<any> => ipcRenderer.invoke(channel, ...args);
@@ -55,4 +56,13 @@ export function exposeUpdaterApi(): void {
     openRelease: () => ipcRenderer.send("upd:open-release"),
   };
   contextBridge.exposeInMainWorld("updater", api);
+}
+
+/** window.trayOption: what the X button does (the Filter Generator's About window). */
+export function exposeTrayOptionApi(): void {
+  const api: TrayOptionApi = {
+    get: () => call("tray:get"),
+    set: (action: CloseAction) => ipcRenderer.send("tray:set", action),
+  };
+  contextBridge.exposeInMainWorld("trayOption", api);
 }

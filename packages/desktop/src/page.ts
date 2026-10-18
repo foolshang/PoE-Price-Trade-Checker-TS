@@ -10,6 +10,8 @@ import type { Platform } from "@poe/ui";
 import type { GameId, InitData, RegenResult } from "./api.ts";
 import { mountUpdateBanner } from "./banner.ts";
 import { desktopFolder } from "./desktop_folder.ts";
+import { mountAboutButton } from "./about.ts";
+import type { AboutOptions } from "./about.ts";
 
 const AUDIO = /\.(mp3|wav|ogg|flac|m4a|aac|wma)$/i;
 const base = (v: string): string => v.split(/[\\/]/).pop() as string;
@@ -21,6 +23,8 @@ export interface FilterPageOptions {
   shortName: string;
   /** look for a newer NeverSink release a moment after the page is up, and regenerate (if asked) or say so (the Filter Generator does; the Checker does it from its main process, every 6 hours) */
   checkNeverSinkAtStart: boolean;
+  /** an About button next to the PoE 2 button (the Filter Generator has one; the Checker's filter window does not) */
+  about?: Pick<AboutOptions, "name" | "changelog" | "repoUrl"> & { trayOption: boolean };
 }
 
 /** The sound files the original program kept by path: read them (from that path or the game folder) into the page's slots. */
@@ -127,4 +131,25 @@ export async function runFilterPage(o: FilterPageOptions): Promise<void> {
   (window as any).PFG_DESKTOP = { platform };
   await boot(document.getElementById("root") as HTMLElement, { title: o.title });
   mountUpdateBanner();
+  const about = o.about;
+  const anchor = document.querySelector(".game-toggle");
+  if (about && anchor) {
+    mountAboutButton(anchor, {
+      name: about.name, version: init.version, changelog: about.changelog, repoUrl: about.repoUrl,
+      newer: async () => { const s = await window.updater?.get(); return s && s.kind !== "idle" && s.kind !== "error" ? { version: s.version, notes: s.notes } : null; },
+      extra: about.trayOption ? () => trayOptionBox() : undefined,
+    });
+  }
+}
+
+/** "what the X button does", for the About window of a program with a tray icon */
+async function trayOptionBox(): Promise<Node | null> {
+  const api = window.trayOption;
+  if (!api) return null;
+  const cur = await api.get();
+  const sel = h("select", { id: "about-close-action", disabled: !cur.trayOk, onchange: () => api.set(sel.value as "minimize" | "exit") },
+    h("option", { value: "minimize", selected: cur.action === "minimize" }, "ลงไปอยู่ใน tray (โปรแกรมยังทำงานต่อ)"),
+    h("option", { value: "exit", selected: cur.action === "exit" }, "ปิดโปรแกรมจริง"));
+  return h("div", { id: "about-tray", style: { margin: "0 0 10px" } }, h("label", { for: "about-close-action" }, "ปุ่ม X (ปิดหน้าต่าง): "), sel,
+    cur.trayOk ? null : h("div", { class: "muted small" }, "(สร้างไอคอน tray ไม่ได้ ปุ่ม X จึงปิดโปรแกรมจริงเสมอ)"));
 }

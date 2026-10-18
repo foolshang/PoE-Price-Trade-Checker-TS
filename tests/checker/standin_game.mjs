@@ -26,6 +26,19 @@ function build() {
   return out;
 }
 
+/** give the keyboard focus to the window with this title (a real click in the window does the same for a player) */
+export async function bringTitleToFront(title) {
+  const hwnd = FindWindowW(null, title);
+  if (!hwnd) throw new Error(`no window titled "${title}"`);
+  for (let i = 0; i < 20; i++) {
+    keybd_event(0x12, 0, 0, 0); keybd_event(0x12, 0, 2, 0);
+    SetForegroundWindow(hwnd);
+    await sleep(150);
+    if (foregroundTitle() === title) { keybd_event(0x1b, 0, 0, 0); keybd_event(0x1b, 0, 2, 0); await sleep(100); return; }
+  }
+  throw new Error(`could not bring "${title}" to the front (front = "${foregroundTitle()}")`);
+}
+
 /** start a stand-in of `game` (title = the real game's) in a folder like the real install; `root` = where the game folders are made */
 export async function openGame(game, root, { title = FOLDER[game], folder = FOLDER[game] } = {}) {
   const dir = path.join(root, folder);

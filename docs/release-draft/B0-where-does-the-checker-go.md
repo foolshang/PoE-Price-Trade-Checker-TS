@@ -1,3 +1,8 @@
+# B0 - ANSWERED by Winai: option 2 (the Checker has its own public repo = Releases of foolshang/PoE-Price-Trade-Checker-TS)
+
+Done in beta.15: `apps/checker/electron-builder.yml` publishes to that repo, the program's update check and its About link point there, the
+filter-generator README does not link to it, and the draft workflow publishes the Checker to this repo. The table below is the original question.
+
 # B0 - where does the new Checker go? (Winai decides)
 
 The original publishes only the Filter Generator in public (its release.yml uploads `PoE-Filter-Generator.exe` to
