@@ -1,42 +1,74 @@
 /**
- * Mod text -> trade stat id. Port of poe_price_trade/mod_db.py: fetches GGG's official stats endpoint, caches it 7 days, and
- * matches a mod line (numbers -> "#") exactly or fuzzily (difflib, cutoff 0.75), preferring the same mod type.
+ * Mod text -> trade stat id. GGG's official stats endpoint (cached 7 days) is the table; a mod line is matched against it by the rules
+ * of stat_match.ts - the hub's rules, no fuzzy matching: a line either follows a rule or has NO stat id (null), never a guess.
+ * The original program (poe_price_trade/mod_db.py) guessed with difflib at 0.75 and was wrong for 92% of the lines it guessed
+ * (measured against RePoE by the hub, 2026-10-19), so that part is gone on purpose.
  */
-import { getCloseMatches } from "./difflib.ts";
 import { HEADERS, DbEnv } from "./base_db.ts";
+import { HUB_BASE_URL, renderingAliasesPath } from "./hub_client.ts";
 import { GameProfile } from "./profiles.ts";
-import { noopLog, pyStrip, truthy } from "./py.ts";
+import { Log, noopLog, pyStrip, truthy } from "./py.ts";
 import { D, isoLocal, parseIso } from "./pyextra.ts";
+import { ALIAS_SCHEMA_VERSION, AliasIndex } from "./rendering_aliases.ts";
+import { StatMatch, StatMatcher } from "./stat_match.ts";
 
 const CACHE_TTL_MS = 7 * 86400 * 1000;
+const ALIAS_TTL_MS = 24 * 3600 * 1000; // the hub refreshes the aliases weekly; a day is plenty and a failed fetch keeps the file whatever its age
+const MAX_LOGGED_UNMAPPED = 2000;
 const VALUE_PLACEHOLDER = new RegExp(`#|${D}+(?:\\.${D}+)?(?:%)?`, "gu");
 
-/** Replace numeric values with '#' for comparison. */
+/**
+ * Replace numeric values with '#' for a loose comparison. NOT used to find stat ids any more (stat_match.ts does that); only the
+ * badge's tag lookup compares the hub's templates this way (mod_badge.ts).
+ */
 export function normalizeMod(text: string): string {
   return pyStrip(text.replace(VALUE_PLACEHOLDER, "#").toLowerCase());
 }
 
 interface Stat { id: string; text: string; type: string }
 
-/** order of preference when the mod type is unknown (flat index) */
+const NUM = "[+-]?\\d+(?:\\.\\d+)?";
+/** "30(25-35)%" -> "30%": the roll range the game prints after each value of an item copied with Ctrl+Alt+C */
+const RANGE_AFTER_VALUE = new RegExp(`(\\d)\\(${NUM}-${NUM}\\)`, "g");
+/** the tag the game appends to a line: "(crafted)", "(implicit)", "(enchant)", "(augmented)" ... (the mod type is known from it already) */
+const TRAILING_TAG = /\s*\((?:implicit|crafted|enchant|fractured|augmented|rune|desecrated|scourge|veiled|corrupted)\)\s*$/i;
+
+/**
+ * A mod line as the game writes it on the clipboard -> the wording GGG's table (and the hub's data) uses: no roll ranges, no trailing
+ * tag. Only these two things are removed; every other difference from the table is the matcher's business (stat_match.ts).
+ */
+export function cleanModText(text: string): string {
+  return text.replace(RANGE_AFTER_VALUE, "$1").replace(TRAILING_TAG, "");
+}
+
+/** order of the groups tried when the mod type of the line is unknown */
 const TYPE_PRIORITY: Record<string, number> = {
   explicit: 0, implicit: 1, fractured: 2, rune: 3, enchant: 4, scourge: 5, crafted: 6, veiled: 7, pseudo: 8,
 };
-const typedKey = (norm: string, typ: string): string => `${norm}\u0001${typ}`;
+
+export interface StatLookup extends StatMatch { kind: string }
 
 export class ModDatabase {
-  private index = new Map<string, string>(); // flat (prioritized): used when the type is unknown
-  private typed = new Map<string, string>(); // (normalized, type) -> id
-  private typedKeysByType = new Map<string, string[]>(); // type -> normalized texts, in insertion order
+  private matcher = new StatMatcher();
+  private unmappedSeen = new Set<string>();
+  /** where the rendering aliases came from: "hub" | "cache" | "bundled" | "none" (for the log and the tests) */
+  aliasSource = "none";
+  private aliasCheckedAt = -Infinity;
+  /** the cache stamp the index was built from (load() runs on every F5: an unchanged table is not indexed again) */
+  private builtFrom = "";
 
   constructor(private profile: GameProfile, private env: DbEnv) {}
 
-  /** Load stats from GGG's trade API; the disk cache first. Throws when it cannot fetch (like the original). */
+  /** Load stats from GGG's trade API; the disk cache first. Throws when it cannot fetch (like the original). Then the hub's aliases (never throws). */
   async load(force = false): Promise<void> {
     if (!force) {
       const cached = await this.loadCache();
-      if (cached && cached.length) {
-        this.buildIndex(cached);
+      if (cached && cached.stats.length) {
+        if (this.builtFrom !== cached.stamp) {
+          this.buildIndex(cached.stats);
+          this.builtFrom = cached.stamp;
+        }
+        await this.loadAliases(force);
         return;
       }
     }
@@ -44,51 +76,140 @@ export class ModDatabase {
     const stats = flattenStats(data);
     await this.saveCache(stats);
     this.buildIndex(stats);
+    this.builtFrom = "";
+    await this.loadAliases(force);
   }
 
   buildIndex(stats: Stat[]): void {
-    this.index = new Map();
-    this.typed = new Map();
-    this.typedKeysByType = new Map();
-    const chosen = new Map<string, number>();
-    for (const stat of stats) {
-      const { id: sid, text, type: typ } = stat;
-      if (!(truthy(sid) && truthy(text))) continue;
-      const normalized = normalizeMod(text);
-      const key = typedKey(normalized, typ);
-      if (!this.typed.has(key)) {
-        const list = this.typedKeysByType.get(typ);
-        if (list) list.push(normalized);
-        else this.typedKeysByType.set(typ, [normalized]);
-      }
-      this.typed.set(key, sid);
-      const pri = Object.prototype.hasOwnProperty.call(TYPE_PRIORITY, typ) ? TYPE_PRIORITY[typ] : 99;
-      if (!this.index.has(normalized) || pri < chosen.get(normalized)!) {
-        this.index.set(normalized, sid);
-        chosen.set(normalized, pri);
-      }
+    this.matcher.build(stats);
+    this.unmappedSeen = new Set();
+    if (this.matcher.shared.length) {
+      this.warn(`stat table: ${this.matcher.shared.length} texts are shared by several stat ids (the last one is used, like the hub)`, "info");
     }
   }
 
-  /** the stat id for a mod line - the same type first, with fallbacks */
-  findStatId(modText: string, modType: string | null | undefined = null, threshold = 0.75): string | null {
-    const norm = normalizeMod(modText);
-    // 1 exact within the same type
-    if (truthy(modType) && this.typed.has(typedKey(norm, modType!))) return this.typed.get(typedKey(norm, modType!))!;
-    // 2 exact, prioritized (type unknown or no such type)
-    if (this.index.has(norm)) return this.index.get(norm)!;
-    // 3 fuzzy within the same type
-    if (truthy(modType)) {
-      const m = getCloseMatches(norm, this.typedKeysByType.get(modType!) ?? [], 1, threshold);
-      if (m.length) return this.typed.get(typedKey(m[0], modType!))!;
+  /** the hub's rendering aliases (RePoE wordings), or none. Failure of any kind leaves the matching working without them. */
+  async loadAliases(force = false): Promise<void> {
+    // (checked at most once an hour: load() runs on every F5, and a hub without the file must not be asked every time)
+    if (!force && this.env.nowMs() - this.aliasCheckedAt < 3600 * 1000) return;
+    this.aliasCheckedAt = this.env.nowMs();
+    const game = this.profile.game_version;
+    const cache = this.aliasCachePath();
+    let payload: unknown = null;
+    let source = "none";
+    let cached: { fetched_at?: string; payload?: unknown } | null = null;
+    if (cache !== null) {
+      try {
+        if (await this.env.fs.exists(cache)) cached = JSON.parse(await this.env.fs.readText(cache));
+      } catch {
+        cached = null;
+      }
     }
-    // 4 fuzzy, prioritized
-    const m = getCloseMatches(norm, this.index.keys(), 1, threshold);
-    return m.length ? this.index.get(m[0])! : null;
+    const fresh = !force && cached !== null && AliasIndex.valid(cached.payload) && this.env.nowMs() - parseIso(String(cached.fetched_at)) < ALIAS_TTL_MS;
+    if (fresh) {
+      payload = cached!.payload;
+      source = "cache";
+    } else {
+      try {
+        const data = JSON.parse(await this.env.http.getText(`${HUB_BASE_URL}/${renderingAliasesPath(game)}`, HEADERS));
+        if (AliasIndex.valid(data)) {
+          payload = data;
+          source = "hub";
+          if (cache !== null) {
+            try {
+              await this.env.fs.mkdirp(this.env.cacheDir!);
+              await this.env.fs.writeText(cache, JSON.stringify({ fetched_at: isoLocal(this.env.nowMs()), payload: data }));
+            } catch (e) {
+              this.warn(`alias cache write failed: ${(e as Error).message}`, "warn");
+            }
+          }
+        } else {
+          this.warn(`rendering aliases: schema_version ${JSON.stringify((data as any)?.schema_version)} (expected ${ALIAS_SCHEMA_VERSION}) - not used`, "warn");
+        }
+      } catch (e) {
+        this.warn(`rendering aliases not fetched (${(e as Error).message}) - the last copy is used`, "info");
+      }
+      if (payload === null && cached !== null && AliasIndex.valid(cached.payload)) {
+        payload = cached.payload;
+        source = "cache";
+      }
+    }
+    if (payload === null && this.env.bundledAliases) {
+      try {
+        const snap = await this.env.bundledAliases(game);
+        if (AliasIndex.valid(snap)) {
+          payload = snap;
+          source = "bundled";
+        }
+      } catch {
+        /* none */
+      }
+    }
+    this.setAliases(payload, source);
+  }
+
+  /** use a payload (tests; the loader above) - null = no aliases */
+  setAliases(payload: unknown, source = "given"): void {
+    this.matcher.setAliases(AliasIndex.valid(payload) ? new AliasIndex(payload) : AliasIndex.empty());
+    this.aliasSource = AliasIndex.valid(payload) ? source : "none";
+  }
+
+  aliasCount(): number {
+    return this.matcher.aliasCount();
+  }
+
+  /**
+   * The stat of a mod line: same group as the line's mod type; a line of unknown type is tried in every group in turn. null = the line has
+   * no stat id (and nothing was guessed). The first time a line has none it is written to the log (once per text).
+   */
+  lookup(modText: string, modType: string | null | undefined = null): StatLookup | null {
+    const text = cleanModText(modText.replace(/^\n+|\n+$/g, ""));
+    let found: StatLookup | null = null;
+    if (truthy(modType) && this.matcher.kinds.includes(modType!)) {
+      const m = this.matcher.match(text, modType!);
+      if (m) found = { ...m, kind: modType! };
+    } else {
+      const order = [...this.matcher.kinds].sort((a, b) => (TYPE_PRIORITY[a] ?? 99) - (TYPE_PRIORITY[b] ?? 99));
+      for (const kind of order) {
+        const m = this.matcher.match(text, kind);
+        if (m) {
+          found = { ...m, kind };
+          break;
+        }
+      }
+    }
+    if (found === null) this.noteUnmapped(text, modType ?? "");
+    return found;
+  }
+
+  /** the stat id for a mod line, or null when it has none */
+  findStatId(modText: string, modType: string | null | undefined = null): string | null {
+    return this.lookup(modText, modType)?.statId ?? null;
+  }
+
+  /** every stat id GGG lists with this exact template text in a group (the stat ids behind one text) */
+  idsOfTemplate(kind: string, text: string): string[] {
+    return this.matcher.idsOfTemplate(kind, text);
+  }
+
+  private noteUnmapped(text: string, type: string): void {
+    if (!text.trim() || this.unmappedSeen.size >= MAX_LOGGED_UNMAPPED) return;
+    const key = `${type}\u0001${text}`;
+    if (this.unmappedSeen.has(key)) return;
+    this.unmappedSeen.add(key);
+    this.warn(`mod without a stat id [${type || "?"}]: ${text}`, "info");
+  }
+
+  private warn(msg: string, tag: string): void {
+    (this.env.warn ?? noopLog)(msg, tag);
   }
 
   private cachePath(): string | null {
     return this.env.cacheDir === null ? null : this.env.fs.join(this.env.cacheDir, `stats_${this.profile.game_version}.json`);
+  }
+
+  private aliasCachePath(): string | null {
+    return this.env.cacheDir === null ? null : this.env.fs.join(this.env.cacheDir, `rendering_aliases_${this.profile.game_version}.json`);
   }
 
   private async saveCache(stats: Stat[]): Promise<void> {
@@ -102,7 +223,7 @@ export class ModDatabase {
     }
   }
 
-  private async loadCache(): Promise<Stat[] | null> {
+  private async loadCache(): Promise<{ stats: Stat[]; stamp: string } | null> {
     const path = this.cachePath();
     if (path === null || !(await this.env.fs.exists(path))) return null;
     try {
@@ -110,7 +231,7 @@ export class ModDatabase {
       const at = parseIso(data.fetched_at);
       if (Number.isNaN(at)) throw new Error("bad fetched_at");
       if (this.env.nowMs() - at > CACHE_TTL_MS) return null;
-      return data.stats;
+      return { stats: data.stats, stamp: String(data.fetched_at) };
     } catch (e) {
       (this.env.warn ?? noopLog)(`Mod DB cache read failed: ${(e as Error).message}`, "warn");
       return null;
@@ -128,3 +249,5 @@ export function flattenStats(data: any): Stat[] {
   }
   return flat;
 }
+
+export type { Log };

@@ -92,8 +92,8 @@ async function windowWith(app, part, timeout = 20000) {
 }
 
 /** put the item in a text box in front, press F5 (a real key press), return the popup page */
-async function f5(app, itemName, { popup = true } = {}) {
-  const box = await openTextBox(path.join(ITEMS, itemName + ".txt"), "PFG-TEST-BOX-" + Math.random().toString(36).slice(2, 7));
+async function f5(app, itemName, { popup = true, dir = ITEMS } = {}) {
+  const box = await openTextBox(path.join(dir, itemName + ".txt"), "PFG-TEST-BOX-" + Math.random().toString(36).slice(2, 7));
   extra.push(() => box.close());
   await pressKey("F5");
   if (!popup) return null;
@@ -216,6 +216,38 @@ describe("C) F5 with a real key press", () => {
     expect(await openedUrls(app)).toEqual([exp.url_for]);
     expect(app.windows().some((w) => w.url().includes("picker.html"))).toBe(false); // closed after the search
     expect(await logText(page)).toContain("🔎 เปิด trade: Rapture Mitts");
+  }, 180000);
+
+  it("a mod with no stat id: its box cannot be ticked, the badge column says 'no data' (?), and it is not in the search - nothing is guessed", async () => {
+    const sbx = sandbox();
+    const { app, page } = await start(sbx, { game: "poe2" });
+    const pk = await f5(app, "poe2_rare_ring_unlisted_mod", { dir: path.join(ROOT, "tests", "checker", "items") });
+    const rows = pk.locator(".p-row");
+    const n = await rows.count();
+    const last = n - 1;
+    expect(await rows.nth(last).locator("label span").innerText()).toContain("increased Nothing Anybody Lists  (ค้นหา mod นี้ไม่ได้)");
+    expect(await pk.locator(`#row-${last}`).isDisabled()).toBe(true);
+    expect(await pk.locator(`#row-${last}`).isChecked()).toBe(false);
+    expect(await pk.locator(`#min-${last}`).isDisabled()).toBe(true);
+    const cell = rows.nth(last).locator(".p-badge");
+    expect(await cell.innerText()).toBe("?");
+    expect(await cell.getAttribute("data-note")).toBe("nodata");
+    expect(await cell.getAttribute("title")).toContain("ไม่มีข้อมูล");
+    // a mod that has an id has no "?" (it is ranked or just plain: a different thing)
+    for (let i = 0; i < last; i++) expect(await rows.nth(i).locator(".p-badge").innerText()).not.toBe("?");
+    // the search (Enter) holds the other mods and not this one
+    await pressIn(pk, "Enter");
+    await wait(500);
+    const urls = await openedUrls(app);
+    expect(urls.length).toBe(1);
+    const q = JSON.parse(decodeURIComponent(urls[0].split("?q=")[1]));
+    const ids = q.query.stats[0].filters.map((f) => f.id);
+    expect(ids.length).toBeGreaterThanOrEqual(3);
+    expect(ids.every((id) => /^(explicit|implicit)\.stat_\d+$/.test(id))).toBe(true);
+    expect(await logText(page)).toContain("🔎 เปิด trade: Dread Loop");
+    // the log names the mod once
+    const log = fs.readFileSync(path.join(sbx.checkerDir, "log.txt"), "utf-8");
+    expect(log.match(/mod without a stat id \[explicit\]: 12% increased Nothing Anybody Lists/g)?.length).toBe(1);
   }, 180000);
 
   it("the popup as it starts gives the original's default search (Enter)", async () => {

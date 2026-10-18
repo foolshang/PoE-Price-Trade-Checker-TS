@@ -53,6 +53,8 @@ export interface PickerRowData {
   /** the value the min box starts with (Python's "{:g}"), "" when the line has no number */
   min: string;
   badge: string | null;
+  /** nodata = the mod has no stat id (nothing could be looked up); norow = the stat is known, the hub has no row for this slot; plain = the hub has it, not popular; null = no badge for this item */
+  badgeNote: "nodata" | "norow" | "plain" | null;
   arrow: string | null;
   affix: string;
   /** [Tn/total] and the money flag from the meta */

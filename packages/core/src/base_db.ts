@@ -31,6 +31,8 @@ export interface DbEnv {
   cacheDir: string | null;
   nowMs: () => number;
   warn?: Log;
+  /** the rendering aliases that ship with the program (the last resort when the hub file was never fetched) */
+  bundledAliases?: (game: string) => Promise<unknown | null>;
 }
 
 export class BaseDB {

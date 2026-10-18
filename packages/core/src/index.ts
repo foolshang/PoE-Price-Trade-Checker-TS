@@ -21,6 +21,8 @@ export * as profiles from "./profiles.ts";
 export * as itemParser from "./item_parser.ts";
 export * as baseDb from "./base_db.ts";
 export * as modDb from "./mod_db.ts";
+export * as statMatch from "./stat_match.ts";
+export * as renderingAliases from "./rendering_aliases.ts";
 export * as metaDb from "./meta_db.ts";
 export * as modBadge from "./mod_badge.ts";
 export * as tradeUrl from "./trade_url.ts";

@@ -12,7 +12,7 @@ export function pickerRowText(row: PickerRowData): string {
   const text0 = (row.money ? "💰 " : "") + tierBadge + (TYPE_TAG[row.modType] ?? "") + row.text;
   const cps = Array.from(text0);
   const text = cps.length > MAX_TEXT ? cps.slice(0, MAX_TEXT - 1).join("") + "…" : text0;
-  return row.searchable ? text : text + "  (ไม่พบ id)";
+  return row.searchable ? text : text + "  (ค้นหา mod นี้ไม่ได้)";
 }
 
 /** the box is ticked from the start: a searchable explicit / implicit mod (like the search in the game; desecrated is not) */

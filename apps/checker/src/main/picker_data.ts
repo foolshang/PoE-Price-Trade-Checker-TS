@@ -13,7 +13,7 @@ export function pickerInit(r: Prepared): PickerInit {
     return {
       text: mod.text, modType: mod.mod_type || "explicit", searchable: !!statId,
       min: statId && mod.value !== null ? pyextra.pyFormatG(mod.value) : "",
-      badge: r.badge_colors[i] ?? null, arrow: r.roll_arrows[i] ?? null, affix: r.affixes[i] ?? "",
+      badge: r.badge_colors[i] ?? null, badgeNote: r.badge_notes[i] ?? null, arrow: r.roll_arrows[i] ?? null, affix: r.affixes[i] ?? "",
       tier: anno?.tier ?? 0, total: anno?.total ?? 0, money: !!anno?.money,
     };
   });

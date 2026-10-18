@@ -2,10 +2,10 @@
  * Mod Badge: colour-code the rows of the F5 popup by how many real builds use the mod. Port of poe_price_trade/mod_badge.py.
  *
  * Source: the hub's {game}/meta/latest.json (SPEC 8.2). If it is missing for a game there are simply no badges this session.
- * Stat ids are resolved with the mod database (GGG's trade stats, the same id space as the hub); the hub's stat_dictionary is only
- * a fallback, and only when it gives exactly one candidate.
+ * Stat ids are resolved with the mod database only (GGG's trade stats: the hub's id space and the hub's rules). A mod without a stat id
+ * has "no data" - nothing is guessed. The hub's stat_aliases (sibling id -> main id, a field of skills/dictionary.json) help to find the
+ * meta row of a stat whose row sits under its sibling.
  */
-import { getCloseMatches } from "./difflib.ts";
 import { HubClient } from "./hub_client.ts";
 import { MetaDB, WEAPON_CLASSES } from "./meta_db.ts";
 import { ModDatabase, normalizeMod } from "./mod_db.ts";
@@ -131,6 +131,8 @@ export class ModBadgeDB {
   private byKey = new Map<string, Row>();
   private templateIndex = new Map<string, string[]>();
   private statToTemplates = new Map<string, string[]>();
+  /** sibling stat id -> main stat id (the hub's stat_aliases; empty until the hub publishes the field) */
+  private statAliases = new Map<string, string>();
   private hotTagsCache = new Map<string, Set<string>>();
   private rules: Rules = DEFAULT_RULES;
   private rulesLoaded = false;
@@ -165,6 +167,7 @@ export class ModBadgeDB {
    */
   async load(game = "poe2", force = false): Promise<void> {
     await this.loadRules();
+    await this.loadStatAliases(game);
     if (!force) {
       const cached = await this.loadDiskCache(game);
       if (cached && truthy(cached) && !this.isStale(cached)) {
@@ -211,17 +214,80 @@ export class ModBadgeDB {
 
   // ------------------------------------------------------------------ public API
 
-  /** The mod database first (GGG trade stats: the hub's id space); the hub's stat_dictionary only as a fallback and only when it gives exactly one candidate. */
+  /** The mod database (GGG trade stats: the hub's id space, the hub's rules). null = the line has no stat id: no data, never a guess. */
   resolveStatId(modText: string, modType: string | null | undefined, modDb: ModDatabase): string | null {
-    const sid = modDb.findStatId(modText, modType);
-    if (sid) return sid;
-    const norm = normalizeMod(modText);
-    let candidates = this.templateIndex.get(norm) ?? [];
-    if (!candidates.length) {
-      const close = getCloseMatches(norm, this.templateIndex.keys(), 1, 0.85);
-      if (close.length) candidates = this.templateIndex.get(close[0])!;
+    return modDb.findStatId(modText, modType);
+  }
+
+  /**
+   * What the badge of a mod line can say. "nodata" = the line has no stat id; "norow" = the stat is known but the hub has nothing for it in
+   * this slot; "plain" = the hub has it, and it is not popular enough for a colour; "red" / "gold" / "green" = coloured.
+   */
+  badgeState(statId: string | null, slot: string, archetype: string, metaDb: MetaDB): "nodata" | "norow" | "plain" | "red" | "gold" | "green" {
+    if (!statId) return "nodata";
+    if (this.row(statId, slot, archetype) === null && this.tagsForStat(statId, metaDb).size === 0) return "norow";
+    const color = this.tagColor(statId, slot, archetype, metaDb);
+    if (!color) return "plain";
+    const colors = this.rules.colors ?? {};
+    if (color === (colors.red ?? "#FF4444")) return "red";
+    if (color === (colors.gold ?? "#FFB800")) return "gold";
+    return "green";
+  }
+
+  /** the hub's stat_aliases: an object {sibling: main}, or a list of pairs / objects; anything else is ignored */
+  setStatAliases(raw: unknown): void {
+    const out = new Map<string, string>();
+    const add = (from: unknown, to: unknown): void => {
+      if (typeof from === "string" && typeof to === "string" && from && to && from !== to) out.set(from, to);
+    };
+    if (Array.isArray(raw)) {
+      for (const e of raw) {
+        if (Array.isArray(e)) add(e[0], e[1]);
+        else if (e && typeof e === "object") {
+          const o = e as Record<string, unknown>;
+          add(o.alias ?? o.sibling ?? o.from ?? o.stat_id, o.main ?? o.canonical ?? o.primary ?? o.alias_of ?? o.to);
+        }
+      }
+    } else if (raw && typeof raw === "object") {
+      for (const [k, v] of Object.entries(raw as Record<string, unknown>)) add(k, v);
     }
-    return candidates.length === 1 ? candidates[0] : null;
+    this.statAliases = out;
+    this.hotTagsCache = new Map();
+  }
+
+  statAliasCount(): number {
+    return this.statAliases.size;
+  }
+
+  /** skills/dictionary.json carries stat_aliases (a field newer hubs add); best effort, the last copy on disk when offline, none = fine */
+  private async loadStatAliases(game: string): Promise<void> {
+    const path = this.places.cacheDir === null ? null : this.places.fs.join(this.places.cacheDir, `stat_aliases_${game}.json`);
+    let raw: unknown = undefined;
+    try {
+      const dict = await this.places.hub.getSkillsDictionary(game);
+      if (dict && typeof dict === "object") raw = "stat_aliases" in dict ? (dict as any).stat_aliases : null; // no field (a hub before the change) = none
+    } catch {
+      raw = undefined;
+    }
+    if (raw !== undefined) {
+      this.setStatAliases(raw);
+      if (path !== null) {
+        try {
+          await this.places.fs.mkdirp(this.places.cacheDir!);
+          await this.places.fs.writeText(path, JSON.stringify(raw));
+        } catch {
+          /* the copy is only for the next offline start */
+        }
+      }
+      return;
+    }
+    if (path !== null && (await this.places.fs.exists(path))) {
+      try {
+        this.setStatAliases(JSON.parse(await this.places.fs.readText(path)));
+      } catch {
+        this.setStatAliases(null);
+      }
+    }
   }
 
   /** null = white / no badge */
@@ -243,6 +309,13 @@ export class ModBadgeDB {
   }
 
   private row(statId: string, slot: string, archetype: string): Row | null {
+    const own = this.rowOf(statId, slot, archetype);
+    if (own !== null) return own;
+    const main = this.statAliases.get(statId);
+    return main === undefined ? null : this.rowOf(main, slot, archetype);
+  }
+
+  private rowOf(statId: string, slot: string, archetype: string): Row | null {
     let row = this.byKey.get(rowKey(slot, archetype, statId));
     if (row === undefined && archetype !== "all") row = this.byKey.get(rowKey(slot, "all", statId));
     return row === undefined ? null : row;
@@ -273,7 +346,10 @@ export class ModBadgeDB {
 
   private tagsForStat(statId: string, metaDb: MetaDB): Set<string> {
     const tags = new Set<string>();
-    for (const tmpl of this.statToTemplates.get(statId) ?? []) for (const t of metaDb.tagsForTemplate(tmpl)) tags.add(t);
+    const main = this.statAliases.get(statId);
+    for (const id of main === undefined ? [statId] : [statId, main]) {
+      for (const tmpl of this.statToTemplates.get(id) ?? []) for (const t of metaDb.tagsForTemplate(tmpl)) tags.add(t);
+    }
     return tags;
   }
 

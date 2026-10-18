@@ -2,10 +2,23 @@
 import "@poe/ui/src/style.css";
 import "./checker.css";
 import { $, h } from "@poe/ui/src/dom.ts";
-import type { PickerFilter, PickerInit } from "../shared/api.ts";
+import type { PickerFilter, PickerInit, PickerRowData } from "../shared/api.ts";
 import { defaultChecked, pickerRowText } from "../shared/picker_text.ts";
 
 const api = window.picker!;
+
+const BADGE_TIPS: Record<string, string> = {
+  nodata: "ไม่มีข้อมูล: หา stat id ของ mod นี้ไม่ได้ (ไม่ได้เดา)",
+  norow: "รู้จัก mod นี้ แต่ยังไม่มีข้อมูลของมันใน slot นี้",
+  plain: "มีข้อมูล แต่ไม่ติดอันดับ",
+};
+
+/** the badge column: a colour dot, or "?" when the mod has no data at all, or nothing (known, just not ranked) - three different things */
+function badgeCell(r: PickerRowData): HTMLElement {
+  if (r.badge) return h("span", { class: "p-badge", style: { color: r.badge } }, "●");
+  const note = r.badgeNote ?? null;
+  return h("span", { class: note === "nodata" ? "p-badge nodata" : "p-badge", ...(note ? { title: BADGE_TIPS[note], "data-note": note } : {}) }, note === "nodata" ? "?" : "");
+}
 
 function build(data: PickerInit): void {
   const rows: { box: HTMLInputElement | null; min: HTMLInputElement; max: HTMLInputElement }[] = [];
@@ -16,7 +29,7 @@ function build(data: PickerInit): void {
     const max = h("input", { type: "text", class: "num", "aria-label": "max", id: `max-${i}`, disabled: !r.searchable });
     const affix = r.affix === "prefix" ? "P" : r.affix === "suffix" ? "S" : " ";
     body.append(h("div", { class: "p-row", "data-row": i },
-      h("span", { class: "p-badge", style: r.badge ? { color: r.badge } : undefined }, r.badge ? "●" : ""),
+      badgeCell(r),
       h("span", { class: "p-ps" }, affix + (r.arrow ?? " ")),
       h("label", { class: r.searchable ? (r.money ? "money" : "") : "off" }, box, h("span", {}, pickerRowText(r))),
       min, max));

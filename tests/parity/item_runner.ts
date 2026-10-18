@@ -158,7 +158,7 @@ export const ITEM_CALLS: Record<string, (...a: any[]) => any> = {
     });
     return it === null ? null : tradeUrl.buildTradeUrl(it, statsDb(game), league, profiles.PROFILES[game], minPct, filters, baseOn ? baseDbOf(game) : null);
   },
-  "mod_db.find": (game, text, typ = null, threshold = 0.75) => statsDb(game).findStatId(text, typ, threshold),
+  "mod_db.find": (game, text, typ = null) => statsDb(game).findStatId(text, typ),
   "mod_db.normalize": (text) => modDb.normalizeMod(text),
   "base_db.resolve_type": (game, raw) => baseDbOf(game).resolveType(raw),
   "base_db.resolve_name": (game, raw) => baseDbOf(game).resolveName(raw),

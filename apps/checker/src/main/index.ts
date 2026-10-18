@@ -142,7 +142,17 @@ const badge = new modBadge.ModBadgeDB({
 
 function makeDbs(gv: GameId): Dbs {
   const profile = profiles.profileFor(gv);
-  const env = { fs: nodeFs, http, cacheDir: path.join(configDir, "cache"), nowMs: () => Date.now(), warn: (m: string) => fileLog("WARNING", m) };
+  const env = {
+    fs: nodeFs, http, cacheDir: path.join(configDir, "cache"), nowMs: () => Date.now(), warn: (m: string) => fileLog("WARNING", m),
+    // the hub's rendering aliases that ship with the program: used until the hub's own file has been fetched once
+    bundledAliases: async (g: string): Promise<unknown | null> => {
+      try {
+        return JSON.parse(await fsp.readFile(path.join(resourcesDir, `rendering_aliases_${g}.json`), "utf-8"));
+      } catch {
+        return null;
+      }
+    },
+  };
   return {
     gv, profile, stats: new modDb.ModDatabase(profile, env), base: new baseDb.BaseDB(profile, env),
     meta: new metaDb.MetaDB(gv, { fs: nodeFs, appDir: configDir, bundledDir: resourcesDir, warn: (m) => fileLog("WARNING", m) }),

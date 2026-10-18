@@ -40,7 +40,11 @@ export type F5Result =
   | {
     kind: "picker"; item: ParsedItem; rows: PickerRow[]; annos: ReturnType<MetaDB["annotate"]>; summary: string;
     badge_colors: (string | null)[]; roll_arrows: (string | null)[]; affixes: string[];
+    /** per row: "nodata" (no stat id), "norow" (known stat, nothing in the hub for this slot), "plain" (in the hub, not popular), or null (no badge for this item) */
+    badge_notes: (BadgeNote | null)[];
   };
+
+export type BadgeNote = "nodata" | "norow" | "plain";
 
 /**
  * (badge_colors, roll_arrows), index-aligned with `rows`, all null out of scope (only rares). badge: red > gold > green > null.
@@ -73,6 +77,24 @@ export function computeModExtras(item: ParsedItem, rows: PickerRow[], annos: Ret
     }
   });
   return [badgeColors, rollArrows];
+}
+
+/**
+ * What the badge column of each row can say, kept apart on purpose: a mod WITHOUT a stat id ("nodata") is not the same as a mod the hub
+ * knows but does not rank ("plain" / "norow"). null = no badge is computed for this item (not a rare, no slot, no hub data).
+ */
+export function computeBadgeNotes(item: ParsedItem, rows: PickerRow[], env: F5Env): (BadgeNote | null)[] {
+  const notes: (BadgeNote | null)[] = new Array(rows.length).fill(null);
+  if (item.rarity !== Rarity.RARE) return notes;
+  const slot = slotForItem(item.item_class, item.base_type);
+  if (!slot || !env.modBadge.available()) return notes;
+  const archetype = truthy(env.cfg.mod_badge_archetype) ? env.cfg.mod_badge_archetype : "all";
+  rows.forEach(({ mod: m }, i) => {
+    const sid = env.modBadge.resolveStatId(m.text, m.mod_type, env.modDb);
+    const state = env.modBadge.badgeState(sid, slot, archetype, env.metaDb);
+    notes[i] = state === "nodata" ? "nodata" : state === "norow" ? "norow" : "plain";
+  });
+  return notes;
 }
 
 /** The clipboard text -> what the app shows next. Throws when the stats database cannot be loaded (the app logs "✗ F5: ..."). */
@@ -117,7 +139,9 @@ export async function prepareF5(text: string, env: F5Env): Promise<F5Result> {
       warn(`meta annotate error: ${(e as Error).message}`, "warn");
     }
     const [badgeColors, rollArrows] = computeModExtras(item, rows, annos, env);
-    return { kind: "picker", item, rows, annos, summary, badge_colors: badgeColors, roll_arrows: rollArrows, affixes: rows.map((r) => r.mod.affix) };
+    const badgeNotes = computeBadgeNotes(item, rows, env);
+    badgeNotes.forEach((n, i) => { if (n === "plain" && badgeColors[i]) badgeNotes[i] = null; }); // (a colour says it already)
+    return { kind: "picker", item, rows, annos, summary, badge_colors: badgeColors, roll_arrows: rollArrows, affixes: rows.map((r) => r.mod.affix), badge_notes: badgeNotes };
   }
   const url = buildTradeUrl(item, env.modDb, env.league, env.profile, 0.8, null, env.baseDb);
   return { kind: "url", item, url };

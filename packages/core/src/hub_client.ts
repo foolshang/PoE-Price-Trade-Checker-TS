@@ -7,6 +7,13 @@ import { Log, noopLog, truthy } from "./py.ts";
 
 export const HUB_BASE_URL = "https://storage.googleapis.com/poe-data-hub";
 
+/**
+* Where the hub publishes the rendering aliases (RePoE wordings -> GGG stat). ONE place: the hub may move this file out of internal/,
+* and the schema_version inside is checked by the loader (ModDatabase.loadAliases).
+*/
+export const renderingAliasesPath = (game: string): string => `internal/rendering_aliases_${game}.json`;
+
+
 export const HEADERS: Record<string, string> = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   Accept: "application/json",
@@ -65,8 +72,17 @@ export class HubClient {
   getSkillFile(path: string): Promise<any | null> {
     return this.soft(path, "skill file", path);
   }
+  /** (the F4 reference and the mod badge both read it: one download per game for a few minutes) */
+  private dictionaryMemo = new Map<string, { at: number; p: Promise<any | null> }>();
   getSkillsDictionary(game: string): Promise<any | null> {
-    return this.soft(`${game}/skills/dictionary.json`, "skills dictionary", game);
+    const hit = this.dictionaryMemo.get(game);
+    if (hit && Date.now() - hit.at < 5 * 60 * 1000) return hit.p;
+    const p = this.soft(`${game}/skills/dictionary.json`, "skills dictionary", game).then((v) => {
+      if (v === null) this.dictionaryMemo.delete(game); // (a failure is not remembered)
+      return v;
+    });
+    this.dictionaryMemo.set(game, { at: Date.now(), p });
+    return p;
   }
 
   /** Reshape index.json into the league -> file routing table a consumer needs. */

@@ -299,14 +299,11 @@ describe("mod badge: template index and stat id resolution", () => {
     const amb = buildTemplateIndex([{ stat_id: "explicit.stat_a", template: "#% to Fire Resistance" }, { stat_id: "explicit.stat_b", template: "#% to Fire Resistance" }]);
     expect(new Set(amb.get("#% to fire resistance"))).toEqual(new Set(["explicit.stat_a", "explicit.stat_b"]));
   });
-  it("resolve_stat_id: the mod db first, the dictionary only when unambiguous", () => {
+  it("resolve_stat_id: the mod database only - no id there means no id (the hub's dictionary is not used to guess)", () => {
     const db = newBadge();
     db.index(metaPayload({ stat_dictionary: [{ stat_id: "explicit.stat_fallback", template: "# to maximum Life" }] }));
     expect(db.resolveStatId("+47 to maximum Life", "explicit", { findStatId: () => "explicit.stat_3299347043" } as any)).toBe("explicit.stat_3299347043");
-    expect(db.resolveStatId("+47 to maximum Life", "explicit", { findStatId: () => null } as any)).toBe("explicit.stat_fallback");
-    const amb = newBadge();
-    amb.index(metaPayload({ stat_dictionary: [{ stat_id: "explicit.stat_a", template: "#% to Fire Resistance" }, { stat_id: "explicit.stat_b", template: "#% to Fire Resistance" }] }));
-    expect(amb.resolveStatId("+36% to Fire Resistance", "explicit", { findStatId: () => null } as any)).toBeNull();
+    expect(db.resolveStatId("+47 to maximum Life", "explicit", { findStatId: () => null } as any)).toBeNull();
   });
 });
 
