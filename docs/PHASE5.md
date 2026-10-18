@@ -101,3 +101,7 @@ Brief of Winai after beta.13 (part A of that brief = the beta.14 addendum above,
 | **D Filter Generator tray** | X -> tray (menu open / quit), one-time balloon, X-action in About (default tray), second start brings the window back, no tray icon = X closes. |
 
 Notes: the release text of a NEW version comes from the GitHub release body through electron-updater (HTML -> text in `changelog.ts`); it is only provable on a real release (part B). A local feed carries no release text, so the tests inject it.
+
+### Red-dot manual test helper
+
+`node tools/redtest.mjs start|stop|status` (dev tool, not packaged): serves a fake newer version (the real installer, fake Thai release notes) on 127.0.0.1:47653, makes the NeverSink tags look old and `auto_regen_neversink` off in config.json, and starts the installed Checker with `POE_UPDATE_FEED` set for that one process. `stop` restores the three config values from `%TEMP%\poe-redtest-state.json`, removes the fake download and starts the Checker normally.

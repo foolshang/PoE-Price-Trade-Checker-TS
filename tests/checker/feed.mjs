@@ -4,7 +4,7 @@ import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
 
-export async function serveFolder(dir, { yml = {} } = {}) {
+export async function serveFolder(dir, { yml = {}, port: wantPort = 0 } = {}) {
   const requests = [];
   const server = http.createServer((req, res) => {
     const name = decodeURIComponent((req.url || "/").split("?")[0]).replace(/^\/+/, "");
@@ -30,7 +30,7 @@ export async function serveFolder(dir, { yml = {} } = {}) {
     res.writeHead(200, { "content-length": size, "accept-ranges": "bytes" });
     fs.createReadStream(file).pipe(res);
   });
-  await new Promise((r) => server.listen(0, "127.0.0.1", r));
+  await new Promise((r) => server.listen(wantPort, "127.0.0.1", r));
   const port = server.address().port;
   return { url: `http://127.0.0.1:${port}`, requests, close: () => new Promise((r) => { server.closeAllConnections?.(); server.close(r); }) };
 }
