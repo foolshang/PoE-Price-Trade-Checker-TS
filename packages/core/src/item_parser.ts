@@ -28,6 +28,22 @@ const ROLL_RANGE = re(`\\(${D}+(?:\\.${D}+)?-${D}+(?:\\.${D}+)?\\)`, "giu");
 const RUNE_LINE = re(`^(.*)${S}\\(rune\\)$`);
 const IMPLICIT_LINE = re(`^(.*)${S}\\(implicit\\)$`);
 
+/**
+ * A reminder text: the explanation the game prints (Ctrl+Alt+C) under a mod - "(Onslaught grants 20% increased Attack, Cast, and
+ * Movement Speed)". The whole line is one pair of parentheses. A real mod can START with "(" ("(5-10)% increased ... (crafted)" - a roll
+ * range) but then the first ")" is not the last character, so it is told apart by where the first "(" closes.
+ */
+export function isReminderLine(line: string): boolean {
+  const t = line.trim();
+  if (!t.startsWith("(") || !t.endsWith(")")) return false;
+  let depth = 0;
+  for (let i = 0; i < t.length; i++) {
+    if (t[i] === "(") depth += 1;
+    else if (t[i] === ")" && --depth === 0) return i === t.length - 1;
+  }
+  return false;
+}
+
 /** `float(m.group())` of a matched number (Unicode digits allowed) */
 const toFloat = (s: string): number => Number(asciiDigits(s));
 
@@ -102,6 +118,7 @@ export function parseItem(text: string, gameVersion: string = GameVersion.POE2):
     pending_affix = "";
     for (const line of section) {
       if (!line) continue;
+      if (isReminderLine(line)) continue; // an explanation under a mod, not a mod
       // rune mod: its own section before the header block, ends with (rune)
       const rn = RUNE_LINE.exec(line);
       if (rn) {

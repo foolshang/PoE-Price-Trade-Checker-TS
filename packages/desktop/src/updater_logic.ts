@@ -22,3 +22,21 @@ export function bannerText(s: UpdateState): string {
   if (s.kind === "manual") return `มีรุ่นใหม่ v${s.version} — โปรแกรมนี้เป็นแบบ zip อัปเดตเองไม่ได้ โหลดรุ่นใหม่ได้ที่หน้า release`;
   return "";
 }
+
+/** The first line of an error's message (electron-updater errors carry a stack and sometimes a whole HTTP body). */
+export const firstLine = (e: unknown): string => String((e as { message?: string } | null)?.message ?? e).split(/\r?\n/)[0].slice(0, 300);
+
+/** GitHub has no release at all yet (a new repository): nothing is wrong, there is just nothing to offer. */
+export const isNoReleases = (message: string): boolean => /No published versions on GitHub/i.test(message);
+
+/** Logs one failure once: the library reports the same error through its logger, the "error" event and the rejected promise. */
+export function onceWithin(ms: number, now: () => number = Date.now): (key: string) => boolean {
+  let last = "", at = -Infinity;
+  return (key) => {
+    const t = now();
+    const dup = key === last && t - at < ms;
+    last = key;
+    at = t;
+    return !dup;
+  };
+}

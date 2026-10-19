@@ -8,7 +8,7 @@ import koffi from "koffi";
 const INPUT_KEYBOARD = 1;
 const KEYEVENTF_KEYUP = 0x0002;
 const VK_C = 0x43;
-const MODIFIERS = [0x10, 0x11, 0x12, 0x5b, 0x5c]; // Shift, Ctrl, Alt, left / right Win
+const MODIFIERS = [0x10, 0x11, 0x12, 0x5b, 0x5c]; // (GetAsyncKeyState answers the generic Shift / Ctrl / Alt for the left and the right key) // Shift, Ctrl, Alt, left / right Win
 const RELEASE_DELAY_MS = 10; // the modifiers are let go a little after C: the game has been seen to drop a release that comes at once
 const ERROR_ACCESS_DENIED = 5;
 const PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
@@ -67,6 +67,12 @@ export interface SendResult {
   blocked: boolean;
   /** ms between C and the release of the modifiers (about 10) */
   gapMs: number;
+  /** the modifiers Windows said were down just before the keys were sent (virtual-key codes) */
+  before: number[];
+  /** the same, just after the chord was released again */
+  after: number[];
+  /** the key events in the order they were sent, for the log: "Alt-up Shift-up Ctrl-down C-down C-up Ctrl-up" */
+  events: string;
 }
 
 /** The modifier keys that are physically down right now (virtual-key codes). */
@@ -77,30 +83,46 @@ export function heldModifiers(): number[] {
 
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
+const VK_SHIFT = 0x10, VK_MENU = 0x12;
+/** Shift and Alt, as the generic key and as the left / right ones: the game may have seen any of them as held */
+const ALWAYS_RELEASED: number[] = [VK_SHIFT, 0xa0, 0xa1, VK_MENU, 0xa4, 0xa5];
+const VK_NAME: Record<number, string> = { 0x10: "Shift", 0xa0: "LShift", 0xa1: "RShift", 0x11: "Ctrl", 0x12: "Alt", 0xa4: "LAlt", 0xa5: "RAlt", 0x5b: "LWin", 0x5c: "RWin", 0x43: "C" };
+const vkName = (vk: number): string => VK_NAME[vk] ?? `VK${vk}`;
+
 /**
  * Press `chord` (virtual-key codes, in order) together with C: chord down, C down, C up, a short wait, chord up in reverse.
  *  - a chord key the player is already holding (the hotkey was pressed with it) is not pressed or released again;
- *  - another modifier the player is holding (Shift in Shift+F5) is released first, so the game does not see Shift+Ctrl+C.
+ *  - every OTHER modifier the game could believe is down is released first - Shift and Alt always (a release of a key that is up does
+ *    nothing), the Windows keys when held - so the game never sees Alt+Ctrl+C when the chord is Ctrl+C: PoE1 prints the reminder texts
+ *    only with Alt, and an Alt left down by the earlier PoE2 copy (Ctrl+Alt+C) or by the player must not turn this copy into that one.
  */
 export async function sendCopyChord(chord: number[]): Promise<SendResult> {
   const a = load();
-  const held = new Set(heldModifiers());
-  const stray = [...held].filter((vk) => !chord.includes(vk));
+  const before = heldModifiers();
+  const held = new Set(before);
+  const release = new Set<number>(ALWAYS_RELEASED.filter((vk) => !chord.includes(vk)));
+  for (const vk of held) if (!chord.includes(vk)) release.add(vk);
   const press = chord.filter((vk) => !held.has(vk));
+  const log: string[] = [];
   let sent = 0, total = 0, denied = false;
-  const run = (events: ReturnType<typeof key>[]): void => {
+  const run = (events: ReturnType<typeof key>[], names: string[]): void => {
     if (!events.length) return;
     const n = a.SendInput(events.length, events, inputSize);
     sent += n;
     total += events.length;
+    log.push(...names);
     if (n < events.length && koffi.errno() === ERROR_ACCESS_DENIED) denied = true;
   };
-  run([...stray.map((vk) => key(vk, true)), ...press.map((vk) => key(vk, false)), key(VK_C, false), key(VK_C, true)]);
+  const down = (vk: number) => `${vkName(vk)}-down`, up = (vk: number) => `${vkName(vk)}-up`;
+  run(
+    [...[...release].map((vk) => key(vk, true)), ...press.map((vk) => key(vk, false)), key(VK_C, false), key(VK_C, true)],
+    [...[...release].map(up), ...press.map(down), down(VK_C), up(VK_C)],
+  );
   const t0 = performance.now();
   await sleep(RELEASE_DELAY_MS);
   const gapMs = performance.now() - t0;
-  run([...press].reverse().map((vk) => key(vk, true)));
-  return { sent, total, blocked: sent < total && denied, gapMs };
+  run([...press].reverse().map((vk) => key(vk, true)), [...press].reverse().map(up));
+  return { sent, total, blocked: sent < total && denied, gapMs, before, after: heldModifiers(), events: log.join(" ") };
 }
 
 export interface WindowFacts {

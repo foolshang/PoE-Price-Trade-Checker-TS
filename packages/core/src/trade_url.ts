@@ -4,6 +4,7 @@
  */
 import { BaseDB } from "./base_db.ts";
 import { ModDatabase } from "./mod_db.ts";
+import { resolveRows } from "./mod_rows.ts";
 import { ParsedItem, Rarity } from "./models.ts";
 import { GameProfile } from "./profiles.ts";
 import { PyFloat, dumps, pyStrip, truthy } from "./py.ts";
@@ -62,8 +63,7 @@ export function buildTradeUrl(item: ParsedItem, modDb: Pick<ModDatabase, "findSt
       });
     } else {
       statFilters = [];
-      for (const mod of item.mods) {
-        const sid = modDb.findStatId(mod.text, mod.mod_type);
+      for (const { mod, statId: sid } of resolveRows(item.mods, modDb)) {
         if (!sid) continue;
         const f: StatFilter = { id: sid, disabled: false };
         if (mod.value !== null) f.value = { min: new PyFloat(pyRound(mod.value * minPct, 2)) };

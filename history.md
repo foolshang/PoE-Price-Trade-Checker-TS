@@ -239,3 +239,6 @@
 ## (11) e2e: no silent skips (2026-10-19)
 - `tests/checker/installed.mjs`: the installed Checker is found at the normal per-user path when PFG_CHECKER_EXE is not set; a missing exe / feed / zip now FAILS the group with the reason. A skip only with E2E_ALLOW_SKIP=1.
 - Applies to the only two `skipIf` groups: `update.e2e.ts` B) (9 tests, were skipped without PFG_CHECKER_EXE) and `zip.e2e.ts` (2 tests). The other e2e files run the build output when no exe is given - that is a mode, not a skip.
+
+## (12) First in-game F5 findings (2026-10-19, v1.0.0-rc.6)
+- Reminder lines are not mods; ` — Unscalable Value` is cut; multi-line mods are matched as a block first (hub order) and shown as one row; the popup's X is logged as the player's and gives the focus back; "No published versions" is one info line; every copy chord releases Shift/Alt first and each F5 logs modifiers before/after, the events sent and how the text begins. Details: docs/PHASE5.md Addendum 5. The cause of the Alt in PoE1 is not proven yet.

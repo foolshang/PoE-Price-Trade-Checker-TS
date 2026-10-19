@@ -1,0 +1,42 @@
+Item Class: Wands
+Rarity: Rare
+Gloom Spire
+Convoking Wand
+--------
+Wand
+Quality: +20% (augmented)
+Physical Damage: 28-52
+Critical Strike Chance: 8.00%
+Attacks per Second: 1.50
+Intangibility: 26%
+--------
+Requirements:
+Level: 72
+Str: 111
+Dex: 98
+Int: 242
+--------
+Sockets: G-B-R 
+--------
+Item Level: 87
+--------
+Quality does not increase Physical Damage (enchant)
+Grants 1% increased Area of Effect per 4% Quality (enchant)
+--------
+{ Implicit Modifier — Damage, Minion }
+Minions deal 30(26-30)% increased Damage
+--------
+{ Prefix Modifier "Magister's" (Tier: 1) — Caster, Gem }
++1 to Level of all Spell Skill Gems
+{ Prefix Modifier "Martinet's" (Tier: 1) — Minion, Gem }
++1 to Level of all Minion Skill Gems
+{ Prefix Modifier "Empress's" (Tier: 1) — Damage, Minion }
+Minions deal 102(100-109)% increased Damage
+{ Suffix Modifier "of Infuriation" (Tier: 1) — Attack, Caster, Speed, Minion }
+Minions have 23(23-25)% increased Attack and Cast Speed
+{ Suffix Modifier "of the Underground" — Minion }
+Minions are Aggressive — Unscalable Value
+(Aggressive minions have their targeting range raised to a minimum value)
+{ Master Crafted Suffix Modifier "of Craft" — Caster, Gem }
+Trigger a Socketed Spell when you Use a Skill, with a 8 second Cooldown
+Spells Triggered this way have 150% more Cost

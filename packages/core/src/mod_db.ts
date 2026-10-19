@@ -33,12 +33,16 @@ const RANGE_AFTER_VALUE = new RegExp(`(\\d)\\(${NUM}-${NUM}\\)`, "g");
 /** the tag the game appends to a line: "(crafted)", "(implicit)", "(enchant)", "(augmented)" ... (the mod type is known from it already) */
 const TRAILING_TAG = /\s*\((?:implicit|crafted|enchant|fractured|augmented|rune|desecrated|scourge|veiled|corrupted)\)\s*$/i;
 
+/** the note the game adds to a value that nothing scales: "Minions are Aggressive — Unscalable Value" (PoE1 3.2x) */
+const UNSCALABLE = /\s*[—–-]\s*Unscalable Value\s*$/i;
+
 /**
- * A mod line as the game writes it on the clipboard -> the wording GGG's table (and the hub's data) uses: no roll ranges, no trailing
- * tag. Only these two things are removed; every other difference from the table is the matcher's business (stat_match.ts).
+ * A mod as the game writes it on the clipboard -> the wording GGG's table (and the hub's data) uses: no roll ranges, no trailing
+ * tag, no " — Unscalable Value". Only these are removed; every other difference from the table is the matcher's business
+ * (stat_match.ts). Several lines (one mod block) are cleaned line by line.
  */
 export function cleanModText(text: string): string {
-  return text.replace(RANGE_AFTER_VALUE, "$1").replace(TRAILING_TAG, "");
+  return text.split("\n").map((line) => line.replace(RANGE_AFTER_VALUE, "$1").replace(UNSCALABLE, "").replace(TRAILING_TAG, "").replace(UNSCALABLE, "")).join("\n");
 }
 
 /** order of the groups tried when the mod type of the line is unknown */

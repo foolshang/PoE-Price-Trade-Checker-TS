@@ -55,7 +55,7 @@ function fake(opts: { initial: string; image?: object; arrivesAfter?: number; it
     restore: async (s: { text: string; image: object | null }) => { state.restored.push(s); state.text = s.text; state.image = s.image; },
     writeText: async (t: string) => { state.writes.push(t); state.text = t; },
     readText: async () => { state.polls++; if (opts.arrivesAfter !== undefined && state.polls > opts.arrivesAfter) state.text = opts.itemText ?? ITEM; return state.text; },
-    send: async () => { state.sent++; return { sent: 4, total: 4, blocked: false, gapMs: 10 }; },
+    send: async () => { state.sent++; return { sent: 4, total: 4, blocked: false, gapMs: 10, before: [], after: [], events: "" }; },
     sleep: async () => {},
   };
   return { state, deps };

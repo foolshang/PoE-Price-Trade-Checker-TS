@@ -8,6 +8,7 @@ import { parseItem } from "./item_parser.ts";
 import { MetaDB } from "./meta_db.ts";
 import { ModBadgeDB, affixCap, slotForItem, tierRollArrow } from "./mod_badge.ts";
 import { ModDatabase } from "./mod_db.ts";
+import { resolveRows } from "./mod_rows.ts";
 import { ModValue, ParsedItem, Rarity } from "./models.ts";
 import { GameProfile } from "./profiles.ts";
 import { Log, noopLog, truthy } from "./py.ts";
@@ -128,7 +129,7 @@ export async function prepareF5(text: string, env: F5Env): Promise<F5Result> {
   const usePicker = (env.cfg.f5_mod_picker === undefined ? true : truthy(env.cfg.f5_mod_picker)) && item.identified &&
     (item.rarity === Rarity.RARE || item.rarity === Rarity.MAGIC) && item.mods.length > 0;
   if (usePicker) {
-    const rows: PickerRow[] = item.mods.map((m) => ({ mod: m, statId: env.modDb.findStatId(m.text, m.mod_type) }));
+    const rows: PickerRow[] = resolveRows(item.mods, env.modDb);
     let annos: ReturnType<MetaDB["annotate"]> = {};
     let summary = "";
     try {

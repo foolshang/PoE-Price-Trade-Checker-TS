@@ -11,7 +11,7 @@ import { appendFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { promises as fsp } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { baseDb, f5, filterService, hubClient, itemLang, league as leagueMod, metaDb, modBadge, modDb, neversinkSource, profiles, py, pyextra, skillRef, tradeUrl } from "@poe/core";
+import { baseDb, f5, filterService, hubClient, itemLang, itemParser, league as leagueMod, metaDb, modBadge, modDb, neversinkSource, profiles, py, pyextra, skillRef, tradeUrl } from "@poe/core";
 const { PyFloat } = py;
 type PyFloat = InstanceType<typeof PyFloat>;
 import type { HttpPort, models } from "@poe/core";
@@ -28,6 +28,7 @@ import { NeverSinkWatcher } from "./regen.ts";
 import { copyChord, keyName, readAdvancedKey } from "./game_keys.ts";
 import { copyItemText } from "./item_copy.ts";
 import { describeWindow, foregroundElevated, selfElevated, focusWindow, foregroundWindow, sendCopyChord, windowFacts } from "./native.ts";
+import type { SendResult } from "./native.ts";
 import { gameOfWindow, onFront } from "./game_detect.ts";
 import { pickerInit } from "./picker_data.ts";
 
@@ -276,6 +277,17 @@ async function copyKeys(gv: GameId): Promise<{ chord: number[]; label: string }>
   return { chord, label: [...chord, 0x43].map(keyName).join("+") + (adv.source === "default" ? " (ค่าเริ่มต้น)" : "") };
 }
 
+/** One line for log.txt per F5: which keys were meant, the modifier state Windows reported before / after, the events sent, and how the text begins (to compare with what the game was asked for) */
+function f5KeysLine(label: string, sent: SendResult, text: string): string {
+  const mods = (vks: number[]): string => `[${vks.map(keyName).join("+")}]`;
+  const lines = text.split(/\r?\n/);
+  const reminders = lines.filter(itemParser.isReminderLine).length;
+  const advanced = /\d\(\d[\d.]*-\d[\d.]*\)/.test(text); // roll ranges after the values: the detailed copy
+  const head = lines.slice(0, 6).map((l) => l.trim().slice(0, 40)).join(" | ");
+  return `F5 keys: wanted ${label}; held before ${mods(sent.before)} after ${mods(sent.after)}; sent ${sent.events} (${sent.sent}/${sent.total} accepted); ` +
+    (text ? `text: ${lines.length} lines, reminder lines ${reminders}, roll ranges ${advanced ? "yes" : "no"}, begins: ${head}` : "no text arrived");
+}
+
 async function onF5(): Promise<void> {
   if (f5Busy) return;
   f5Busy = true;
@@ -316,6 +328,7 @@ async function onF5(): Promise<void> {
       sleep: wait,
     }, { restore: cfgBool("f5_restore_clipboard", true) });
     const text = copied.text;
+    fileLog("INFO", f5KeysLine(label, copied.sent, text));
     if (!text) {
       if (copied.sent.blocked) say(ADMIN_MSG, "warn");
       else if (selfElevated() === false && foregroundElevated() === true) say(ADMIN_MSG, "warn");
@@ -493,9 +506,19 @@ function openPicker(result: Extract<f5.F5Result, { kind: "picker" }>, pressPoint
   pickerSession = { rows: result.rows, item: result.item, pressPoint, returnTo };
   const win = createToolWindow("เลือก mod", "picker.cjs", "picker.html");
   pickerWin = win;
+  // The program closes the popup only through closePicker() (which clears pickerWin first). A close that arrives while pickerWin is
+  // still this window came from the player (the window's X / Alt+F4 / the taskbar): normal, and the focus goes back to the game like
+  // after Esc. Only a window that is gone WITHOUT a close request (crash, killed) is a warning.
+  let closeRequested = false;
+  win.on("close", () => {
+    if (pickerWin !== win) return;
+    closeRequested = true;
+    fileLog("INFO", "popup closed by the player (X / Alt+F4)");
+    giveFocusBack(win, pickerSession?.returnTo ?? 0n);
+  });
   win.on("closed", () => {
     if (pickerWin === win) {
-      fileLog("WARNING", "popup window was closed by something else (not by the program)");
+      if (!closeRequested) fileLog("WARNING", "popup window disappeared without a close request");
       pickerWin = null;
       pickerSession = null;
     }

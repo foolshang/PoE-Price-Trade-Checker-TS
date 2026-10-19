@@ -18,7 +18,7 @@ import { autoUpdater } from "electron-updater";
 import type { UpdateInfo } from "electron-updater";
 import { notesToText } from "./changelog.ts";
 import type { UpdateState } from "./updater_api.ts";
-import { decideOffer, isPrerelease } from "./updater_logic.ts";
+import { decideOffer, firstLine, isNoReleases, isPrerelease, onceWithin } from "./updater_logic.ts";
 
 export const CHECK_EVERY_MS = 6 * 3600 * 1000;
 export const FIRST_CHECK_MS = 20_000;
@@ -78,8 +78,8 @@ export class AppUpdater {
     // pre-release from a beta copy. The name of the .yml comes from app-update.yml (written at build time) or from the feed override below.)
     u.logger = {
       info: (m: unknown) => o.log("INFO", `updater: ${String(m)}`),
-      warn: (m: unknown) => o.log("WARNING", `updater: ${String(m)}`),
-      error: (m: unknown) => o.log("WARNING", `updater: ${String(m)}`),
+      warn: (m: unknown) => o.log("WARNING", `updater: ${firstLine(m)}`),
+      error: () => {}, // (the same error comes again through the "error" event / the rejected check: fail() logs it, once, in one line)
       debug: () => {},
     } as never;
     if (this.feed) u.setFeedURL({ provider: "generic", url: this.feed, channel: o.channel });
@@ -162,8 +162,17 @@ export class AppUpdater {
     autoUpdater.downloadUpdate().catch((e: Error) => this.fail(e));
   }
 
+  private logFailure = onceWithin(2000);
+
   private fail(e: Error): void {
-    this.o.log("WARNING", `updater: ${e?.message ?? e}`);
+    const message = firstLine(e);
+    const fresh = this.logFailure(message); // (only the LOG is once: the state below is set every time)
+    if (isNoReleases(message)) {
+      if (fresh) this.o.log("INFO", "updater: no release is published on GitHub yet - nothing to offer");
+      this.set({ kind: "idle" });
+      return;
+    }
+    if (fresh) this.o.log("WARNING", `updater: ${message}`);
     // a download that failed is not a reason to bother the player; the next check tries again
     this.set({ kind: "error", message: String(e?.message ?? e).slice(0, 300) });
   }

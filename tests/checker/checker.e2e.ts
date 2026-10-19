@@ -506,7 +506,8 @@ describe("H) the real key press path", () => {
     expect(foregroundTitle()).toBe("PFG-TEST-BOX-S");
     const native = await import("../../apps/checker/src/main/native.ts");
     const r = await native.sendCopyChord([0x11]);
-    expect(r).toMatchObject({ sent: 4, total: 4, blocked: false });
+    expect(r).toMatchObject({ sent: 10, total: 10, blocked: false }); // (Shift and Alt released first - 6 events - then Ctrl+C and the release of Ctrl)
+    expect(r.events).toBe("Shift-up LShift-up RShift-up Alt-up LAlt-up RAlt-up Ctrl-down C-down C-up Ctrl-up");
     expect(r.gapMs).toBeGreaterThanOrEqual(9); // (the modifiers are let go about 10 ms after C)
     await wait(400);
     const clip = execFileSync("powershell", ["-NoProfile", "-Command", "Get-Clipboard -Raw"], { encoding: "utf-8", windowsHide: true });
@@ -525,7 +526,9 @@ const writeIni = (sbx, line) => {
   fs.writeFileSync(path.join(dir, "poe2_production_Config.ini"), "﻿[ACTION_KEYS]\r\n" + line + "\r\n", "utf-8");
 };
 /** the key events (other than F5 itself) the box saw: "D17 D67 U67 U17" */
-const seq = (box) => box.keys().filter((e) => e.vk !== F5_VK).map((e) => e.kind + e.vk);
+const seqAll = (box) => box.keys().filter((e) => e.vk !== F5_VK).map((e) => e.kind + e.vk);
+/** ... without the Shift / Alt releases that come first (the program lets go of every modifier the game could think is down; see "H") */
+const seq = (box) => { const s = seqAll(box); while (s.length && s[0][0] === "U" && s[0] !== "U17") s.shift(); return s; };
 const statusHas = (page, re, timeout = 20000) => page.waitForFunction((s) => new RegExp(s).test(document.querySelector("#log").innerText), re.source, { timeout });
 
 async function copyRun({ game, ini, cfg, item = "poe1_rare_noheader", hotkey }) {
@@ -545,7 +548,7 @@ describe("I) the copy keys (round-fix: PoE1 Ctrl+C, PoE2 Ctrl+<advanced key>+C, 
   it("PoE1: Ctrl down, C down, C up, Ctrl up; no stuck keys; the header log line says 'ไม่มี' for a no-header item", async () => {
     const { page, box } = await copyRun({ game: "poe1" });
     expect(seq(box)).toEqual(["D17", "D67", "U67", "U17"]);
-    const ev = box.keys().filter((e) => e.vk !== F5_VK);
+    const ev = box.keys().filter((e) => e.vk !== F5_VK).slice(-4); // (the last four: Ctrl down, C down, C up, Ctrl up)
     expect(ev[3].ms - ev[2].ms).toBeGreaterThan(0); // (the release comes ~10 ms after C - measured in the program, see H; the box's own clock squeezes it)
     expect(modifiersDown()).toEqual([]);
     const log = await logText(page);
@@ -760,6 +763,20 @@ describe("M) F5 shows no window except the popup", () => {
       expect(log).not.toMatch(/closed by something else|raised again|renderer gone/);
     }
     expect(await logText(page)).not.toMatch(/✗/);
+  }, 180000);
+
+  it("closing the popup with its X is normal: logged as the player's, no warning; each F5 writes its key line (modifiers before / after, events, how the text begins)", async () => {
+    const sbx = sandbox();
+    const { app } = await start(sbx, { game: "poe1" });
+    const pk = await f5(app, "poe1_rare_body");
+    expect(pk).toBeTruthy();
+    await app.evaluate(({ BrowserWindow }) => { BrowserWindow.getAllWindows().find((w) => w.getTitle() === "เลือก mod")?.close(); });
+    await wait(600);
+    const log = fs.readFileSync(path.join(sbx.checkerDir, "log.txt"), "utf-8");
+    expect(log).toMatch(/popup closed by the player/);
+    expect(log).not.toMatch(/WARNING main: popup window/);
+    const line = log.split(String.fromCharCode(10)).find((l) => l.includes("F5 keys:")) ?? "";
+    expect(line).toMatch(/wanted Ctrl\+C; held before \[[^\]]*\] after \[[^\]]*\]; sent .*Alt-up.*Ctrl-down C-down C-up Ctrl-up \(\d+\/\d+ accepted\); text: \d+ lines, reminder lines \d+, roll ranges (yes|no), begins: /);
   }, 180000);
 
   it("a picture on the clipboard does not stop F5, and is still there afterwards", async () => {

@@ -17,7 +17,7 @@ import { autoUpdater } from "electron-updater";
 import type { UpdateInfo } from "electron-updater";
 import { notesToText } from "./changelog.ts";
 import type { UpdateInfoState } from "./update_api.ts";
-import { decideOffer, isPrerelease } from "./updater_logic.ts";
+import { decideOffer, firstLine, isNoReleases, isPrerelease, onceWithin } from "./updater_logic.ts";
 import { installedByInstaller } from "./updater.ts";
 
 export const CHECK_EVERY_MS = 24 * 3600 * 1000;
@@ -76,8 +76,8 @@ export class ManagedUpdater {
     // pre-release from a beta copy. The name of the .yml comes from app-update.yml (written at build time) or from the feed override below.)
     u.logger = {
       info: (m: unknown) => o.log("INFO", `updater: ${String(m)}`),
-      warn: (m: unknown) => o.log("WARNING", `updater: ${String(m)}`),
-      error: (m: unknown) => o.log("WARNING", `updater: ${String(m)}`),
+      warn: (m: unknown) => o.log("WARNING", `updater: ${firstLine(m)}`),
+      error: () => {}, // (the same error comes again through the "error" event / the rejected check: fail() logs it, once, in one line)
       debug: () => {},
     } as never;
     if (this.feed) u.setFeedURL({ provider: "generic", url: this.feed, channel: o.channel });
@@ -178,10 +178,20 @@ export class ManagedUpdater {
     autoUpdater.downloadUpdate().catch((e: Error) => this.fail(e, "download"));
   }
 
+  private logFailure = onceWithin(2000);
+
   private fail(e: Error, stage?: "check" | "download"): void {
     const failed = stage ?? (this.s.phase === "downloading" ? "download" : "check");
-    this.o.log("WARNING", `updater: ${failed} failed: ${e?.message ?? e}`);
-    const message = String(e?.message ?? e).split("\n")[0].slice(0, 300);
+    const message = firstLine(e);
+    const fresh = this.logFailure(`${failed}:${message}`); // (only the LOG is once: the state below is set every time)
+    if (failed === "check" && isNoReleases(message)) {
+      if (fresh) this.o.log("INFO", "updater: no release is published on GitHub yet - nothing to offer");
+      if (!this.downloaded && !["available", "downloading", "ready", "manual"].includes(this.s.phase)) {
+        this.set({ phase: "idle", upToDate: true, message: undefined, failed: undefined });
+      }
+      return;
+    }
+    if (fresh) this.o.log("WARNING", `updater: ${failed} failed: ${message}`);
     if (failed === "check") {
       // a check that fails (the net is down) must not take away what the window already shows: a newer version found earlier
       if (this.downloaded || ["available", "downloading", "ready", "manual"].includes(this.s.phase)) return;
