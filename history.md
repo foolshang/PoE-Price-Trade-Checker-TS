@@ -235,3 +235,7 @@
 - Measured: 0 differences from the real normalizer of the hub on 120,000 texts (hub rules only); 0 wrong against RePoE (PoE1 16,173 wordings, PoE2 686) with the one addition described in docs/PHASE5.md Addendum 4 (the hub rules alone: 3 wrong).
 - 434 of 5,586 parity cases changed on purpose and are listed and explained; the F5 end-to-end oracle answers stat ids from a table.
 - Not done / waiting: the alias file and `stat_aliases` are not published by the hub yet; no tag v1.0.0.
+
+## (11) e2e: no silent skips (2026-10-19)
+- `tests/checker/installed.mjs`: the installed Checker is found at the normal per-user path when PFG_CHECKER_EXE is not set; a missing exe / feed / zip now FAILS the group with the reason. A skip only with E2E_ALLOW_SKIP=1.
+- Applies to the only two `skipIf` groups: `update.e2e.ts` B) (9 tests, were skipped without PFG_CHECKER_EXE) and `zip.e2e.ts` (2 tests). The other e2e files run the build output when no exe is given - that is a mode, not a skip.

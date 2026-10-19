@@ -9,9 +9,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { launch, sandbox, wait, ROOT } from "../desktop/harness.mjs";
 import { serveFolder } from "./feed.mjs";
+import { failIfMissing, requirements } from "./installed.mjs";
 
 const ver = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf-8")).version;
 const ZIP = path.join(ROOT, "dist-checker", `PoE-Price-Trade-Checker-TS-Portable-${ver}.zip`);
@@ -36,7 +37,10 @@ function snapshot(dir) {
   return out.sort();
 }
 
-describe.skipIf(!fs.existsSync(ZIP))("the zip copy", () => {
+// a missing zip FAILS with the reason; skipped only when E2E_ALLOW_SKIP=1
+const need = requirements([{ ok: fs.existsSync(ZIP), reason: `${ZIP} is missing (npm run checker:pack)` }]);
+describe.skipIf(need.skip)("the zip copy", () => {
+  beforeAll(() => failIfMissing(need.problems));
   it("unpacks anywhere, runs, writes nothing next to itself, says (does not install) a newer release", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "pfg-zip-"));
     extra.push(() => fs.rmSync(dir, { recursive: true, force: true }));

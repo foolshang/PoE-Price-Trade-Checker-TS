@@ -12,11 +12,12 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { CHECKER_DIR, launch, sandbox, wait, ROOT } from "../desktop/harness.mjs";
 import { serveFolder } from "./feed.mjs";
 import { bringTitleToFront, openGame } from "./standin_game.mjs";
 import os from "node:os";
+import { failIfMissing, installedChecker, requirements } from "./installed.mjs";
 
 const exe = process.env.PFG_CHECKER_EXE;
 const DIST = path.join(ROOT, "dist-checker");
@@ -41,11 +42,11 @@ const hook = (app, fn, ...args) => app.evaluate((_e, [name, a]) => globalThis.__
 const logTxt = (sbx) => { try { return fs.readFileSync(path.join(sbx.checkerDir, "log.txt"), "utf-8"); } catch { return ""; } };
 const until = async (fn, ms = 20000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await fn()) return true; await wait(150); } return false; };
 
-async function startPlain(sbx, { cfg = {}, env = {} } = {}) {
+async function startPlain(sbx, { cfg = {}, env = {}, exe: useExe = exe } = {}) {
   sandboxes.push(sbx);
   fs.mkdirSync(sbx.checkerDir, { recursive: true });
   fs.writeFileSync(path.join(sbx.checkerDir, "config.json"), JSON.stringify({ game_version: "poe2", auto_game: false, ...cfg }));
-  const { app, page } = await launch(sbx, { exe, appDir: CHECKER_DIR, extraEnv: env });
+  const { app, page } = await launch(sbx, { exe: useExe, appDir: CHECKER_DIR, extraEnv: env });
   opened.push(app);
   await page.waitForSelector("#league");
   for (let i = 0; i < 100 && !(await hook(app, "mainVisible")); i++) await wait(100);
@@ -208,8 +209,15 @@ describe("A) the red dot and the details window", () => {
 });
 
 // ------------------------------------------------------------------------------------------------------------------------------
-const haveFeed = fs.existsSync(path.join(DIST, "latest.yml"));
-describe.skipIf(!exe || !haveFeed)("B) the installed program updates itself from a local feed", () => {
+// B needs the installed program (PFG_CHECKER_EXE, else the normal install path) and the feed of the last pack. If either is missing the
+// group FAILS with the reason; it is skipped only when E2E_ALLOW_SKIP=1.
+const installed = installedChecker();
+const need = requirements([
+  { ok: !!installed.path, reason: installed.reason },
+  { ok: fs.existsSync(path.join(DIST, "latest.yml")), reason: `${path.join(DIST, "latest.yml")} is missing (npm run checker:pack)` },
+]);
+describe.skipIf(need.skip)("B) the installed program updates itself from a local feed", () => {
+  beforeAll(() => failIfMissing(need.problems));
   const FAKE = "99.0.0-beta.1";
   const fakeNewer = (t) => t.replace(/^version: .+$/m, `version: ${FAKE}`);
   const killAll = () => { try { execFileSync("taskkill", ["/F", "/IM", "PoE-Price-Trade-Checker-TS.exe", "/T"], { stdio: "ignore" }); } catch { /* none */ } };
@@ -235,7 +243,7 @@ describe.skipIf(!exe || !haveFeed)("B) the installed program updates itself from
     } } });
     extra.push(() => feed.close());
     const sbx = sandbox();
-    const out = await startPlain(sbx, { cfg: { ...cfg }, env: { POE_UPDATE_FEED: feed.url, POE_UPDATE_FIRST_MS: String(first), ...(every ? { POE_UPDATE_EVERY_MS: String(every) } : {}) } });
+    const out = await startPlain(sbx, { exe: installed.path, cfg: { ...cfg }, env: { POE_UPDATE_FEED: feed.url, POE_UPDATE_FIRST_MS: String(first), ...(every ? { POE_UPDATE_EVERY_MS: String(every) } : {}) } });
     return { ...out, feed, sbx, state };
   }
   const exes = (feed) => feed.requests.filter((r) => r.name.endsWith(".exe")).length;
@@ -374,7 +382,7 @@ describe.skipIf(!exe || !haveFeed)("B) the installed program updates itself from
     const url = dead.url;
     await dead.close();
     const sbx = sandbox();
-    const { app, page } = await startPlain(sbx, { cfg: { auto_update: false }, env: { POE_UPDATE_FEED: url, POE_UPDATE_FIRST_MS: "1000" } });
+    const { app, page } = await startPlain(sbx, { exe: installed.path, cfg: { auto_update: false }, env: { POE_UPDATE_FEED: url, POE_UPDATE_FIRST_MS: "1000" } });
     await until(() => /updater: check failed/.test(logTxt(sbx)), 30000);
     expect(await page.locator("#update-bar").isHidden()).toBe(true);
     expect(logTxt(sbx)).toMatch(/updater: check failed: .*(ECONNREFUSED|ERR_CONNECTION|net::)/i);
