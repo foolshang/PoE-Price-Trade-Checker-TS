@@ -8,10 +8,10 @@ import { Log, noopLog, truthy } from "./py.ts";
 export const HUB_BASE_URL = "https://storage.googleapis.com/poe-data-hub";
 
 /**
-* Where the hub publishes the rendering aliases (RePoE wordings -> GGG stat). ONE place: the hub may move this file out of internal/,
-* and the schema_version inside is checked by the loader (ModDatabase.loadAliases).
+* Where the hub publishes the rendering aliases (RePoE wordings -> GGG stat, plus the stat groups): the public contract of SPEC.md 8.12.
+* ONE place; the schema_version inside is checked by the loader (ModDatabase.loadAliases).
 */
-export const renderingAliasesPath = (game: string): string => `internal/rendering_aliases_${game}.json`;
+export const renderingAliasesPath = (game: string): string => `${game}/aliases/latest.json`;
 
 
 export const HEADERS: Record<string, string> = {
@@ -72,17 +72,8 @@ export class HubClient {
   getSkillFile(path: string): Promise<any | null> {
     return this.soft(path, "skill file", path);
   }
-  /** (the F4 reference and the mod badge both read it: one download per game for a few minutes) */
-  private dictionaryMemo = new Map<string, { at: number; p: Promise<any | null> }>();
   getSkillsDictionary(game: string): Promise<any | null> {
-    const hit = this.dictionaryMemo.get(game);
-    if (hit && Date.now() - hit.at < 5 * 60 * 1000) return hit.p;
-    const p = this.soft(`${game}/skills/dictionary.json`, "skills dictionary", game).then((v) => {
-      if (v === null) this.dictionaryMemo.delete(game); // (a failure is not remembered)
-      return v;
-    });
-    this.dictionaryMemo.set(game, { at: Date.now(), p });
-    return p;
+    return this.soft(`${game}/skills/dictionary.json`, "skills dictionary", game);
   }
 
   /** Reshape index.json into the league -> file routing table a consumer needs. */

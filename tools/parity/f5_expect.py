@@ -28,6 +28,10 @@ def _use_new_stat_ids() -> None:
         return table[key]
 
     mod_db.ModDatabase.find_stat_id = find_stat_id
+
+    # the new parser does not read labels ("Fractured Item") or property lines ("Evasion Rating: 266") as mods; the original does. A mod line the
+    # table has no entry for is such a line (the table is made from the new parser's mods of every fixture): it is dropped from the original's list.
+    oldlib.DROP_MOD = lambda m, game: f"{game}{getattr(m, 'mod_type', '') or ''}{m.text}" not in table
     # the original's badge also guesses from the hub's dictionary (difflib 0.85): the Checker does not
     mod_badge.ModBadgeDB.resolve_stat_id = lambda self, text, typ, db: db.find_stat_id(text, typ)
 

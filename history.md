@@ -248,3 +248,9 @@
 
 ## (14) F8 refuses the program's own copy keys (2026-10-19, v1.0.0-rc.8)
 - Hotkeys that equal what F5 presses to make the game copy (PoE1 Ctrl+C; PoE2 Ctrl + the game's advanced-description key, read from the ini each time F8 opens, + C) are refused with the reason, and listed in the settings page. docs/PHASE5.md Addendum 7. Raw PoE2 texts (Sanctified, augment, Grants Skill, Note) are still wanted from the player for the "no gray non-mod row" test.
+
+## (15) Real PoE2 item texts, no property rows (2026-10-19, v1.0.0-rc.9)
+- 27 PoE2 item texts from Exiled-Exchange-2 as fixtures (credit in the folder); the no-header fallback skips property lines and reads no mods from gems / currency; every other mod resolves or is a real gap shown as "?". docs/PHASE5.md Addendum 8.
+
+## (16) The hub's public alias file (2026-10-19, v1.0.0-rc.10)
+- Aliases from `{game}/aliases/latest.json` (SPEC 8.12), `stat_aliases` + `stat_groups` from it (no more guessing in dictionary.json), the bundled snapshot is the real file, the hub's 49 contract cases pass, the meta check is in `meta_rows.test.ts`. docs/PHASE5.md Addendum 9.

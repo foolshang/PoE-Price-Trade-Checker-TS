@@ -30,11 +30,15 @@ OUT.mkdir(parents=True, exist_ok=True)
 sys.path.insert(0, str(HUB))
 
 from src.processing.normalizer import ModNormalizer  # noqa: E402  (the hub's code)
-from src.processing.rendering_aliases import AliasIndex, KINDS, build_aliases  # noqa: E402
+from src.processing.rendering_aliases import AliasIndex, KINDS, build_aliases, build_stat_groups, to_public  # noqa: E402
 
 GAMES = {
     "poe1": ("repoe_poe1.json", "internal_stats_cache_poe1.json"),
     "poe2": ("repoe_poe2.json", "internal_stats_cache.json"),
+}
+REPOE_URL = {
+    "poe1": "https://raw.githubusercontent.com/repoe-fork/poe1/master/data/stat_translations.json",
+    "poe2": "https://raw.githubusercontent.com/repoe-fork/poe2/master/data/stat_translations/stat_descriptions.json",
 }
 PLACE = re.compile(r"\{(\d*)(?::[^}]*)?\}")
 MARKUP = re.compile(r"\[([^\]|]*\|)?([^\]]*)\]")
@@ -85,9 +89,12 @@ def main() -> None:
                 table[g["id"]] = {e["id"]: e["text"] for e in g.get("entries", []) if e.get("id") and e.get("text")}
         payload = build_aliases(game, translations, table)
         gz(OUT / f"stats_{game}.json.gz", data)
-        gz(OUT / f"aliases_{game}.json.gz", payload)
-        # the snapshot that ships with the Checker (used until / unless the hub file can be fetched); replaced by the hub's own published file when it exists
-        (ROOT / "apps" / "checker" / "resources" / f"rendering_aliases_{game}.json").write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+        # the PUBLIC contract (SPEC.md 8.12) exactly as the hub's refresh job makes it: the Checker reads this form only
+        public = to_public(payload, build_stat_groups(table), REPOE_URL[game])
+        gz(OUT / f"aliases_{game}.json.gz", public)
+        # the snapshot that ships with the Checker (used when the hub file cannot be fetched and nothing is cached); replace it with the real
+        # published file with `node tools/fetch-public-aliases.mjs`
+        (ROOT / "apps" / "checker" / "resources" / f"rendering_aliases_{game}.json").write_text(json.dumps(public, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
         norm = build_normalizer(game, data, payload, tmp)
 
         pairs: list[tuple[str, str]] = []

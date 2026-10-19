@@ -125,6 +125,7 @@ export async function prepareF5(text: string, env: F5Env): Promise<F5Result> {
   await env.modDb.load();
   await env.baseDb.load();
   await env.modBadge.load(env.profile.game_version);
+  env.modBadge.setStatGroups(env.modDb.statAliases(), env.modDb.statGroups()); // (rows of the hub sit under the canonical id of a group of identical stats)
 
   const usePicker = (env.cfg.f5_mod_picker === undefined ? true : truthy(env.cfg.f5_mod_picker)) && item.identified &&
     (item.rarity === Rarity.RARE || item.rarity === Rarity.MAGIC) && item.mods.length > 0;

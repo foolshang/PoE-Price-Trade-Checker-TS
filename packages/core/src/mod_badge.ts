@@ -3,12 +3,13 @@
  *
  * Source: the hub's {game}/meta/latest.json (SPEC 8.2). If it is missing for a game there are simply no badges this session.
  * Stat ids are resolved with the mod database only (GGG's trade stats: the hub's id space and the hub's rules). A mod without a stat id
- * has "no data" - nothing is guessed. The hub's stat_aliases (sibling id -> main id, a field of skills/dictionary.json) help to find the
- * meta row of a stat whose row sits under its sibling.
+ * has "no data" - nothing is guessed. The hub's stat groups (the public alias file, SPEC 8.12: `stat_aliases` sibling id -> canonical id, and the
+ * `case_only` groups whose rows may sit under any member) help to find the meta row of a stat whose row sits under another id of its group.
  */
 import { HubClient } from "./hub_client.ts";
 import { MetaDB, WEAPON_CLASSES } from "./meta_db.ts";
 import { ModDatabase, normalizeMod } from "./mod_db.ts";
+import type { StatGroup } from "./rendering_aliases.ts";
 import { FsPort } from "./ports.ts";
 import { Log, noopLog, truthy } from "./py.ts";
 import { pySum } from "./pyextra.ts";
@@ -131,8 +132,10 @@ export class ModBadgeDB {
   private byKey = new Map<string, Row>();
   private templateIndex = new Map<string, string[]>();
   private statToTemplates = new Map<string, string[]>();
-  /** sibling stat id -> main stat id (the hub's stat_aliases; empty until the hub publishes the field) */
-  private statAliases = new Map<string, string>();
+  /** identical_text groups: member stat id -> the canonical id the hub keeps its rows under (`stat_aliases` of the public alias file) */
+  private statAliases: ReadonlyMap<string, string> = new Map();
+  /** case_only groups: stat id -> every member of its group (rows may sit under any of them) */
+  private caseMembers = new Map<string, string[]>();
   private hotTagsCache = new Map<string, Set<string>>();
   private rules: Rules = DEFAULT_RULES;
   private rulesLoaded = false;
@@ -167,7 +170,6 @@ export class ModBadgeDB {
    */
   async load(game = "poe2", force = false): Promise<void> {
     await this.loadRules();
-    await this.loadStatAliases(game);
     if (!force) {
       const cached = await this.loadDiskCache(game);
       if (cached && truthy(cached) && !this.isStale(cached)) {
@@ -234,24 +236,11 @@ export class ModBadgeDB {
     return "green";
   }
 
-  /** the hub's stat_aliases: an object {sibling: main}, or a list of pairs / objects; anything else is ignored */
-  setStatAliases(raw: unknown): void {
-    const out = new Map<string, string>();
-    const add = (from: unknown, to: unknown): void => {
-      if (typeof from === "string" && typeof to === "string" && from && to && from !== to) out.set(from, to);
-    };
-    if (Array.isArray(raw)) {
-      for (const e of raw) {
-        if (Array.isArray(e)) add(e[0], e[1]);
-        else if (e && typeof e === "object") {
-          const o = e as Record<string, unknown>;
-          add(o.alias ?? o.sibling ?? o.from ?? o.stat_id, o.main ?? o.canonical ?? o.primary ?? o.alias_of ?? o.to);
-        }
-      }
-    } else if (raw && typeof raw === "object") {
-      for (const [k, v] of Object.entries(raw as Record<string, unknown>)) add(k, v);
-    }
-    this.statAliases = out;
+  /** the public alias file's `stat_aliases` and `stat_groups` (ModDatabase.statAliases() / statGroups()); empty = none */
+  setStatGroups(statAliases: ReadonlyMap<string, string>, groups: readonly StatGroup[]): void {
+    this.statAliases = statAliases;
+    this.caseMembers = new Map();
+    for (const g of groups) if (g.reason === "case_only") for (const m of g.members) this.caseMembers.set(m, g.members);
     this.hotTagsCache = new Map();
   }
 
@@ -259,35 +248,10 @@ export class ModBadgeDB {
     return this.statAliases.size;
   }
 
-  /** skills/dictionary.json carries stat_aliases (a field newer hubs add); best effort, the last copy on disk when offline, none = fine */
-  private async loadStatAliases(game: string): Promise<void> {
-    const path = this.places.cacheDir === null ? null : this.places.fs.join(this.places.cacheDir, `stat_aliases_${game}.json`);
-    let raw: unknown = undefined;
-    try {
-      const dict = await this.places.hub.getSkillsDictionary(game);
-      if (dict && typeof dict === "object") raw = "stat_aliases" in dict ? (dict as any).stat_aliases : null; // no field (a hub before the change) = none
-    } catch {
-      raw = undefined;
-    }
-    if (raw !== undefined) {
-      this.setStatAliases(raw);
-      if (path !== null) {
-        try {
-          await this.places.fs.mkdirp(this.places.cacheDir!);
-          await this.places.fs.writeText(path, JSON.stringify(raw));
-        } catch {
-          /* the copy is only for the next offline start */
-        }
-      }
-      return;
-    }
-    if (path !== null && (await this.places.fs.exists(path))) {
-      try {
-        this.setStatAliases(JSON.parse(await this.places.fs.readText(path)));
-      } catch {
-        this.setStatAliases(null);
-      }
-    }
+  /** every id a hub row of this stat may sit under: the canonical id first (SPEC 8.12: replace by `stat_aliases.get(id, id)`), the id itself, the case-only twins */
+  private rowIds(statId: string): string[] {
+    const ids = [this.statAliases.get(statId) ?? statId, statId, ...(this.caseMembers.get(statId) ?? [])];
+    return ids.filter((id, i) => ids.indexOf(id) === i);
   }
 
   /** null = white / no badge */
@@ -309,10 +273,11 @@ export class ModBadgeDB {
   }
 
   private row(statId: string, slot: string, archetype: string): Row | null {
-    const own = this.rowOf(statId, slot, archetype);
-    if (own !== null) return own;
-    const main = this.statAliases.get(statId);
-    return main === undefined ? null : this.rowOf(main, slot, archetype);
+    for (const id of this.rowIds(statId)) {
+      const row = this.rowOf(id, slot, archetype);
+      if (row !== null) return row;
+    }
+    return null;
   }
 
   private rowOf(statId: string, slot: string, archetype: string): Row | null {
@@ -346,8 +311,7 @@ export class ModBadgeDB {
 
   private tagsForStat(statId: string, metaDb: MetaDB): Set<string> {
     const tags = new Set<string>();
-    const main = this.statAliases.get(statId);
-    for (const id of main === undefined ? [statId] : [statId, main]) {
+    for (const id of this.rowIds(statId)) {
       for (const tmpl of this.statToTemplates.get(id) ?? []) for (const t of metaDb.tagsForTemplate(tmpl)) tags.add(t);
     }
     return tags;

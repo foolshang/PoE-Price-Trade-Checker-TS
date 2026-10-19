@@ -9,7 +9,8 @@ import { HUB_BASE_URL, renderingAliasesPath } from "./hub_client.ts";
 import { GameProfile } from "./profiles.ts";
 import { Log, noopLog, pyStrip, truthy } from "./py.ts";
 import { D, isoLocal, parseIso } from "./pyextra.ts";
-import { ALIAS_SCHEMA_VERSION, AliasIndex } from "./rendering_aliases.ts";
+import { ALIAS_SCHEMA_VERSION, AliasIndex, readStatAliases, readStatGroups } from "./rendering_aliases.ts";
+import type { StatGroup } from "./rendering_aliases.ts";
 import { StatMatch, StatMatcher } from "./stat_match.ts";
 
 const CACHE_TTL_MS = 7 * 86400 * 1000;
@@ -57,6 +58,8 @@ export class ModDatabase {
   private unmappedSeen = new Set<string>();
   /** where the rendering aliases came from: "hub" | "cache" | "bundled" | "none" (for the log and the tests) */
   aliasSource = "none";
+  private statAliasMap = new Map<string, string>();
+  private statGroupList: StatGroup[] = [];
   private aliasCheckedAt = -Infinity;
   /** the cache stamp the index was built from (load() runs on every F5: an unchanged table is not indexed again) */
   private builtFrom = "";
@@ -154,8 +157,21 @@ export class ModDatabase {
 
   /** use a payload (tests; the loader above) - null = no aliases */
   setAliases(payload: unknown, source = "given"): void {
-    this.matcher.setAliases(AliasIndex.valid(payload) ? new AliasIndex(payload) : AliasIndex.empty());
-    this.aliasSource = AliasIndex.valid(payload) ? source : "none";
+    const ok = AliasIndex.valid(payload);
+    this.matcher.setAliases(ok ? new AliasIndex(payload) : AliasIndex.empty());
+    this.aliasSource = ok ? source : "none";
+    this.statAliasMap = ok ? readStatAliases(payload) : new Map();
+    this.statGroupList = ok ? readStatGroups(payload) : [];
+  }
+
+  /** the public file's `stat_aliases`: a stat id of an identical_text group -> the id the hub keeps its rows under (empty without the file) */
+  statAliases(): ReadonlyMap<string, string> {
+    return this.statAliasMap;
+  }
+
+  /** the public file's `stat_groups` */
+  statGroups(): readonly StatGroup[] {
+    return this.statGroupList;
   }
 
   aliasCount(): number {
@@ -218,7 +234,7 @@ export class ModDatabase {
   }
 
   private aliasCachePath(): string | null {
-    return this.env.cacheDir === null ? null : this.env.fs.join(this.env.cacheDir, `rendering_aliases_${this.profile.game_version}.json`);
+    return this.env.cacheDir === null ? null : this.env.fs.join(this.env.cacheDir, `aliases_public_${this.profile.game_version}.json`);
   }
 
   private async saveCache(stats: Stat[]): Promise<void> {

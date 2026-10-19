@@ -7,7 +7,8 @@
  *            "other id"        GGG lists two ids for one text; the hub's rule (the last one) picks the other one
  *   url / f5 / badge: the case contains at least one mod line whose stat id changed
  *   parse / meta / (url / f5): the item carries a LABEL line in the middle of its mods ("Fractured Item": the original read it as a mod,
- *            the new parser knows it is a label - packages/core/src/item_labels.ts)
+ *            the new parser knows it is a label - packages/core/src/item_labels.ts), or - without { Modifier } headers - a property line
+ *            ("Evasion Rating: 266", "Map Tier: 14") / a gem or currency item (no mods): the original read those lines as mods
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -15,7 +16,7 @@ import { gunzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { ModDatabase } from "../../packages/core/src/mod_db.ts";
 import { PROFILES } from "../../packages/core/src/profiles.ts";
-import { parseItem } from "../../packages/core/src/item_parser.ts";
+import { NO_MODS_RARITIES, PROPERTY_LINE, parseItem } from "../../packages/core/src/item_parser.ts";
 import { isItemLabel } from "../../packages/core/src/item_labels.ts";
 import { LegacyModDatabase } from "./legacy_mod_db.ts";
 
@@ -41,7 +42,12 @@ const itemMods = (ref: string, game: string): { text: string; mod_type: string }
   parseItem(fs.readFileSync(path.join(FIX, "items", ref.slice(3) + ".txt"), "utf-8"), game)?.mods ?? [];
 const itemText = (ref: string): string => fs.readFileSync(path.join(FIX, "items", ref.replace(/^it:/, "") + ".txt"), "utf-8");
 /** the original read this line as a mod (it is in a section with mods and is not a label section) */
-const hasLabelLine = (ref: string): boolean => itemText(ref).split(/\r?\n/).some(isItemLabel);
+const hasLabelLine = (ref: string): boolean => {
+  const lines = itemText(ref).split(/\r?\n/);
+  // a label line (Fractured Item ...), or - in a text without { Modifier } headers - a property line (Evasion Rating: 266, Map Tier: 14) or a
+  // gem / currency item: the original read these as mods, the new parser knows they are not
+  return lines.some(isItemLabel) || lines.some((l) => PROPERTY_LINE.test(l)) || lines.some((l) => l.startsWith("Rarity:") && NO_MODS_RARITIES.has(l.slice(7).trim()));
+};
 const changed = (game: string, text: string, typ: string | null): boolean => dbs[game].old.findStatId(text, typ) !== dbs[game].now.findStatId(text, typ);
 
 describe("parity cases retired on purpose", () => {
@@ -96,6 +102,6 @@ describe("parity cases retired on purpose", () => {
 
   it("the list has no case that matches the original again", () => {
     // (parity.test.ts passes them either way; this keeps the list honest by its size)
-    expect(Object.fromEntries(Object.entries(retired).map(([k, v]) => [k, v.length]))).toEqual({ "item-badge": 26, "item-f5": 129, "item-meta": 2, "item-modfind": 255, "item-parse": 2, "item-url": 42 });
+    expect(Object.fromEntries(Object.entries(retired).map(([k, v]) => [k, v.length]))).toEqual({ "item-badge": 26, "item-f5": 150, "item-meta": 10, "item-modfind": 255, "item-parse": 10, "item-url": 42 });
   });
 });

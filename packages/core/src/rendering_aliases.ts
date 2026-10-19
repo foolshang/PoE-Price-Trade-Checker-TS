@@ -1,7 +1,9 @@
 /**
- * The runtime half of the hub's rendering aliases (RePoE-derived item wording -> GGG stat). Port of AliasIndex in
- * Poe_Hub/src/processing/rendering_aliases.py (the hub's own code; the generator that BUILDS the payload stays in the hub, this program
- * only reads the published file). An unreadable payload gives an empty index, never an exception.
+ * The reader of the hub's public alias file `{game}/aliases/latest.json` (Poe_Hub SPEC.md 8.12): RePoE-derived item wording -> GGG stat
+ * (`aliases`), and the stat ids the game cannot tell apart (`stat_groups`, `stat_aliases`). Written against the readable public field names
+ * (`text`, `trade_id`, `kinds`, `placeholder_stat_index`, `negate`, `divisor`, `sign`, `conditions`, `implied_values`, `deprecated`); the
+ * matching arithmetic is the hub's (its reference reader PublicAliasReader). The generator stays in the hub, this program only reads the
+ * published file. An unreadable payload gives an empty index, never an exception; a schema_version this code does not know = absent.
  */
 export const ALIAS_SCHEMA_VERSION = 1;
 export const ALIAS_KINDS = ["explicit", "implicit", "fractured"] as const;
@@ -49,13 +51,13 @@ export class AliasIndex {
     return !!p && typeof p === "object" && p.schema_version === ALIAS_SCHEMA_VERSION && Array.isArray(p.aliases);
   }
 
-  private build(payload: { deprecated?: unknown[]; aliases: any[] }): void {
-    this.deprecated = new Set((payload.deprecated ?? []).map((n) => String(n)));
+  private build(payload: { deprecated_trade_ids?: unknown[]; aliases: any[] }): void {
+    this.deprecated = new Set((payload.deprecated_trade_ids ?? []).map((n) => String(n)));
     for (const raw of payload.aliases) {
       try {
         const a: Alias = {
-          num: String(raw.n), kinds: [...raw.k], text: String(raw.x), regex: null, literal: "", statOf: raw.p, negate: raw.ng, div: raw.dv,
-          sign: raw.sg, cond: raw.c, implied: raw.iv, deprecated: !!raw.dep,
+          num: String(raw.trade_id), kinds: [...raw.kinds], text: String(raw.text), regex: null, literal: "", statOf: raw.placeholder_stat_index,
+          negate: raw.negate, div: raw.divisor, sign: raw.sign, cond: raw.conditions, implied: raw.implied_values, deprecated: !!raw.deprecated,
         };
         if (!Array.isArray(a.kinds) || !Array.isArray(a.statOf) || !Array.isArray(a.negate) || !Array.isArray(a.div) || !Array.isArray(a.sign) || !Array.isArray(a.cond)) continue;
         if (a.implied !== null && a.implied !== undefined && a.statOf.length === 0) {
@@ -105,4 +107,37 @@ export class AliasIndex {
     }
     return out;
   }
+}
+
+/** stat ids that the item text cannot tell apart (SPEC.md 8.12 `stat_groups`) */
+export interface StatGroup {
+  kind: string;
+  /** "identical_text" (the same table text) | "case_only" (texts that differ only in letter case) */
+  reason: string;
+  /** the id the hub emits (identical_text); null for case_only: rows may sit under any member */
+  canonical: string | null;
+  members: string[];
+}
+
+/** `stat_aliases`: every member of an identical_text group -> its canonical id. A malformed entry is skipped. */
+export function readStatAliases(payload: unknown): Map<string, string> {
+  const out = new Map<string, string>();
+  const raw = (payload as { stat_aliases?: unknown } | null)?.stat_aliases;
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    for (const [from, to] of Object.entries(raw as Record<string, unknown>)) if (from && typeof to === "string" && to && from !== to) out.set(from, to);
+  }
+  return out;
+}
+
+/** `stat_groups`, the well-formed ones */
+export function readStatGroups(payload: unknown): StatGroup[] {
+  const raw = (payload as { stat_groups?: unknown } | null)?.stat_groups;
+  if (!Array.isArray(raw)) return [];
+  const out: StatGroup[] = [];
+  for (const g of raw) {
+    if (g && typeof g === "object" && typeof g.kind === "string" && Array.isArray(g.members) && g.members.every((m: unknown) => typeof m === "string")) {
+      out.push({ kind: g.kind, reason: String(g.reason ?? ""), canonical: typeof g.canonical === "string" ? g.canonical : null, members: [...g.members] });
+    }
+  }
+  return out;
 }

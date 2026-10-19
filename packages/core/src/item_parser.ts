@@ -79,6 +79,21 @@ const FALLBACK_SKIP_PREFIX = ["Requirements:", "Requires:", "Sockets:", "Level:"
 const STAT_LINE = /^(Armour|Evasion|Energy Shield|Ward|Block):/u;
 const DAMAGE_LINE = re("^(Damage|APS|Critical|Attacks|Casts|DPS):");
 const ELE_DAMAGE_LINE = re("^(Physical|Elemental|Chaos|Cold|Fire|Lightning) Damage:");
+/**
+ * "Name: value" lines of an item that are properties, not mods - read from real item texts of both games (PoE2 samples of the Exiled-Exchange-2
+ * test items, tests/parity/fixtures/ee2_items; PoE1 items of the parity fixtures). Used by the no-header fallback only: a text with
+ * `{ ... Modifier }` headers takes just the lines under a header, so none of these can become a mod there.
+ */
+const PROPERTY_NAMES = [
+  "Requires", "Requirements", "Quality", "Sockets", "Level", "Armour", "Evasion Rating", "Energy Shield", "Block chance", "Spirit", "Charm Slots",
+  "Physical Damage", "Elemental Damage", "Fire Damage", "Cold Damage", "Lightning Damage", "Chaos Damage", "Attacks per Second", "Critical Hit Chance",
+  "Reload Time", "Note", "Grants Skill", "Stack Size", "Waystone Drop Chance", "Waystone Tier", "Map Tier", "Revives Available", "Rare Monsters",
+  "Magic Monsters", "Pack Size", "Item Rarity", "Item Quantity", "Monster Rarity", "Monster Level", "Monster Effectiveness", "Reservation",
+  "Mana Multiplier", "Cost", "Cooldown Time",
+];
+export const PROPERTY_LINE = new RegExp(`^(?:${PROPERTY_NAMES.join("|")}):`, "u");
+/** a gem or a currency item has no mods (an uncut gem's description, a meta gem's properties are not mods) */
+export const NO_MODS_RARITIES = new Set(["Gem", "Currency"]);
 const QUALITY_PREFIXES = ["Superior ", "Anomalous ", "Divergent ", "Phantasmal "];
 
 /** Parse clipboard item text. Returns null if the text does not look like a PoE item. */
@@ -209,6 +224,7 @@ export function parseItem(text: string, gameVersion: string = GameVersion.POE2):
 
       // fallback: no { } headers in the clipboard (plain copy) -> the old heuristic
       if (has_mod_headers) continue; // this item is header-driven: no fallback
+      if (NO_MODS_RARITIES.has(rarity) || PROPERTY_LINE.test(line)) continue; // a description of a gem / currency, or a property line
       if (NOTE.test(line) || STACK_SIZE.test(line)) continue;
       // an implicit still ends with "(implicit)" without a header - split it off first, else it counts as explicit
       const im = IMPLICIT_LINE.exec(line);

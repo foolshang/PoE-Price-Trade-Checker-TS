@@ -148,6 +148,9 @@ def register(ns: dict) -> None:
         it = parse_item(item_text(a["text"]) if a["text"].startswith("it:") else a["text"], game)
         if not it:
             return {"kind": "unparsed"}
+        drop = ns.get("DROP_MOD")  # (set by f5_expect.py: the lines the new parser knows are not mods - labels, properties - which the original reads as mods)
+        if drop:
+            it.mods = [m for m in it.mods if not drop(m, game)]
         if it.rarity == Rarity.MAGIC and it.identified:
             fixed = mdb.resolve_base(it.base_type)
             it.base_type = fixed if fixed else ""

@@ -33,7 +33,7 @@ function makeDb(opts: { aliasesFromHub?: unknown; hubDown?: boolean; bundled?: u
   const http = {
     getText: async (url: string): Promise<string> => {
       requests.push(url);
-      if (url.includes("rendering_aliases")) {
+      if (url.includes("/aliases/latest.json")) {
         if (opts.hubDown || opts.aliasesFromHub === undefined) throw new HttpError(404, url);
         return JSON.stringify(opts.aliasesFromHub);
       }
@@ -93,8 +93,11 @@ describe("finding a stat id never guesses", () => {
 
 describe("the hub's rendering aliases", () => {
   const aliases = (): unknown => ({
-    schema_version: ALIAS_SCHEMA_VERSION, game: "poe2", deprecated: [],
-    aliases: [{ x: "Spark lasts {0} second", n: "1", k: ["explicit"], p: [0], ng: [false], dv: [1], sg: [1], c: [[1, 1]], iv: null, dep: false }],
+    schema_version: ALIAS_SCHEMA_VERSION, game: "poe2", deprecated_trade_ids: [], stat_groups: [], stat_aliases: {},
+    aliases: [{
+      text: "Spark lasts {0} second", trade_id: "1", kinds: ["explicit"], placeholder_stat_index: [0], negate: [false], divisor: [1], sign: [1],
+      conditions: [[1, 1]], implied_values: null, deprecated: false,
+    }],
   });
 
   it("from the hub: used and cached; the next start (hub down) uses the cache; no cache -> the bundled copy; nothing at all -> no aliases, no crash", async () => {
@@ -104,7 +107,7 @@ describe("the hub's rendering aliases", () => {
     expect(a.db.aliasSource).toBe("hub");
     expect(a.db.aliasCount()).toBe(1);
     expect(a.db.findStatId("Spark lasts 1 second", "explicit")).toBe("explicit.stat_1");
-    expect(a.fs.files.has("/cache/rendering_aliases_poe2.json")).toBe(true);
+    expect(a.fs.files.has("/cache/aliases_public_poe2.json")).toBe(true);
 
     // a later start, the hub down: the cached copy (older than a day is still used when the fetch fails)
     const b = makeDb({ hubDown: true, now: () => now + 10 * 86400 * 1000 });
@@ -130,7 +133,7 @@ describe("the hub's rendering aliases", () => {
     const { db, requests } = makeDb({ aliasesFromHub: { ...(aliases() as object), schema_version: 99 }, now: () => now });
     await db.load();
     expect(db.aliasSource).toBe("none");
-    const asked = () => requests.filter((u) => u.includes("rendering_aliases")).length;
+    const asked = () => requests.filter((u) => u.includes("/aliases/latest.json")).length;
     expect(asked()).toBe(1);
     await db.load();
     await db.load();
@@ -164,17 +167,26 @@ describe("the badge: no data is not the same as not ranked", () => {
     expect(b.badgeState("explicit.stat_1", "ring", "all", meta)).toBe("red");
   });
 
-  it("stat_aliases: a sibling id finds the row of its main id; a missing field or a strange shape is fine", () => {
+  it("stat_aliases (identical_text groups): a sibling id finds the row of its canonical id; no file = none", () => {
     const b = badge();
     expect(b.badgeState("explicit.stat_sibling", "ring", "all", meta)).toBe("norow");
-    b.setStatAliases({ "explicit.stat_sibling": "explicit.stat_main" });
+    b.setStatGroups(new Map([["explicit.stat_sibling", "explicit.stat_main"]]), []);
     expect(b.statAliasCount()).toBe(1);
     expect(b.badgeState("explicit.stat_sibling", "ring", "all", meta)).toBe("red");
-    b.setStatAliases([["explicit.stat_sibling", "explicit.stat_main"], { alias: "explicit.stat_x", main: "explicit.stat_1" }, 5, null]);
-    expect(b.statAliasCount()).toBe(2);
-    b.setStatAliases(null);
+    b.setStatGroups(new Map(), []);
     expect(b.statAliasCount()).toBe(0);
-    b.setStatAliases("garbage");
-    expect(b.statAliasCount()).toBe(0);
+    expect(b.badgeState("explicit.stat_sibling", "ring", "all", meta)).toBe("norow");
   });
+
+  it("case_only groups: the row may sit under ANY member, whichever member the text matched", () => {
+    const b = badge();
+    const group = { kind: "explicit", reason: "case_only", canonical: null, members: ["explicit.stat_up", "explicit.stat_low", "explicit.stat_1"] };
+    b.setStatGroups(new Map(), [group]);
+    expect(b.badgeState("explicit.stat_up", "ring", "all", meta)).toBe("red"); // (the row sits under explicit.stat_1, a member)
+    expect(b.badgeState("explicit.stat_low", "ring", "all", meta)).toBe("red");
+    // an identical_text group is not a case-only one: its members are not searched
+    b.setStatGroups(new Map(), [{ ...group, reason: "identical_text", canonical: "explicit.stat_1" }]);
+    expect(b.badgeState("explicit.stat_up", "ring", "all", meta)).toBe("norow");
+  });
+
 });
