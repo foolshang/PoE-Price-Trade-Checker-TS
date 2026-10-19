@@ -166,7 +166,7 @@ export class ModDatabase {
    * The stat of a mod line: same group as the line's mod type; a line of unknown type is tried in every group in turn. null = the line has
    * no stat id (and nothing was guessed). The first time a line has none it is written to the log (once per text).
    */
-  lookup(modText: string, modType: string | null | undefined = null): StatLookup | null {
+  lookup(modText: string, modType: string | null | undefined = null, report = true): StatLookup | null {
     const text = cleanModText(modText.replace(/^\n+|\n+$/g, ""));
     let found: StatLookup | null = null;
     if (truthy(modType) && this.matcher.kinds.includes(modType!)) {
@@ -182,13 +182,18 @@ export class ModDatabase {
         }
       }
     }
-    if (found === null) this.noteUnmapped(text, modType ?? "");
+    if (found === null && report) this.noteUnmapped(text, modType ?? "");
     return found;
   }
 
   /** the stat id for a mod line, or null when it has none */
   findStatId(modText: string, modType: string | null | undefined = null): string | null {
     return this.lookup(modText, modType)?.statId ?? null;
+  }
+
+  /** the same, but a miss is NOT logged: for a try that has another way after it (a block of lines is tried whole, then line by line) */
+  probeStatId(modText: string, modType: string | null | undefined = null): string | null {
+    return this.lookup(modText, modType, false)?.statId ?? null;
   }
 
   /** every stat id GGG lists with this exact template text in a group (the stat ids behind one text) */

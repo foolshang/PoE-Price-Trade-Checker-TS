@@ -68,7 +68,11 @@ const jsonable = (x: any): any => {
   const fix = (v: any): void => {
     if (Array.isArray(v)) v.forEach(fix);
     else if (v && typeof v === "object") {
-      if (Array.isArray(v.mods) && "mods_have_headers" in v) v.mods = v.mods.map(legacyMod);
+      if (Array.isArray(v.mods) && "mods_have_headers" in v) {
+        v.mods = v.mods.map(legacyMod);
+        delete v.influences; // (fields of the new program only: the labels of the item; the original has no such thing)
+        delete v.flags;
+      }
       if ("mod_type" in v && "group" in v && "affix" in v && !("stat_id" in v)) Object.assign(v, legacyMod(v));
       Object.values(v).forEach(fix);
     }

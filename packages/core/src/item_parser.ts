@@ -6,6 +6,7 @@
 import { GameVersion, ModValue, ParsedItem, Rarity, newModValue } from "./models.ts";
 import { PY_S, pyRstrip, pyStrip, splitLines } from "./py.ts";
 import { D, asciiDigits } from "./pyextra.ts";
+import { influenceOfLabel, isItemLabel } from "./item_labels.ts";
 
 const S = `[${PY_S}]`;
 const W = "[\\p{L}\\p{N}_]"; // \w
@@ -43,6 +44,24 @@ export function isReminderLine(line: string): boolean {
   }
   return false;
 }
+
+/**
+ * How deep inside parentheses a line ends, when it STARTS a reminder that goes on in the next line(s): the line begins with "(" and that
+ * "(" is not closed on the line. 0 = not such a line (a mod that begins with a roll range closes its "(" at once).
+ */
+export function reminderOpening(line: string): number {
+  const t = line.trim();
+  if (!t.startsWith("(")) return 0;
+  let depth = 0, firstClosed = false;
+  for (const ch of t) {
+    if (ch === "(") depth += 1;
+    else if (ch === ")" && depth > 0 && --depth === 0) firstClosed = true;
+  }
+  return !firstClosed && depth > 0 ? depth : 0;
+}
+
+/** the change in parenthesis depth over a line (a "(" counts +1, a ")" -1) */
+const parenDelta = (line: string): number => [...line].reduce((d, ch) => d + (ch === "(" ? 1 : ch === ")" ? -1 : 0), 0);
 
 /** `float(m.group())` of a matched number (Unicode digits allowed) */
 const toFloat = (s: string): number => Number(asciiDigits(s));
@@ -102,6 +121,8 @@ export function parseItem(text: string, gameVersion: string = GameVersion.POE2):
   let corrupted = false;
   let identified = true;
   const mods: ModValue[] = [];
+  const influences: string[] = [];
+  const flags: string[] = [];
 
   // mods come from the { ... Modifier } headers (what the game's own search does): only the lines under a header; weapon stats are not mods.
   // No header anywhere -> the old heuristic below.
@@ -113,12 +134,29 @@ export function parseItem(text: string, gameVersion: string = GameVersion.POE2):
   let prefix_count = 0;
   let suffix_count = 0;
 
+  const noteLabel = (line: string): void => {
+    const inf = influenceOfLabel(line);
+    if (inf) { if (!influences.includes(inf)) influences.push(inf); } else if (!flags.includes(line.trim())) flags.push(line.trim());
+  };
   for (const section of sections.slice(1)) {
     pending = null; // a header block does not cross a separator
     pending_affix = "";
+    const filled = section.filter((ln) => ln.trim());
+    // a section of labels only ("Fractured Item", "Mirrored"): classified as a whole, never read as mods
+    if (filled.length && filled.every(isItemLabel)) {
+      for (const ln of filled) {
+        if (CORRUPTED.test(ln)) corrupted = true;
+        if (UNIDENTIFIED.test(ln)) identified = false;
+        noteLabel(ln);
+      }
+      continue;
+    }
+    let reminderDepth = 0; // inside a reminder that runs over several lines
     for (const line of section) {
       if (!line) continue;
+      if (reminderDepth > 0) { reminderDepth = Math.max(0, reminderDepth + parenDelta(line)); continue; }
       if (isReminderLine(line)) continue; // an explanation under a mod, not a mod
+      if ((reminderDepth = reminderOpening(line)) > 0) continue; // ... that goes on in the next line(s)
       // rune mod: its own section before the header block, ends with (rune)
       const rn = RUNE_LINE.exec(line);
       if (rn) {
@@ -135,6 +173,7 @@ export function parseItem(text: string, gameVersion: string = GameVersion.POE2):
       let m: RegExpExecArray | null;
       if ((m = ITEM_LEVEL.exec(line))) { item_level = parseInt(asciiDigits(m[1]), 10); pending = null; continue; }
       if ((m = QUALITY.exec(line))) { quality = parseInt(asciiDigits(m[1]), 10); pending = null; continue; }
+      if (isItemLabel(line)) { noteLabel(line); continue; } // a label glued to the mods (no separator): not a mod, nor a line of the block before it
 
       // header { ... Modifier ... } -> the type of the mod on the next lines
       if (MOD_HEADER.test(line)) {
@@ -205,6 +244,6 @@ export function parseItem(text: string, gameVersion: string = GameVersion.POE2):
 
   return {
     item_name, base_type, rarity, item_level, quality, mods, game_version: gameVersion, raw_text: text, item_class, corrupted, identified,
-    prefix_count, suffix_count, mods_have_headers: has_mod_headers,
+    prefix_count, suffix_count, mods_have_headers: has_mod_headers, influences, flags,
   };
 }

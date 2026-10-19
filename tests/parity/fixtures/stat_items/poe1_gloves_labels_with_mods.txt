@@ -1,0 +1,42 @@
+Item Class: Gloves
+Rarity: Rare
+Eagle Touch
+Phantom Mitts
+--------
+Quality: +20% (augmented)
+Evasion Rating: 643 (augmented)
+Energy Shield: 163 (augmented)
+--------
+Requirements:
+Level: 84
+Dex: 80
+Int: 155
+--------
+Sockets: B-G-W-B 
+--------
+Item Level: 85
+--------
+{ Searing Exarch Implicit Modifier (Grand) — Damage, Minion }
+Minions deal 22(20-22)% increased Damage
+{ Eater of Worlds Implicit Modifier (Grand) }
++7% chance to Suppress Spell Damage
+(40% of Damage from Suppressed Hits and Ailments they inflict is prevented)
+--------
+{ Fractured Prefix Modifier "Illusory" (Tier: 1) — Defences, Evasion, Energy Shield }
+100(92-100)% increased Evasion and Energy Shield
+{ Prefix Modifier "Essences" — Damage, Minion }
+Minions deal 28(28-30)% increased Damage
+{ Prefix Modifier "Cherub's" (Tier: 1) — Defences, Evasion, Energy Shield }
++58(49-85) to Evasion Rating
++26(23-28) to maximum Energy Shield
+{ Suffix Modifier "of Abjuration" (Tier: 2) }
++12(11-12)% chance to Suppress Spell Damage
+(40% of Damage from Suppressed Hits and Ailments they inflict is prevented)
+{ Suffix Modifier "of Haast" (Tier: 1) — Elemental, Cold, Resistance }
++46(46-48)% to Cold Resistance
+{ Master Crafted Suffix Modifier "of Craft" — Attribute }
++25(21-25) to Strength and Dexterity
+Searing Exarch Item
+Eater of Worlds Item
+--------
+Fractured Item

@@ -10,7 +10,7 @@ repo at v0.13.5, local experiments); estimates are marked as estimates.
 | 2 | Web page on core TS (no Pyodide), live at the site root (old page in `/legacy/`) | done 2026-10-17 (docs/PHASE2.md, docs/DEPLOY.md); Winai tested the live page |
 | 3 | Filter Generator on Electron | built as a one-click installer and tested 2026-10-18 (v1.0.0-beta.6), waiting for Winai's test; auto-update (electron-updater), a no-install zip and README / release asset names are decided when the release is prepared (docs/PHASE3.md) |
 | 4 | F4 skill reference + F5 trade (hotkeys, Ctrl+C, clipboard) | built and tested 2026-10-18; copy round-fix 2026-10-18 (v1.0.0-beta.10), waiting for Winai in the game (docs/PHASE4.md) |
-| 5 | Checker complete, replaces the original | part A built and tested 2026-10-18 (docs/PHASE5.md); part B1 (release workflow + prerelease test) done 2026-10-19; stat id matching fixed without guessing 2026-10-19 (Addendum 4, v1.0.0-rc.4; first in-game F5 fixes (reminder lines, Unscalable Value, multi-line mods, popup X log, updater log, Alt release + key log) in rc.6); the real release (tag v1.0.0) waits for Winai and for the hub deploy check |
+| 5 | Checker complete, replaces the original | part A built and tested 2026-10-18 (docs/PHASE5.md); part B1 (release workflow + prerelease test) done 2026-10-19; stat id matching fixed without guessing 2026-10-19 (Addendum 4, v1.0.0-rc.4; first in-game F5 fixes (reminder lines, Unscalable Value, multi-line mods, popup X log, updater log, Alt release + key log) in rc.6; item labels, multi-line reminders, quiet block probe in rc.7); the real release (tag v1.0.0) waits for Winai and for the hub deploy check |
 
 ## C. Project structure (proposal)
 
@@ -139,6 +139,7 @@ starts (the Checker's filter page reuses phase 2-3 output).
    localized stat / base / item class tables and the trade site's language; it is **after the release**, not in phase 5. Known limit: an
    uncut gem in Thai / Simplified Chinese keeps the English word "Rarity:" on its first line, so it cannot be told from English there.
 3. **Clipboard restore** (`f5_restore_clipboard`, default on) belongs in the settings window as a checkbox.
+4. **Influence / item-state filters in the trade search (post-release work).** The parser keeps the item's labels (`ParsedItem.influences`: Searing Exarch, Eater of Worlds, Shaper, Elder, Crusader, Hunter, Redeemer, Warlord; `ParsedItem.flags`: Fractured Item, Synthesised Item, Mirrored, Split ...) but nothing uses them yet. Later: tick boxes in the F5 popup that add the matching trade filters (`misc_filters`: `searing_item`, `tangled_item`, `fractured_item`, ... and the `pseudo_has_<name>_influence` stats).
 
 ## R. Risks found while surveying (details for the phases)
 

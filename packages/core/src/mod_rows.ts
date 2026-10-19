@@ -8,7 +8,7 @@ import { ModValue } from "./models.ts";
 
 export interface ModRow { mod: ModValue; statId: string | null }
 
-export function resolveRows(mods: ModValue[], modDb: Pick<ModDatabase, "findStatId">): ModRow[] {
+export function resolveRows(mods: ModValue[], modDb: Pick<ModDatabase, "findStatId" | "probeStatId">): ModRow[] {
   const rows: ModRow[] = [];
   for (let i = 0; i < mods.length;) {
     const first = mods[i];
@@ -17,7 +17,7 @@ export function resolveRows(mods: ModValue[], modDb: Pick<ModDatabase, "findStat
     if (j - i > 1) {
       const block = mods.slice(i, j);
       const text = block.map((m) => m.text).join("\n");
-      const statId = modDb.findStatId(text, first.mod_type);
+      const statId = modDb.probeStatId(text, first.mod_type); // (no log: the lines are tried next)
       if (statId) {
         rows.push({ statId, mod: { ...first, text, values: block.flatMap((m) => m.values) } });
         i = j;

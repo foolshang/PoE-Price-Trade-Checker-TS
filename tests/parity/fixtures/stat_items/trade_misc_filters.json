@@ -1,0 +1,133 @@
+{
+ "source": "GET https://www.pathofexile.com/api/trade/data/filters and /api/trade2/data/filters, misc_filters with a Yes/No option, fetched 2026-10-19",
+ "filters": {
+  "poe1": [
+   {
+    "id": "gem_transfigured",
+    "text": "Transfigured Gem"
+   },
+   {
+    "id": "gem_vaal",
+    "text": "Vaal Gem"
+   },
+   {
+    "id": "fractured_item",
+    "text": "Fractured Item"
+   },
+   {
+    "id": "gem_imbued",
+    "text": "Imbued Gem"
+   },
+   {
+    "id": "synthesised_item",
+    "text": "Synthesised Item"
+   },
+   {
+    "id": "searing_item",
+    "text": "Searing Exarch Item"
+   },
+   {
+    "id": "tangled_item",
+    "text": "Eater of Worlds Item"
+   },
+   {
+    "id": "identified",
+    "text": "Identified"
+   },
+   {
+    "id": "corrupted",
+    "text": "Corrupted"
+   },
+   {
+    "id": "mirrored",
+    "text": "Mirrored"
+   },
+   {
+    "id": "split",
+    "text": "Split"
+   },
+   {
+    "id": "crafted",
+    "text": "Crafted"
+   },
+   {
+    "id": "veiled",
+    "text": "Veiled"
+   },
+   {
+    "id": "foreseeing",
+    "text": "Foreseeing"
+   },
+   {
+    "id": "vestigial",
+    "text": "Vestigial"
+   },
+   {
+    "id": "alternate_art",
+    "text": "Alternate Art"
+   },
+   {
+    "id": "foil_variation",
+    "text": "Foil Variation"
+   },
+   {
+    "id": "corpse_type",
+    "text": "Corpse Type"
+   },
+   {
+    "id": "crucible_item",
+    "text": "Crucible Item"
+   },
+   {
+    "id": "mutated",
+    "text": "Foulborn"
+   }
+  ],
+  "poe2": [
+   {
+    "id": "identified",
+    "text": "Identified"
+   },
+   {
+    "id": "fractured_item",
+    "text": "Fractured"
+   },
+   {
+    "id": "corrupted",
+    "text": "Corrupted"
+   },
+   {
+    "id": "sanctified",
+    "text": "Sanctified"
+   },
+   {
+    "id": "twice_corrupted",
+    "text": "Twice Corrupted"
+   },
+   {
+    "id": "mutated",
+    "text": "Cultivated Vaal Unique"
+   },
+   {
+    "id": "veiled",
+    "text": "Unrevealed"
+   },
+   {
+    "id": "desecrated",
+    "text": "Desecrated"
+   },
+   {
+    "id": "crafted",
+    "text": "Crafted"
+   },
+   {
+    "id": "foreseeing",
+    "text": "Foreseeing"
+   },
+   {
+    "id": "mirrored",
+    "text": "Mirrored"
+   }
+  ]
+ }
+}

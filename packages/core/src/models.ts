@@ -48,4 +48,8 @@ export interface ParsedItem {
   suffix_count: number;
   /** false = the clipboard has no { ... Modifier } header at all (some clients): prefix_count / suffix_count / affix / tier are unknown and MetaDB.inferAffixes fills them */
   mods_have_headers: boolean;
+  /** influences read from the item's label lines ("Searing Exarch Item" -> "Searing Exarch"); not used for the trade search yet (a task after v1.0.0, docs/PLAN.md) */
+  influences: string[];
+  /** the other labels the item carries ("Fractured Item", "Mirrored", "Split" ...) */
+  flags: string[];
 }

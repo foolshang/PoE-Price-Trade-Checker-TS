@@ -242,3 +242,9 @@
 
 ## (12) First in-game F5 findings (2026-10-19, v1.0.0-rc.6)
 - Reminder lines are not mods; ` — Unscalable Value` is cut; multi-line mods are matched as a block first (hub order) and shown as one row; the popup's X is logged as the player's and gives the focus back; "No published versions" is one info line; every copy chord releases Shift/Alt first and each F5 logs modifiers before/after, the events sent and how the text begins. Details: docs/PHASE5.md Addendum 5. The cause of the Alt in PoE1 is not proven yet.
+
+## (13) Labels of the item (2026-10-19, v1.0.0-rc.7)
+- Sections are classified before they are read: label lines (Searing Exarch Item, Fractured Item, Mirrored ...) are never mods; influences kept in `ParsedItem.influences`; multi-line reminders skipped; the "mod without a stat id" log is for the final misses only. PoE1 sends the reminder lines with plain Ctrl+C itself (no Alt). Details: docs/PHASE5.md Addendum 6.
+
+## (14) F8 refuses the program's own copy keys (2026-10-19, v1.0.0-rc.8)
+- Hotkeys that equal what F5 presses to make the game copy (PoE1 Ctrl+C; PoE2 Ctrl + the game's advanced-description key, read from the ini each time F8 opens, + C) are refused with the reason, and listed in the settings page. docs/PHASE5.md Addendum 7. Raw PoE2 texts (Sanctified, augment, Grants Skill, Note) are still wanted from the player for the "no gray non-mod row" test.

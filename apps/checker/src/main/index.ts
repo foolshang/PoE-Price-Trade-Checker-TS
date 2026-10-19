@@ -22,7 +22,8 @@ import { testEnv } from "@poe/desktop/test-env";
 import { ManagedUpdater } from "@poe/desktop/managed-updater";
 import { TrayIcon, dotIcon } from "@poe/desktop/tray";
 import type { Details, GameId, Hotkeys, MainInit, PickerFilter, SettingsErrors, SettingsInit, SettingsResult, SettingsValues, SkillDetail, Tag } from "../shared/api.ts";
-import { checkHotkeys, parseHotkey } from "./hotkeys.ts";
+import { checkHotkeys, copyChordHotkeys, parseHotkey } from "./hotkeys.ts";
+import type { ReservedHotkey } from "./hotkeys.ts";
 import { MessageOverlay, OK_COLOR, WARN_COLOR } from "./overlay.ts";
 import { NeverSinkWatcher } from "./regen.ts";
 import { copyChord, keyName, readAdvancedKey } from "./game_keys.ts";
@@ -852,8 +853,30 @@ function cleanSettings(v: unknown): SettingsValues {
   };
 }
 
+/**
+ * The hotkeys the program presses itself to make the game copy an item: PoE1 Ctrl+C, PoE2 Ctrl + the player's "show advanced item
+ * descriptions" key (read from the game's own settings file, Alt when it cannot be read) + C. Read again whenever the settings window opens
+ * or is applied, so a key the player changed in the game is followed.
+ */
+let reservedCopy: ReservedHotkey[] = [];
+let reservedNote = "";
+async function refreshReserved(): Promise<void> {
+  try {
+    const adv = await readAdvancedKey(documentsDir());
+    const names = (vks: number[]): string[] => vks.map(keyName);
+    const p1 = copyChordHotkeys(names(copyChord("poe1", [])), "PoE1: Ctrl+C");
+    const chord2 = copyChord("poe2", adv.keys);
+    const label2 = [...chord2, 0x43].map(keyName).join("+");
+    const p2 = copyChordHotkeys(names(chord2), `PoE2: ${label2}${adv.source === "default" ? " (ค่าเริ่มต้น อ่านไฟล์ตั้งค่าเกมไม่ได้)" : ""}`);
+    reservedCopy = [...p1, ...p2];
+    reservedNote = `ปุ่มที่โปรแกรมกดเองตอน F5 (ห้ามตั้งซ้ำ): PoE1 Ctrl+C · PoE2 ${label2}${adv.source === "default" ? " (ค่าเริ่มต้น — อ่านไฟล์ตั้งค่า PoE2 ไม่ได้)" : " (จากไฟล์ตั้งค่าของเกม)"}`;
+  } catch (e) {
+    fileLog("WARNING", `could not read the copy keys of the game: ${(e as Error).message}`);
+  }
+}
+
 function checkSettings(v: SettingsValues): SettingsErrors {
-  return checkHotkeys({ values: v, order: [...HOTKEY_FIELDS], labels: HOTKEY_LABELS });
+  return checkHotkeys({ values: v, order: [...HOTKEY_FIELDS], labels: HOTKEY_LABELS, reserved: reservedCopy });
 }
 
 // ---- hotkeys
@@ -897,7 +920,7 @@ function startHotkeys(): void {
   const specs = { ...saved };
   const replaced = new Set<HotkeyField>();
   for (let round = 0; round < HOTKEY_FIELDS.length; round++) { // (the defaults are distinct, so every round removes one problem for good)
-    const errs = checkHotkeys({ values: specs, order: [...HOTKEY_FIELDS], labels: HOTKEY_LABELS });
+    const errs = checkHotkeys({ values: specs, order: [...HOTKEY_FIELDS], labels: HOTKEY_LABELS, reserved: reservedCopy });
     const f = HOTKEY_FIELDS.find((x) => errs[x] && !replaced.has(x));
     if (!f) break;
     say(`⚠ ปุ่ม ${HOTKEY_LABELS[f]} ที่ตั้งไว้ (${saved[f]}) ใช้ไม่ได้: ${errs[f]} — ใช้ ${HOTKEY_DEFAULTS[f]} แทน`, "warn");
@@ -914,6 +937,7 @@ function currentHotkeys(): Hotkeys {
 }
 
 async function applySettings(raw: unknown): Promise<SettingsResult> {
+  await refreshReserved();
   const v = cleanSettings(raw);
   const errors = checkSettings(v);
   if (Object.keys(errors).length) return { ok: false, errors };
@@ -998,9 +1022,10 @@ function setupIpc(): void {
     if (isFrom(e, mainWin)) openFilterWindow();
   });
 
-  ipcMain.handle("settings:init", (e): SettingsInit | null => {
+  ipcMain.handle("settings:init", async (e): Promise<SettingsInit | null> => {
     if (!isFrom(e, settingsWin)) return null;
-    return { values: currentSettings(), trayOk, version: VERSION, archetypes: ARCHETYPES, logLevels: LOG_LEVELS };
+    await refreshReserved(); // (read from the game's settings file now: the key may have been changed in the game since)
+    return { values: currentSettings(), trayOk, version: VERSION, archetypes: ARCHETYPES, logLevels: LOG_LEVELS, copyKeysNote: reservedNote };
   });
   ipcMain.handle("settings:check", (e, v: unknown): SettingsErrors => (isFrom(e, settingsWin) ? checkSettings(cleanSettings(v)) : {}));
   ipcMain.handle("settings:apply", (e, v: unknown): Promise<SettingsResult> | SettingsResult => (isFrom(e, settingsWin) ? applySettings(v) : { ok: false, errors: {} }));
@@ -1175,6 +1200,7 @@ if (!gotLock) {
     for (const d of importDetails) say(d, "dim");
     const sz = screen.getPrimaryDisplay().size;
     say(`v${VERSION} · ${game.toUpperCase()} · league: ${league} · จอ ${sz.width}×${sz.height}`, "dim");
+    await refreshReserved(); // (the copy keys of the game: no hotkey of the program may be one of them)
     startHotkeys();
     startGamePoll();
     const hk = currentHotkeys();

@@ -109,6 +109,24 @@
   "f5/poe2_rare_bow-poe1-arch-attack-melee",
   "f5/poe2_rare_bow-poe1-arch-minion",
   "f5/poe2_rare_bow-poe1-arch-spell-cold",
+  "f5/poe2_rare_fractured-poe1-c0",
+  "f5/poe2_rare_fractured-poe1-c1",
+  "f5/poe2_rare_fractured-poe1-c2",
+  "f5/poe2_rare_fractured-poe1-arch-all",
+  "f5/poe2_rare_fractured-poe1-arch-attack-bow",
+  "f5/poe2_rare_fractured-poe1-arch-attack-crossbow",
+  "f5/poe2_rare_fractured-poe1-arch-attack-melee",
+  "f5/poe2_rare_fractured-poe1-arch-minion",
+  "f5/poe2_rare_fractured-poe1-arch-spell-cold",
+  "f5/poe2_rare_fractured-poe2-c0",
+  "f5/poe2_rare_fractured-poe2-c1",
+  "f5/poe2_rare_fractured-poe2-c2",
+  "f5/poe2_rare_fractured-poe2-arch-all",
+  "f5/poe2_rare_fractured-poe2-arch-attack-bow",
+  "f5/poe2_rare_fractured-poe2-arch-attack-crossbow",
+  "f5/poe2_rare_fractured-poe2-arch-attack-melee",
+  "f5/poe2_rare_fractured-poe2-arch-minion",
+  "f5/poe2_rare_fractured-poe2-arch-spell-cold",
   "f5/poe2_rare_gloves-poe1-c0",
   "f5/poe2_rare_gloves-poe1-c1",
   "f5/poe2_rare_gloves-poe1-c2",
@@ -139,6 +157,10 @@
   "f5/poe2_waystone-poe2-c0",
   "f5/poe2_waystone-poe2-c1",
   "f5/poe2_waystone-poe2-c2"
+ ],
+ "item-meta": [
+  "meta/annotate-poe2_rare_fractured-poe1",
+  "meta/annotate-poe2_rare_fractured-poe2"
  ],
  "item-modfind": [
   "modfind/0-poe1-enchant",
@@ -396,6 +418,10 @@
   "modfind/82-poe1-None",
   "modfind/82-poe2-None",
   "modfind/82-poe2-thr"
+ ],
+ "item-parse": [
+  "parse/poe2_rare_fractured-poe1",
+  "parse/poe2_rare_fractured-poe2"
  ],
  "item-url": [
   "url/poe1_cluster_jewel-poe1-base",

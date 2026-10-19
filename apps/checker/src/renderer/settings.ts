@@ -65,7 +65,8 @@ async function main(): Promise<void> {
 
   const hot = h("div", { class: "set-grid" },
     ...HOTKEYS.flatMap(([key, label]) => [h("label", { for: `f-${key}` }, label), text(key), errLine(key)]),
-    h("div", { class: "set-note full" }, "Format: F4  or  Ctrl+Alt+Q  etc. Keys the game uses (Ctrl+C / V / A / F, Ctrl+Enter, Home, Delete, Enter, arrows) and single letters are refused; two actions cannot share a key."));
+    h("div", { class: "set-note full" }, "Format: F4  or  Ctrl+Alt+Q  etc. Keys the game uses (Ctrl+C / V / A / F, Ctrl+Enter, Home, Delete, Enter, arrows) and single letters are refused; two actions cannot share a key."),
+    h("div", { class: "set-note full", id: "copy-keys-note" }, init.copyKeysNote));
 
   const adv = h("div", { class: "set-grid" },
     h("label", { for: "f-log_level" }, "Log Level:"), select("log_level", init.logLevels.map((l) => [l, l])),

@@ -164,7 +164,7 @@ const metaDb = async (game = "poe2", data: unknown = FIXTURE): Promise<MetaDB> =
 };
 const rareItem = (mods: ReturnType<typeof newModValue>[], base_type = "Knightly Mitts"): ParsedItem => ({
   item_name: "Test Item", base_type, rarity: "Rare", item_level: 80, quality: 0, mods, game_version: "poe1", raw_text: "", item_class: "",
-  corrupted: false, identified: true, prefix_count: 0, suffix_count: 0, mods_have_headers: false,
+  corrupted: false, identified: true, prefix_count: 0, suffix_count: 0, mods_have_headers: false, influences: [], flags: [],
 });
 
 describe("MetaDB", () => {

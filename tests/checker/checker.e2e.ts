@@ -544,6 +544,33 @@ async function copyRun({ game, ini, cfg, item = "poe1_rare_noheader", hotkey }) 
   return { sbx, app, page, box };
 }
 
+describe("I2) F8 refuses the keys the program presses itself", () => {
+  const openSettings = async (app, page) => {
+    await page.click("#btn-settings");
+    let w;
+    for (let i = 0; i < 100 && !(w = app.windows().find((x) => x.url().includes("settings.html"))); i++) await wait(100);
+    await w.waitForSelector("#btn-apply");
+    return w;
+  };
+
+  it.each([
+    ["the default (Alt, no readable ini)", undefined, "Ctrl+Alt+C", /PoE2 Ctrl\+Alt\+C \(ค่าเริ่มต้น/],
+    ["the ini names R", "show_advanced_item_descriptions=82", "Ctrl+R", /PoE2 Ctrl\+R\+C \(จากไฟล์ตั้งค่าของเกม/],
+  ])("%s: the note names the keys, and typing %s as a hotkey says why it is refused", async (_n, ini, typed, note) => {
+    const sbx = sandbox();
+    if (ini !== undefined) writeIni(sbx, ini);
+    const { app, page } = await start(sbx, { game: "poe2" });
+    const w = await openSettings(app, page);
+    await w.click("#tab-Hotkeys");
+    expect(await w.locator("#copy-keys-note").innerText()).toMatch(note);
+    await w.fill("#f-hotkey_quit", typed);
+    await w.waitForSelector("#err-hotkey_quit:not([hidden])");
+    expect(await w.locator("#err-hotkey_quit").innerText()).toContain(typed + " คือปุ่มที่โปรแกรมกดเอง");
+    await w.fill("#f-hotkey_quit", "Ctrl+Alt+Q");
+    await w.waitForSelector("#err-hotkey_quit", { state: "hidden" });
+  }, 120000);
+});
+
 describe("I) the copy keys (round-fix: PoE1 Ctrl+C, PoE2 Ctrl+<advanced key>+C, released ~10 ms after C)", () => {
   it("PoE1: Ctrl down, C down, C up, Ctrl up; no stuck keys; the header log line says 'ไม่มี' for a no-header item", async () => {
     const { page, box } = await copyRun({ game: "poe1" });

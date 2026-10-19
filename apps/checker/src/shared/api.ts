@@ -136,6 +136,8 @@ export interface SettingsInit {
   version: string;
   archetypes: string[];
   logLevels: string[];
+  /** the keys the program presses itself to make the game copy an item (not allowed as hotkeys), read from the game's settings */
+  copyKeysNote: string;
 }
 
 /** field -> the message to show next to it */

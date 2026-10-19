@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { checkHotkeys, forbiddenReason, parseHotkey } from "../../apps/checker/src/main/hotkeys.ts";
+import { checkHotkeys, copyChordHotkeys, forbiddenReason, parseHotkey } from "../../apps/checker/src/main/hotkeys.ts";
+import { advancedKeyFromIni, copyChord, keyName } from "../../apps/checker/src/main/game_keys.ts";
 
 const ok = (t: string) => { const p = parseHotkey(t); if (!p.ok) throw new Error(p.reason); return p.hotkey; };
 
@@ -45,5 +46,42 @@ describe("a set of hotkeys", () => {
   it("each problem lands on its own field", () => {
     const e = checkHotkeys({ values: { scan: "Ctrl+C", trade: "nope", settings: "F8", quit: "F8" }, order: [...order], labels: L });
     expect(Object.keys(e).sort()).toEqual(["quit", "scan", "trade"]);
+  });
+});
+
+describe("hotkeys the program presses itself (the copy chord of F5)", () => {
+  const reservedFor = (ini: string | null) => {
+    const adv = ini === null ? [0x12] : advancedKeyFromIni(["[ACTION_KEYS]", "show_advanced_item_descriptions=" + ini].join(String.fromCharCode(10)))!;
+    const names = (vks: number[]) => vks.map(keyName);
+    return [...copyChordHotkeys(names(copyChord("poe1", [])), "PoE1"), ...copyChordHotkeys(names(copyChord("poe2", adv)), "PoE2")];
+  };
+  const fields = (v: Record<string, string>, reserved: ReturnType<typeof reservedFor>) =>
+    checkHotkeys({ values: v, order: Object.keys(v), labels: Object.fromEntries(Object.keys(v).map((k) => [k, k])) as never, reserved });
+
+  it("the default (Alt): Ctrl+C and Ctrl+Alt+C are the program's own; any other key is free", () => {
+    const r = reservedFor(null);
+    expect(r.map((x) => x.canonical).sort()).toEqual(["Ctrl+Alt+C", "Ctrl+C"]);
+    const e = fields({ a: "Ctrl+Alt+C", b: "Alt+C", c: "Ctrl+Alt+Q" }, r);
+    expect(e.a).toMatch(/Ctrl\+Alt\+C.*โปรแกรมกดเอง/);
+    expect(e.b).toBeUndefined();
+    expect(e.c).toBeUndefined();
+  });
+
+  it("the key the game's ini names: Shift (1 = Shift is the modifier of key 16?) / a letter / a letter with Ctrl", () => {
+    // 16 = Shift as the key itself: the chord Ctrl+Shift+C
+    expect(reservedFor("16").map((x) => x.canonical).sort()).toEqual(["Ctrl+C", "Ctrl+Shift+C"]);
+    // 82 = R: pressing Ctrl then R already makes Ctrl+R
+    expect(reservedFor("82").map((x) => x.canonical).sort()).toEqual(["Ctrl+C", "Ctrl+R"]);
+    // 82 with modifier 2 (Ctrl): the same
+    expect(reservedFor("82 2").map((x) => x.canonical).sort()).toEqual(["Ctrl+C", "Ctrl+R"]);
+    // 82 with modifier 3 (Alt): Alt is not in the chord (only Ctrl + the ini's listed keys)... the listed keys are [Alt, R]
+    expect(reservedFor("82 3").map((x) => x.canonical).sort()).toEqual(["Ctrl+Alt+R", "Ctrl+C"]);
+    const e = fields({ a: "Ctrl+R", b: "Ctrl+Alt+C" }, reservedFor("82"));
+    expect(e.a).toMatch(/Ctrl\+R/);
+    expect(e.b).toBeUndefined(); // (with R as the advanced key, Ctrl+Alt+C is free)
+  });
+
+  it("without reserved hotkeys nothing changes", () => {
+    expect(fields({ a: "Ctrl+Alt+C" }, [])).toEqual({});
   });
 });

@@ -29,7 +29,7 @@ export interface StatFilter {
 
 const asFloat = (v: number | PyFloat): PyFloat => (v instanceof PyFloat ? v : new PyFloat(v));
 
-export function buildTradeUrl(item: ParsedItem, modDb: Pick<ModDatabase, "findStatId">, league: string, profile: GameProfile, minPct = 0.8,
+export function buildTradeUrl(item: ParsedItem, modDb: Pick<ModDatabase, "findStatId" | "probeStatId">, league: string, profile: GameProfile, minPct = 0.8,
   customStats: StatFilter[] | null = null, baseDb: Pick<BaseDB, "resolveType" | "resolveName"> | null = null): string {
   const query: Record<string, any> = { status: { option: STATUS_OPTION } };
   const filters: Record<string, any> = {};

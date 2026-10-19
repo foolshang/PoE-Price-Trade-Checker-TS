@@ -78,6 +78,33 @@ export function forbiddenReason(h: Hotkey): string | null {
   return null;
 }
 
+/** A hotkey the program presses itself (the copy chord F5 sends to the game): the player may not take it for a program hotkey. */
+export interface ReservedHotkey { canonical: string; reason: string }
+
+/**
+ * The hotkeys that the keys of a copy chord make while they are pressed. `chord` = the key names in the order they go down, C goes down
+ * last ("Ctrl", "Alt" -> Ctrl+Alt+C; "Ctrl", "R" -> Ctrl+R is made the moment R goes down, then C). A global hotkey registered for any of them
+ * would fire on the program's own key presses.
+ */
+export function copyChordHotkeys(chord: string[], what: string): ReservedHotkey[] {
+  const out: ReservedHotkey[] = [];
+  const mods: string[] = [];
+  let main = false;
+  const reason = (canonical: string): ReservedHotkey => ({
+    canonical, reason: `${canonical} คือปุ่มที่โปรแกรมกดเองตอน F5 เพื่อให้เกมคัดลอกไอเท็ม (${what}) — ถ้าตั้งเป็นปุ่มของโปรแกรม มันจะทำงานเองทุกครั้งที่กด F5 — เลือกปุ่มอื่น`,
+  });
+  for (const name of chord) {
+    if (MOD_ALIASES[name.toLowerCase()]) {
+      mods.push(MOD_ALIASES[name.toLowerCase()]);
+      continue;
+    }
+    main = true;
+    out.push(reason([...MOD_ORDER.filter((m) => mods.includes(m)), name.toUpperCase()].join("+")));
+  }
+  if (!main) out.push(reason([...MOD_ORDER.filter((m) => mods.includes(m)), "C"].join("+")));
+  return out;
+}
+
 export interface HotkeyFields<T extends string> {
   /** field name -> text */
   values: Record<T, string>;
@@ -85,6 +112,8 @@ export interface HotkeyFields<T extends string> {
   order: T[];
   /** how the program calls each field in a message */
   labels: Record<T, string>;
+  /** hotkeys the program presses itself (the copy chords): refused with their reason */
+  reserved?: ReservedHotkey[];
 }
 
 /** The problems of a set of hotkey fields: field -> message (empty = all fine). Every field is checked on its own, then against the others. */
@@ -100,6 +129,11 @@ export function checkHotkeys<T extends string>(f: HotkeyFields<T>): Partial<Reco
     const bad = forbiddenReason(p.hotkey);
     if (bad) {
       errors[name] = bad;
+      continue;
+    }
+    const taken = (f.reserved ?? []).find((r) => r.canonical === p.hotkey.canonical);
+    if (taken) {
+      errors[name] = taken.reason;
       continue;
     }
     const other = seen.get(p.hotkey.canonical);
