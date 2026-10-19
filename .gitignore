@@ -12,3 +12,9 @@ test-results/
 dist-local/
 dist-tools/
 dist-checker/
+
+# scratch / probe files
+.probe.txt
+*.probe.txt
+_probe*.test.ts
+_scratch*.test.ts
