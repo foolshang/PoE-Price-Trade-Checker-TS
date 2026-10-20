@@ -145,3 +145,16 @@ export function checkHotkeys<T extends string>(f: HotkeyFields<T>): Partial<Reco
   }
   return errors;
 }
+
+const NAMED_VK: Record<string, number> = {
+  Space: 0x20, Tab: 0x09, Backspace: 0x08, Delete: 0x2e, Insert: 0x2d, Enter: 0x0d, Up: 0x26, Down: 0x28, Left: 0x25, Right: 0x27,
+  Home: 0x24, End: 0x23, PageUp: 0x21, PageDown: 0x22, Esc: 0x1b,
+};
+
+/** The Windows virtual-key code of the key of a hotkey (the part that is not Ctrl / Alt / Shift / Win); null when unknown. */
+export function hotkeyVk(key: string): number | null {
+  if (/^[A-Z]$/.test(key) || /^[0-9]$/.test(key)) return key.charCodeAt(0);
+  const f = /^F([1-9]|1[0-9]|2[0-4])$/.exec(key);
+  if (f) return 0x70 + Number(f[1]) - 1;
+  return NAMED_VK[key] ?? null;
+}

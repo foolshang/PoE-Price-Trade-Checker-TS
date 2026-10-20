@@ -32,7 +32,8 @@ nsis:
   allowElevation: false
   createStartMenuShortcut: true
   createDesktopShortcut: true
-  shortcutName: PoE Price & Trade Checker (TypeScript)
+  uninstallDisplayName: PoE Price & Trade Checker ${version}
+  shortcutName: PoE Price & Trade Checker
   deleteAppDataOnUninstall: false  # the settings (%LOCALAPPDATA%\PoePriceTradeTS) are never removed
   runAfterFinish: true
   artifactName: PoE-Price-Trade-Checker-TS-Setup-${version}.exe

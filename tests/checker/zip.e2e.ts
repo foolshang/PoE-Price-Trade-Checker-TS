@@ -63,7 +63,7 @@ describe.skipIf(need.skip)("the zip copy", () => {
     const { app, page } = await launch(sbx, { exe, extraEnv: { POE_UPDATE_FEED: feed.url, POE_UPDATE_FIRST_MS: "1000" } });
     opened.push(app);
     await page.waitForSelector("#league");
-    expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getTitle())).toBe(`PoE Price & Trade Checker (TypeScript) v${ver}`);
+    expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getTitle())).toBe(`PoE Price & Trade Checker v${ver}`);
     expect(await app.evaluate(() => globalThis.__poeChecker.updaterMode())).toBe("manual");
     // the banner: a newer release exists, here is where to get it; no "restart" button
     await page.locator("#update-bar").waitFor({ state: "visible", timeout: 60000 });

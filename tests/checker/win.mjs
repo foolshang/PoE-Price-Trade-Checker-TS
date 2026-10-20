@@ -80,6 +80,15 @@ export async function pressKey(name, mods = [], { holdMs = 0 } = {}) {
   for (const m of [...mods].reverse()) keybd_event(VK[m], 0, 2, 0);
 }
 
+/** a key that is HELD: the key-down comes again and again (the keyboard repeat) and the key goes up at the end */
+export async function holdKey(name, { repeats = 8, intervalMs = 120 } = {}) {
+  for (let i = 0; i < repeats; i++) {
+    keybd_event(VK[name], 0, 0, 0);
+    await sleep(intervalMs);
+  }
+  keybd_event(VK[name], 0, 2, 0);
+}
+
 const GetAsyncKeyState = user32.func("int16 __stdcall GetAsyncKeyState(int vk)");
 /** the modifier keys that are down right now (Shift, Ctrl, Alt, Win) */
 export function modifiersDown() {

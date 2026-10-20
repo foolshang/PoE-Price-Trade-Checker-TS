@@ -17,7 +17,7 @@ const AUDIO = /\.(mp3|wav|ogg|flac|m4a|aac|wma)$/i;
 const base = (v: string): string => v.split(/[\\/]/).pop() as string;
 
 export interface FilterPageOptions {
-  /** name in the title and in the first Status line: "PoE1 & PoE2 Filter Generator (TypeScript)" */
+  /** name in the title and in the first Status line: "PoE1 & PoE2 Filter Generator" */
   title: string;
   /** the first Status line: "PoE Filter Generator v<version> - config: <dir>" */
   shortName: string;

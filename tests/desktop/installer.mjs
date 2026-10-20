@@ -17,7 +17,7 @@ const dir = path.join(LOCAL, "Programs", NAME);
 const exe = path.join(dir, `${NAME}.exe`);
 const cfgDir = path.join(LOCAL, "PoeFilterGenTS");
 const oldDir = path.join(LOCAL, "PoeFilterGen");
-const startMenu = path.join(process.env.APPDATA, "Microsoft", "Windows", "Start Menu", "Programs", "PoE Filter Generator (TypeScript).lnk");
+const startMenu = path.join(process.env.APPDATA, "Microsoft", "Windows", "Start Menu", "Programs", "PoE Filter Generator.lnk");
 const results = [];
 const check = (name, ok, detail = "") => { results.push({ name, ok: !!ok, detail }); console.log(`${ok ? "ok  " : "FAIL"} ${name}${detail ? "  - " + detail : ""}`); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

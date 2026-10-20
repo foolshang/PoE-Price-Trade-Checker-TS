@@ -81,6 +81,11 @@ export function heldModifiers(): number[] {
   return MODIFIERS.filter((vk) => a.GetAsyncKeyState(vk) < 0);
 }
 
+/** Is this key physically down right now? (GetAsyncKeyState) */
+export function isKeyDown(vk: number): boolean {
+  return load().GetAsyncKeyState(vk) < 0;
+}
+
 const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 const VK_SHIFT = 0x10, VK_MENU = 0x12;

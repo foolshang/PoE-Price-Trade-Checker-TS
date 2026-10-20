@@ -10,8 +10,8 @@ param(
   [int]$TimeoutSeconds = 90
 )
 $apps = @{
-  filtergen = @{ Name = "PoE-Filter-Generator-TS"; Title = "PoE1 & PoE2 Filter Generator (TypeScript)"; Dist = "dist"; Pack = "desktop:pack" }
-  checker   = @{ Name = "PoE-Price-Trade-Checker-TS"; Title = "PoE Price & Trade Checker (TypeScript)"; Dist = "dist-checker"; Pack = "checker:pack" }
+  filtergen = @{ Name = "PoE-Filter-Generator-TS"; Title = "PoE1 & PoE2 Filter Generator"; Dist = "dist"; Pack = "desktop:pack" }
+  checker   = @{ Name = "PoE-Price-Trade-Checker-TS"; Title = "PoE Price & Trade Checker"; Dist = "dist-checker"; Pack = "checker:pack" }
 }
 $Name = $apps[$App].Name
 $TitleStart = $apps[$App].Title

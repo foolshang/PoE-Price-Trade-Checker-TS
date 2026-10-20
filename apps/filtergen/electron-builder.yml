@@ -28,7 +28,8 @@ nsis:
   allowElevation: false
   createStartMenuShortcut: true
   createDesktopShortcut: true      # the player can delete it
-  shortcutName: PoE Filter Generator (TypeScript)
+  uninstallDisplayName: PoE1 & PoE2 Filter Generator ${version}
+  shortcutName: PoE Filter Generator
   deleteAppDataOnUninstall: false  # the settings (%LOCALAPPDATA%\PoeFilterGenTS) and the game folders are never removed
   runAfterFinish: true
   artifactName: PoE-Filter-Generator-TS-Setup-${version}.exe

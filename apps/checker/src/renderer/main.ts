@@ -42,7 +42,7 @@ function showDetails(d: Details, version: string): void {
 
 async function main(): Promise<void> {
   const init = await api.init();
-  document.title = `PoE Price & Trade Checker (TypeScript) v${init.version}`;
+  document.title = `PoE Price & Trade Checker v${init.version}`;
   const root = $("#root");
   let game: GameId = init.game;
   const league = h("select", { id: "league", "aria-label": "League", onchange: () => api.setLeague(league.value) });
@@ -56,7 +56,7 @@ async function main(): Promise<void> {
   const legendText = (hk: Hotkeys): string => `${hk.scan} Skill Reference  |  ${hk.trade} Trade browser  |  ${hk.settings} Settings  |  ${hk.quit} Quit`;
   let newer: { version?: string; notes?: string } | null = null;
   const about = h("button", { type: "button", id: "btn-about", class: "secondary",
-    onclick: () => void openAbout({ name: "PoE Price & Trade Checker (TypeScript)", version: init.version, changelog, repoUrl: REPO_URL, newer: async () => newer }) }, "About");
+    onclick: () => void openAbout({ name: "PoE Price & Trade Checker", version: init.version, changelog, repoUrl: REPO_URL, newer: async () => newer }) }, "About");
   const strip = window.appUpdate
     ? createUpdateStrip(window.appUpdate, (s) => { newer = s.version && ["available", "downloading", "ready", "manual"].includes(s.phase) ? { version: s.version, notes: s.notes } : null; })
     : null;

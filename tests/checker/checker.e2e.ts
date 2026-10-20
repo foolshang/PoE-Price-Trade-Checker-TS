@@ -16,7 +16,8 @@ import { execFileSync, spawn } from "node:child_process";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { CHECKER_DIR, launch, sandbox, wait, ROOT } from "../desktop/harness.mjs";
 import { fakeInternet, fixtureData } from "../desktop/stubs.mjs";
-import { openTextBox, pressKey, foregroundTitle, modifiersDown, setCursor, visibleWindowsOf } from "./win.mjs";
+import { openTextBox, pressKey, holdKey, foregroundTitle, modifiersDown, setCursor, visibleWindowsOf } from "./win.mjs";
+import { openGame } from "./standin_game.mjs";
 import { pickerRowText, defaultChecked } from "../../apps/checker/src/shared/picker_text.ts";
 
 const exe = process.env.PFG_CHECKER_EXE;
@@ -62,13 +63,13 @@ function expected(args) {
   return JSON.parse(out);
 }
 
-async function start(sbx, { cfg, game, waitLeagues = true, inet = net } = {}) {
+async function start(sbx, { cfg, game, waitLeagues = true, inet = net, env = {} } = {}) {
   sandboxes.push(sbx);
   if (cfg || game) {
     fs.mkdirSync(sbx.checkerDir, { recursive: true });
     fs.writeFileSync(path.join(sbx.checkerDir, "config.json"), JSON.stringify({ ...(cfg ?? {}), ...(game ? { game_version: game } : {}) }));
   }
-  const { app, page } = await launch(sbx, { exe, appDir: CHECKER_DIR, chromiumArgs: inet.args });
+  const { app, page } = await launch(sbx, { exe, appDir: CHECKER_DIR, chromiumArgs: inet.args, extraEnv: env });
   opened.push(app);
   page.errors = [];
   page.on("console", (m) => m.type() === "error" && page.errors.push(m.text()));
@@ -110,7 +111,7 @@ describe("A) start-up", () => {
   it("title bar, version marker first, hotkeys registered, files written", async () => {
     const sbx = sandbox();
     const { app, page } = await start(sbx);
-    expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getTitle())).toBe(`PoE Price & Trade Checker (TypeScript) v${ver}`);
+    expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getTitle())).toBe(`PoE Price & Trade Checker v${ver}`);
     const lines = (await logText(page)).split("\n");
     expect(lines[0]).toBe(`PoE Price & Trade Checker v${ver} — config: ${sbx.checkerDir}`);
     expect(await page.locator("#ver").innerText()).toContain(ver);
@@ -544,6 +545,57 @@ async function copyRun({ game, ini, cfg, item = "poe1_rare_noheader", hotkey }) 
   return { sbx, app, page, box };
 }
 
+describe("J) a held F5, and F5 / F4 only with a game in front", () => {
+  const keyLines = (sbx) => fs.readFileSync(path.join(sbx.checkerDir, "log.txt"), "utf-8").split(String.fromCharCode(10)).filter((l) => l.includes("F5 keys:"));
+
+  it("F5 held down (the key-down comes again and again) runs once; let go and pressed again, it runs again", async () => {
+    const sbx = sandbox();
+    const { app } = await start(sbx, { game: "poe1" });
+    const box = await openTextBox(path.join(ITEMS, "poe1_rare_body.txt"), "PFG-TEST-BOX-HOLD");
+    extra.push(() => box.close());
+    await holdKey("F5", { repeats: 10, intervalMs: 150 }); // 1.5 s of repeats
+    const w = await windowWith(app, "picker.html");
+    await w.waitForSelector(".p-row, .p-head");
+    await wait(600);
+    expect(keyLines(sbx).length).toBe(1);
+    const log = fs.readFileSync(path.join(sbx.checkerDir, "log.txt"), "utf-8");
+    expect(log).not.toMatch(/popup closed by the program: replaced by a new F5/);
+    await pressKey("F5"); // a new press after the key was let go: works at once (another item, here the same one again)
+    await wait(1500);
+    expect(keyLines(sbx).length).toBe(2);
+  }, 180000);
+
+  it("a window that is not a game in front (a plain window): no key is sent to it, the Status says which window is in front", async () => {
+    const sbx = sandbox();
+    const { page } = await start(sbx, { game: "poe1", env: { POE_CHECKER_ANY_FRONT: "" } });
+    const box = await openTextBox(path.join(ITEMS, "poe1_rare_body.txt"), "PFG-TEST-BOX-NOGAME");
+    extra.push(() => box.close());
+    await pressKey("F5");
+    await statusHas(page, /กด F5 ในเกม \(ตอนนี้หน้าต่างหน้าสุดคือ PFG-TEST-BOX-NOGAME\)/);
+    await pressKey("F4");
+    await statusHas(page, /กด F4 ในเกม \(ตอนนี้หน้าต่างหน้าสุดคือ PFG-TEST-BOX-NOGAME\)/);
+    await wait(500);
+    expect(box.keys().filter((e) => e.vk !== 0x74 && e.vk !== 0x73)).toEqual([]); // not Ctrl, not Alt, not C - nothing but the player's own F4 / F5
+    expect(keyLines(sbx)).toEqual([]);
+    expect(fs.readFileSync(path.join(sbx.checkerDir, "log.txt"), "utf-8")).toMatch(/F5 ignored: the window in front is not a Path of Exile client/);
+  }, 180000);
+
+  it("a game in front (a stand-in with the game's window class and folder): F5 works", async () => {
+    const sbx = sandbox();
+    const { app } = await start(sbx, { game: "poe1", env: { POE_CHECKER_ANY_FRONT: "" } });
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "pfg-front-"));
+    const game = await openGame("poe1", root);
+    extra.push(() => game.close());
+    await game.front();
+    await pressKey("F5");
+    await wait(2500);
+    const log = fs.readFileSync(path.join(sbx.checkerDir, "log.txt"), "utf-8");
+    expect(log).not.toMatch(/F5 ignored/);
+    expect(keyLines(sbx).length).toBe(1); // (the stand-in puts no item on the clipboard: "no text arrived", but the keys were sent)
+    void app;
+  }, 180000);
+});
+
 describe("I2) F8 refuses the keys the program presses itself", () => {
   const openSettings = async (app, page) => {
     await page.click("#btn-settings");
@@ -754,7 +806,7 @@ async function watchWindows(app) {
     },
   };
 }
-const MAIN_TITLE = `PoE Price & Trade Checker (TypeScript) v${ver}`;
+const MAIN_TITLE = `PoE Price & Trade Checker v${ver}`;
 
 describe("M) F5 shows no window except the popup", () => {
   it.each([

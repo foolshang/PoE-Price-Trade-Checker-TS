@@ -1,5 +1,5 @@
 /**
- * PoE1 & PoE2 Filter Generator (TypeScript) - the Electron main process.
+ * PoE1 & PoE2 Filter Generator - the Electron main process.
  *
  * It owns everything that touches the machine: the config (%LOCALAPPDATA%\PoeFilterGenTS\config.json, imported once from
  * the original's PoeFilterGen), the game folders, the network for the few allowed hosts, logging, the single instance.
@@ -20,7 +20,7 @@ declare const __APP_VERSION__: string;
 declare const __BUILD_TIME__: string;
 
 const VERSION = __APP_VERSION__;
-const TITLE = `PoE1 & PoE2 Filter Generator (TypeScript) v${VERSION}`;
+const TITLE = `PoE1 & PoE2 Filter Generator v${VERSION}`;
 
 // ---------------------------------------------------------------------------------------------- places and logging
 const localAppData = process.env.LOCALAPPDATA || path.join(app.getPath("home"), "AppData", "Local");

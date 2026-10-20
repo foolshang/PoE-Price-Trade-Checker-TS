@@ -1,5 +1,5 @@
 /**
- * PoE Price & Trade Checker (TypeScript) - the Electron main process (phase 4: F4 skill reference + F5 trade).
+ * PoE Price & Trade Checker - the Electron main process (phase 4: F4 skill reference + F5 trade).
  *
  * Owns everything that touches the machine: hotkeys, the key press and the clipboard, the hub and GGG's trade data, the browser, the
  * config (%LOCALAPPDATA%\PoePriceTradeTS, imported once from the original's PoePriceTrade) and the windows. The windows show pages
@@ -22,22 +22,23 @@ import { testEnv } from "@poe/desktop/test-env";
 import { ManagedUpdater } from "@poe/desktop/managed-updater";
 import { TrayIcon, dotIcon } from "@poe/desktop/tray";
 import type { Details, GameId, Hotkeys, MainInit, PickerFilter, SettingsErrors, SettingsInit, SettingsResult, SettingsValues, SkillDetail, Tag } from "../shared/api.ts";
-import { checkHotkeys, copyChordHotkeys, parseHotkey } from "./hotkeys.ts";
+import { checkHotkeys, copyChordHotkeys, hotkeyVk, parseHotkey } from "./hotkeys.ts";
+import { RepeatGuard } from "./hotkey_guard.ts";
 import type { ReservedHotkey } from "./hotkeys.ts";
 import { MessageOverlay, OK_COLOR, WARN_COLOR } from "./overlay.ts";
 import { NeverSinkWatcher } from "./regen.ts";
 import { copyChord, keyName, readAdvancedKey } from "./game_keys.ts";
 import { copyItemText } from "./item_copy.ts";
-import { describeWindow, foregroundElevated, selfElevated, focusWindow, foregroundWindow, sendCopyChord, windowFacts } from "./native.ts";
+import { describeWindow, isKeyDown, foregroundElevated, selfElevated, focusWindow, foregroundWindow, sendCopyChord, windowFacts } from "./native.ts";
 import type { SendResult } from "./native.ts";
-import { gameOfWindow, onFront } from "./game_detect.ts";
+import { gameOfWindow, isPoeClient, onFront } from "./game_detect.ts";
 import { pickerInit } from "./picker_data.ts";
 
 declare const __APP_VERSION__: string;
 declare const __BUILD_TIME__: string;
 
 const VERSION = __APP_VERSION__;
-const TITLE = `PoE Price & Trade Checker (TypeScript) v${VERSION}`;
+const TITLE = `PoE Price & Trade Checker v${VERSION}`;
 
 // ---------------------------------------------------------------------------------------------- places, single instance, log
 const localAppData = process.env.LOCALAPPDATA || path.join(app.getPath("home"), "AppData", "Local");
@@ -242,6 +243,30 @@ function followFront(front: GameId | null, why: string, force: boolean): void {
   setGame(target, "auto");
 }
 
+/**
+ * F4 / F5 work only with a game (or this program's own window, e.g. the popup) in front. Anything else - a browser after the trade page
+ * opened, a chat, an editor - gets NO key press from here (Ctrl+Alt+C could trigger something in that program) and a line in the Status.
+ * true = refused.
+ */
+function frontIsNotAGame(key: string): boolean {
+  if (testEnv("POE_CHECKER_ANY_FRONT") === "1") return false; // (the end-to-end tests press F5 over a plain text box)
+  let hwnd: bigint;
+  try { hwnd = foregroundWindow(); } catch { return false; }
+  if (!hwnd) return false;
+  if (BrowserWindow.getAllWindows().some((w) => !w.isDestroyed() && w.getNativeWindowHandle().readBigUInt64LE(0) === hwnd)) return false;
+  try {
+    const w = describeWindow(hwnd);
+    if (isPoeClient(w)) return false;
+    const name = w.title.trim() || path.basename(w.exePath) || "ไม่ทราบ";
+    say(`⚠ กด ${key} ในเกม (ตอนนี้หน้าต่างหน้าสุดคือ ${name})`, "warn");
+    fileLog("INFO", `${key} ignored: the window in front is not a Path of Exile client (class=${w.cls} title='${w.title}' exe='${w.exePath}')`);
+    return true;
+  } catch (e) {
+    fileLog("WARNING", `${key}: could not look at the window in front: ${(e as Error).message}`);
+    return false;
+  }
+}
+
 /** F4 / F5: the game of the window the key was pressed in (a switch the poll has not made yet) */
 function gameOfKeyPress(): void {
   if (!autoGameOn()) return;
@@ -291,6 +316,7 @@ function f5KeysLine(label: string, sent: SendResult, text: string): string {
 
 async function onF5(): Promise<void> {
   if (f5Busy) return;
+  if (frontIsNotAGame("F5")) return;
   f5Busy = true;
   gameOfKeyPress();
   const pressPoint = screen.getCursorScreenPoint(); // the popup goes where the mouse was when the key was pressed
@@ -461,12 +487,35 @@ function foregroundToReturnTo(): bigint {
   return ours ? 0n : h;
 }
 
-function giveFocusBack(win: BrowserWindow, to: bigint): void {
+/**
+ * Give the keyboard focus back to the game (`to`) and only THEN destroy the window. SetForegroundWindow returns before the switch has happened:
+ * a window that is destroyed in that moment is still the active one, and Windows hands the focus to the next window of this program - the main
+ * window, which jumps up over the game for a moment ("the window that flashes"). So the window waits until the game really is in front (at most 400 ms).
+ */
+function focusBackThenDestroy(win: BrowserWindow, to: bigint): void {
+  if (win.isDestroyed()) return;
+  let asked = false;
   try {
-    if (to && !win.isDestroyed() && win.isFocused()) fileLog("INFO", `focus given back to the window in front before (${focusWindow(to) ? "ok" : "refused"})`);
+    if (to && win.isFocused()) {
+      asked = focusWindow(to);
+      fileLog("INFO", `focus given back to the window in front before (${asked ? "ok" : "refused"})`);
+    }
   } catch (e) {
     fileLog("WARNING", `could not give the focus back: ${(e as Error).message}`);
   }
+  if (!asked) { win.destroy(); return; }
+  const t0 = Date.now();
+  const tick = (): void => {
+    if (win.isDestroyed()) return;
+    let front = 0n;
+    try { front = foregroundWindow(); } catch { /* destroy anyway */ }
+    if (front === to || Date.now() - t0 > 400) {
+      fileLog("INFO", `window destroyed ${Date.now() - t0} ms after the focus was handed back (front ${front === to ? "is" : "is NOT"} the game)`);
+      win.destroy();
+    }
+    else setTimeout(tick, 10);
+  };
+  tick();
 }
 
 function closePicker(reason: string): void {
@@ -476,8 +525,7 @@ function closePicker(reason: string): void {
   pickerSession = null;
   if (w && !w.isDestroyed()) {
     fileLog("INFO", `popup closed by the program: ${reason}`);
-    giveFocusBack(w, to);
-    w.destroy();
+    focusBackThenDestroy(w, to);
   }
 }
 
@@ -511,11 +559,15 @@ function openPicker(result: Extract<f5.F5Result, { kind: "picker" }>, pressPoint
   // still this window came from the player (the window's X / Alt+F4 / the taskbar): normal, and the focus goes back to the game like
   // after Esc. Only a window that is gone WITHOUT a close request (crash, killed) is a warning.
   let closeRequested = false;
-  win.on("close", () => {
-    if (pickerWin !== win) return;
+  win.on("close", (e) => {
+    if (pickerWin !== win || quitting) return; // (quitting: let the window close)
     closeRequested = true;
     fileLog("INFO", "popup closed by the player (X / Alt+F4)");
-    giveFocusBack(win, pickerSession?.returnTo ?? 0n);
+    const to = pickerSession?.returnTo ?? 0n;
+    pickerWin = null;
+    pickerSession = null;
+    e.preventDefault(); // (destroyed by focusBackThenDestroy, after the game is in front)
+    focusBackThenDestroy(win, to);
   });
   win.on("closed", () => {
     if (pickerWin === win) {
@@ -582,13 +634,11 @@ let skillReturnTo = 0n;
 function closeSkill(): void {
   const w = skillWin;
   skillWin = null;
-  if (w && !w.isDestroyed()) {
-    giveFocusBack(w, skillReturnTo);
-    w.destroy();
-  }
+  if (w && !w.isDestroyed()) focusBackThenDestroy(w, skillReturnTo);
 }
 
 async function onF4(): Promise<void> {
+  if (frontIsNotAGame("F4")) return;
   gameOfKeyPress();
   const back = foregroundToReturnTo();
   closeSkill();
@@ -603,7 +653,12 @@ async function onF4(): Promise<void> {
   skillDb = db;
   const win = createToolWindow("Skill Mod Reference", "skill.cjs", "skillref.html");
   skillWin = win;
-  win.on("close", () => giveFocusBack(win, skillReturnTo)); // (the player closes it: X / Alt+F4)
+  win.on("close", (e) => { // (the player closes it: X / Alt+F4)
+    if (skillWin !== win || quitting) return;
+    skillWin = null;
+    e.preventDefault();
+    focusBackThenDestroy(win, skillReturnTo);
+  });
   win.on("closed", () => {
     if (skillWin === win) skillWin = null;
   });
@@ -883,17 +938,26 @@ function checkSettings(v: SettingsValues): SettingsErrors {
 const HOTKEY_PROBLEM = (spec: string, what: string): string =>
   `ปุ่ม ${spec} (${what}) ถูกโปรแกรมอื่นจองอยู่ (เช่น PoE Price & Trade Checker ตัวเดิม) — ปิดโปรแกรมนั้น หรือเลือกปุ่มอื่น`;
 
-const hotkeyActions: Record<HotkeyField, () => void> = {
-  hotkey_scan: () => void onF4(),
-  hotkey_trade: () => void onF5(),
+const hotkeyActions: Record<HotkeyField, () => void | Promise<void>> = {
+  hotkey_scan: () => onF4(),
+  hotkey_trade: () => onF5(),
   hotkey_settings: () => openSettings(),
   hotkey_quit: () => quit(),
 };
 let registered: Partial<Record<HotkeyField, string>> = {}; // field -> the hotkey registered for it (canonical text)
 
 /** Register `specs` (field -> canonical text); the fields that could not be registered are returned with the reason. */
+// a held hotkey repeats: only the first press runs, until the key has been let go (F5 held for 9 s ran 37 times)
+const repeatGuard = new RepeatGuard({
+  isDown: (vk) => { try { return isKeyDown(vk); } catch { return false; } },
+  setTimer: (fn, ms) => { const t = setTimeout(fn, ms); t.unref?.(); return t; },
+  clearTimer: (h) => clearTimeout(h as NodeJS.Timeout),
+  now: () => Date.now(),
+});
+
 function registerAll(specs: Record<HotkeyField, string>): Partial<Record<HotkeyField, string>> {
   globalShortcut.unregisterAll();
+  repeatGuard.reset();
   registered = {};
   const failed: Partial<Record<HotkeyField, string>> = {};
   for (const f of HOTKEY_FIELDS) {
@@ -901,7 +965,12 @@ function registerAll(specs: Record<HotkeyField, string>): Partial<Record<HotkeyF
     if (!p.ok) { failed[f] = p.reason; continue; }
     let ok = false;
     try {
-      ok = globalShortcut.register(p.hotkey.accelerator, hotkeyActions[f]);
+      const vk = hotkeyVk(p.hotkey.key);
+      ok = globalShortcut.register(p.hotkey.accelerator, () => {
+        if (!repeatGuard.accept(f, vk)) return;
+        // the key is watched once the action is over (see hotkey_guard.ts); an action that throws still frees it
+        void Promise.resolve().then(() => hotkeyActions[f]()).catch((e: Error) => fileLog("ERROR", `hotkey ${f}: ${e.message}`)).finally(() => repeatGuard.finished(f));
+      });
     } catch (e) {
       failed[f] = `ใช้ปุ่มนี้ไม่ได้: ${(e as Error).message}`;
       continue;

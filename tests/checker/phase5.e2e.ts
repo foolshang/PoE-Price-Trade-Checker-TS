@@ -355,7 +355,7 @@ describe("C) tray and the X button", () => {
     const { app, page } = await start(sbx, { game: "poe2" });
     expect(await hook(app, "trayOk")).toBe(true);
     expect(await hook(app, "mainVisible")).toBe(true);
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.getTitle().startsWith("PoE Price & Trade Checker (TypeScript)")).close());
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.getTitle().startsWith("PoE Price & Trade Checker")).close());
     await wait(500);
     expect(await hook(app, "mainVisible")).toBe(false);
     expect(await hook(app, "hiddenToTray")).toBe(true);
@@ -363,7 +363,7 @@ describe("C) tray and the X button", () => {
     await hook(app, "showMain");
     await wait(300);
     expect(await hook(app, "mainVisible")).toBe(true);
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.getTitle().startsWith("PoE Price & Trade Checker (TypeScript)")).minimize());
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.getTitle().startsWith("PoE Price & Trade Checker")).minimize());
     await wait(500);
     expect(await hook(app, "mainVisible")).toBe(false);
     // the hotkeys still work while the window is hidden
@@ -377,7 +377,7 @@ describe("C) tray and the X button", () => {
     const sbx = sandbox();
     const { app } = await start(sbx, { game: "poe2", cfg: { close_action: "exit" } });
     const gone = new Promise((r) => app.process().once("exit", r));
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.getTitle().startsWith("PoE Price & Trade Checker (TypeScript)")).close());
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.getTitle().startsWith("PoE Price & Trade Checker")).close());
     await Promise.race([gone, wait(15000).then(() => { throw new Error("the program did not exit"); })]);
     opened.length = 0;
     expect(readSaved(sbx).close_action).toBe("exit");
@@ -388,12 +388,12 @@ describe("C) tray and the X button", () => {
     const { app } = await start(sbx, { game: "poe2", env: { POE_CHECKER_NO_TRAY: "1" } });
     expect(await hook(app, "trayOk")).toBe(false);
     expect(logTxt(sbx)).toContain("tray icon unavailable");
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.getTitle().startsWith("PoE Price & Trade Checker (TypeScript)")).minimize());
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.getTitle().startsWith("PoE Price & Trade Checker")).minimize());
     await wait(500);
-    expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((x) => x.getTitle().startsWith("PoE Price & Trade Checker (TypeScript)")).isMinimized())).toBe(true);
+    expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((x) => x.getTitle().startsWith("PoE Price & Trade Checker")).isMinimized())).toBe(true);
     expect(await hook(app, "hiddenToTray")).toBe(false); // (minimized to the taskbar, not hidden: it can be brought back)
     const gone = new Promise((r) => app.process().once("exit", r));
-    await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows().find((x) => x.getTitle().startsWith("PoE Price & Trade Checker (TypeScript)")); w.restore(); w.close(); });
+    await app.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows().find((x) => x.getTitle().startsWith("PoE Price & Trade Checker")); w.restore(); w.close(); });
     await Promise.race([gone, wait(15000).then(() => { throw new Error("the program did not exit"); })]);
     opened.length = 0;
   }, 120000);
@@ -409,7 +409,7 @@ describe("C) tray and the X button", () => {
   it("Show from the tray / a second start brings the hidden window back", async () => {
     const sbx = sandbox();
     const { app } = await start(sbx, { game: "poe2" });
-    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.getTitle().startsWith("PoE Price & Trade Checker (TypeScript)")).close());
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.getTitle().startsWith("PoE Price & Trade Checker")).close());
     await wait(400);
     expect(await hook(app, "mainVisible")).toBe(false);
     // a second start of the program: it exits at once and the first one shows its window

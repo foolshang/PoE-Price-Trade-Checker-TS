@@ -254,3 +254,6 @@
 
 ## (16) The hub's public alias file (2026-10-19, v1.0.0-rc.10)
 - Aliases from `{game}/aliases/latest.json` (SPEC 8.12), `stat_aliases` + `stat_groups` from it (no more guessing in dictionary.json), the bundled snapshot is the real file, the hub's 49 contract cases pass, the meta check is in `meta_rows.test.ts`. docs/PHASE5.md Addendum 9.
+
+## (17) Before v1.0.0: held keys, game in front, no "(TypeScript)" (2026-10-20, v1.0.0-rc.13)
+- A held F5 / F4 runs once (`RepeatGuard`, watched only after the action: a timer made inside the hotkey callback took the keyboard focus away from the popup); F5 / F4 send no key unless a Path of Exile window (or our own) is in front; "(TypeScript)" removed from every visible name (internal names kept; rc.10 -> rc.11 install checked: same folders, no duplicate shortcuts, settings kept); popup / F4 window hand the focus back and wait for it before closing; README draft checked against the real UI; CHANGELOG 1.0.0 drafts; the old repo's release guard applied and pushed (its commit 8d14eeb, no tag). docs/PHASE5.md Addendum 10.

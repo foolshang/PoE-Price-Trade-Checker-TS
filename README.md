@@ -1,4 +1,4 @@
-# PoE Price & Trade Checker (TypeScript)
+# PoE Price & Trade Checker
 
 TypeScript + Electron rewrite of the Python PoE Price & Trade Checker and Filter Generator.
 Work in progress (phase 0: plan only, no code converted yet).

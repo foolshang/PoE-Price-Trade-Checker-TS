@@ -125,7 +125,7 @@ describe("B) start-up", () => {
     const sbx = sandbox();
     const { app, page } = await start(sbx);
     const ver = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf-8")).version;
-    expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getTitle())).toBe(`PoE1 & PoE2 Filter Generator (TypeScript) v${ver}`);
+    expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].getTitle())).toBe(`PoE1 & PoE2 Filter Generator v${ver}`);
     const lines = (await page.locator("#log").innerText()).split("\n");
     expect(lines[0]).toBe(`PoE Filter Generator v${ver} — config: ${sbx.configDir}`);
     expect(await page.locator("#ver").innerText()).toContain(ver);

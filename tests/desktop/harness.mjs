@@ -26,7 +26,7 @@ export function sandbox() {
 
 /** Launch the app. `exe` = an unpacked exe (the packaged app); without it the build output runs under the electron of node_modules. */
 export async function launch(sbx, { exe = process.env.PFG_EXE, extraEnv = {}, chromiumArgs = [], appDir = APP_DIR } = {}) {
-  const env = { ...process.env, LOCALAPPDATA: sbx.local, POE_FILTERGEN_DOCUMENTS: sbx.docs, POE_CHECKER_DOCUMENTS: sbx.docs, POE_CHECKER_TEST: "1", ...extraEnv };
+  const env = { ...process.env, LOCALAPPDATA: sbx.local, POE_FILTERGEN_DOCUMENTS: sbx.docs, POE_CHECKER_DOCUMENTS: sbx.docs, POE_CHECKER_TEST: "1", POE_CHECKER_ANY_FRONT: "1", ...extraEnv }; // (ANY_FRONT: the tests press F4 / F5 over a plain window; a test of the "game in front" rule passes "")
   delete env.ELECTRON_RUN_AS_NODE;
   const opts = exe ? { executablePath: exe, args: [...chromiumArgs], env } : { args: [appDir, ...chromiumArgs], env };
   const app = await electron.launch(opts);

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "main": "out/main/index.cjs",
-  "description": "PoE Price & Trade Checker (TypeScript)",
+  "description": "PoE Price & Trade Checker",
   "author": "foolshang",
   "scripts": {
     "dev": "electron-vite dev",

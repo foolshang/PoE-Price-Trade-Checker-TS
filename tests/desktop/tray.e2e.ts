@@ -16,7 +16,7 @@ import { bringTitleToFront, openGame } from "../checker/standin_game.mjs";
 const ROOT = path.resolve(import.meta.dirname, "..", "..");
 const exe = process.env.PFG_EXE;
 const ver = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf-8")).version;
-const TITLE = `PoE1 & PoE2 Filter Generator (TypeScript) v${ver}`;
+const TITLE = `PoE1 & PoE2 Filter Generator v${ver}`;
 const opened = [];
 const extra = [];
 const root = fs.mkdtempSync(path.join(os.tmpdir(), "pfg-fgtray-"));
@@ -47,7 +47,7 @@ describe("About", () => {
     await page.click("#btn-about");
     const win = page.locator("#about-window");
     await win.waitFor({ state: "visible" });
-    expect(await win.innerText()).toContain("PoE1 & PoE2 Filter Generator (TypeScript)");
+    expect(await win.innerText()).toContain("PoE1 & PoE2 Filter Generator");
     expect(await page.locator("#about-version").innerText()).toBe(`เวอร์ชัน ${ver}`);
     expect(await page.locator("#about-link").getAttribute("href")).toBe("https://github.com/foolshang/PoE-Filter-Generator");
     const versions = await page.locator(".about-entry").evaluateAll((es) => es.map((e) => e.dataset.version));

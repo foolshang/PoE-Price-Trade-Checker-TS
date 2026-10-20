@@ -109,7 +109,7 @@ describe("A) About", () => {
     await page.click("#btn-about");
     const win = page.locator("#about-window");
     await win.waitFor({ state: "visible" });
-    expect(await win.innerText()).toContain("PoE Price & Trade Checker (TypeScript)");
+    expect(await win.innerText()).toContain("PoE Price & Trade Checker");
     expect(await page.locator("#about-version").innerText()).toBe(`เวอร์ชัน ${ver}`);
     expect(await page.locator("#about-link").getAttribute("href")).toBe(REPO);
     const versions = await page.locator(".about-entry").evaluateAll((es) => es.map((e) => e.dataset.version));
@@ -134,7 +134,7 @@ describe("A) About", () => {
     expect(await page.locator("#about-newer").innerText()).toContain("รุ่นใหม่ v9.9.9");
     expect(await page.locator("#about-newer").innerText()).toContain("แก้บั๊ก A");
     // a click outside the program window: another program comes to the front (the window had the focus before, as it does when the player clicks in it)
-    await bringTitleToFront(`PoE Price & Trade Checker (TypeScript) v${ver}`);
+    await bringTitleToFront(`PoE Price & Trade Checker v${ver}`);
     const other = await openGame("poe1", gamesRoot, { folder: "elsewhere", title: "Some Other Program" });
     extra.push(() => other.close());
     await other.front();
@@ -179,7 +179,7 @@ describe("A) the red dot and the details window", () => {
     await hook(app, "showMain");
     await win.waitFor({ state: "visible", timeout: 10000 });
     expect(await page.locator("#details-update").count()).toBe(0);
-    await bringTitleToFront(`PoE Price & Trade Checker (TypeScript) v${ver}`);
+    await bringTitleToFront(`PoE Price & Trade Checker v${ver}`);
     const other = await openGame("poe2", gamesRoot, { folder: "elsewhere2", title: "Some Other Program 2" });
     extra.push(() => other.close());
     await other.front();
