@@ -261,3 +261,6 @@
 ## (18) v1.0.0 (2026-10-21)
 - Last fix before the release: a held F5 ran twice on a real keyboard (rc.13 log: the second run 9 ms after the popup). `RepeatGuard` now frees a hotkey only when the key is seen up AND no press came for 0.7 s (every repeat renews the quiet time), logs every decision, and the mouse position is read first in the hotkey callback (the native calls are loaded at start). Checked by Winai on rc.15: held 8 times, one run each. e2e 129/129 + 44/44, live.mjs, npm test 6,390.
 - Release: version 1.0.0, CHANGELOG 1.0.0 (Thai, what the player sees), release/README_public.md from the checked draft, tag v1.0.0. The old repo's release workflow was already stopped from publishing (its commit 8d14eeb).
+
+## (19) v1.0.0 released (2026-10-21)
+- Tag v1.0.0, release run green (build, web, publish); both releases Latest, README updated, web-1.0.0 live; the real Setups installed on the test machine (titles v1.0.0, no duplicate shortcuts, settings kept). An rc build cannot update itself to the stable 1.0.0 (electron-updater channel rule); the test machine was moved by hand. docs/PHASE5.md Addendum 11, PLAN phase 5 = done.

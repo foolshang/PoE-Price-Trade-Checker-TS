@@ -10,7 +10,7 @@ repo at v0.13.5, local experiments); estimates are marked as estimates.
 | 2 | Web page on core TS (no Pyodide), live at the site root (old page in `/legacy/`) | done 2026-10-17 (docs/PHASE2.md, docs/DEPLOY.md); Winai tested the live page |
 | 3 | Filter Generator on Electron | built as a one-click installer and tested 2026-10-18 (v1.0.0-beta.6), waiting for Winai's test; auto-update (electron-updater), a no-install zip and README / release asset names are decided when the release is prepared (docs/PHASE3.md) |
 | 4 | F4 skill reference + F5 trade (hotkeys, Ctrl+C, clipboard) | built and tested 2026-10-18; copy round-fix 2026-10-18 (v1.0.0-beta.10), waiting for Winai in the game (docs/PHASE4.md) |
-| 5 | Checker complete, replaces the original | part A built and tested 2026-10-18 (docs/PHASE5.md); part B1 (release workflow + prerelease test) done 2026-10-19; stat id matching fixed without guessing 2026-10-19 (Addendum 4, v1.0.0-rc.4; first in-game F5 fixes (reminder lines, Unscalable Value, multi-line mods, popup X log, updater log, Alt release + key log) in rc.6; item labels, multi-line reminders, quiet block probe in rc.7; real PoE2 item texts, property lines in rc.9; held keys, game in front, names without (TypeScript), release drafts in rc.13); the real release (tag v1.0.0) waits for Winai and for the hub deploy check |
+| 5 | Checker complete, replaces the original | **done 2026-10-21: v1.0.0 released** (tag v1.0.0; Filter Generator release on foolshang/PoE-Filter-Generator = Latest, Checker release on foolshang/PoE-Price-Trade-Checker-TS = Latest, public README updated, web page web-1.0.0; details docs/PHASE5.md Addendum 11, history.md (19)) |
 
 ## C. Project structure (proposal)
 
