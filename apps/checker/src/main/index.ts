@@ -319,7 +319,7 @@ async function onF5(): Promise<void> {
   if (frontIsNotAGame("F5")) return;
   f5Busy = true;
   gameOfKeyPress();
-  const pressPoint = screen.getCursorScreenPoint(); // the popup goes where the mouse was when the key was pressed
+  const pressPoint = mouseAtPress(); // the popup goes where the mouse was when the key was pressed
   const gameWindow = foregroundToReturnTo(); // and the focus goes back there when it is closed
   try {
     const gv = game;
@@ -947,12 +947,17 @@ const hotkeyActions: Record<HotkeyField, () => void | Promise<void>> = {
 let registered: Partial<Record<HotkeyField, string>> = {}; // field -> the hotkey registered for it (canonical text)
 
 /** Register `specs` (field -> canonical text); the fields that could not be registered are returned with the reason. */
+/** where the mouse was when a hotkey came in (read before anything else is done) */
+let pressed: { point: Electron.Point; at: number } | null = null;
+const mouseAtPress = (): Electron.Point => (pressed && Date.now() - pressed.at < 2000 ? pressed.point : screen.getCursorScreenPoint());
+
 // a held hotkey repeats: only the first press runs, until the key has been let go (F5 held for 9 s ran 37 times)
 const repeatGuard = new RepeatGuard({
   isDown: (vk) => { try { return isKeyDown(vk); } catch { return false; } },
   setTimer: (fn, ms) => { const t = setTimeout(fn, ms); t.unref?.(); return t; },
   clearTimer: (h) => clearTimeout(h as NodeJS.Timeout),
   now: () => Date.now(),
+  log: (line) => fileLog("INFO", line),
 });
 
 function registerAll(specs: Record<HotkeyField, string>): Partial<Record<HotkeyField, string>> {
@@ -967,6 +972,7 @@ function registerAll(specs: Record<HotkeyField, string>): Partial<Record<HotkeyF
     try {
       const vk = hotkeyVk(p.hotkey.key);
       ok = globalShortcut.register(p.hotkey.accelerator, () => {
+        pressed = { point: screen.getCursorScreenPoint(), at: Date.now() }; // (first thing: where the mouse is NOW; the popup opens there)
         if (!repeatGuard.accept(f, vk)) return;
         // the key is watched once the action is over (see hotkey_guard.ts); an action that throws still frees it
         void Promise.resolve().then(() => hotkeyActions[f]()).catch((e: Error) => fileLog("ERROR", `hotkey ${f}: ${e.message}`)).finally(() => repeatGuard.finished(f));
@@ -1270,6 +1276,7 @@ if (!gotLock) {
     const sz = screen.getPrimaryDisplay().size;
     say(`v${VERSION} · ${game.toUpperCase()} · league: ${league} · จอ ${sz.width}×${sz.height}`, "dim");
     await refreshReserved(); // (the copy keys of the game: no hotkey of the program may be one of them)
+    try { isKeyDown(0x74); } catch { /* the native calls are loaded now, not in the middle of the first F5 */ }
     startHotkeys();
     startGamePoll();
     const hk = currentHotkeys();

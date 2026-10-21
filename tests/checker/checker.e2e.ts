@@ -565,6 +565,22 @@ describe("J) a held F5, and F5 / F4 only with a game in front", () => {
     expect(keyLines(sbx).length).toBe(2);
   }, 180000);
 
+  it("F5 held with a slow repeat (one every 360 ms, like the log of a real keyboard) runs once; every decision is in the log", async () => {
+    const sbx = sandbox();
+    const { app } = await start(sbx, { game: "poe1" });
+    const box = await openTextBox(path.join(ITEMS, "poe1_rare_body.txt"), "PFG-TEST-BOX-SLOW");
+    extra.push(() => box.close());
+    await holdKey("F5", { repeats: 6, intervalMs: 360 });
+    const w = await windowWith(app, "picker.html");
+    await w.waitForSelector(".p-row, .p-head");
+    for (let i = 0; i < 100 && !/free again/.test(fs.readFileSync(path.join(sbx.checkerDir, "log.txt"), "utf-8")); i++) await wait(100); // (the key is let go after ~2 s, the hotkey is free 0.7 s later)
+    expect(keyLines(sbx).length).toBe(1);
+    const log = fs.readFileSync(path.join(sbx.checkerDir, "log.txt"), "utf-8");
+    expect(log).toMatch(/hotkey hotkey_trade: new press \(key (down|up)\)/);
+    expect(log).toMatch(/hotkey hotkey_trade: repeat ignored \(\+\d+ ms since the last press, key (down|up), \d+ so far\)/);
+    expect(log).toMatch(/hotkey hotkey_trade: free again \(key up, quiet \d+ ms, held \d+ ms, \d+ repeats ignored\)/);
+  }, 180000);
+
   it("a window that is not a game in front (a plain window): no key is sent to it, the Status says which window is in front", async () => {
     const sbx = sandbox();
     const { page } = await start(sbx, { game: "poe1", env: { POE_CHECKER_ANY_FRONT: "" } });

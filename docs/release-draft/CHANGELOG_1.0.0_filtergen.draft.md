@@ -2,7 +2,7 @@
      above the rc sections, with the real date. -->
 ## 1.0.0 - <วันที่ปล่อย>
 
-รุ่นแรกที่ปล่อยจริงของ PoE1 & PoE2 Filter Generator บน Electron (แทนโปรแกรม Python เดิม — ผลลัพธ์ filter เหมือนเดิมทุกไบต์)
+รุ่นแรกที่ปล่อยจริงของ PoE1 & PoE2 Filter Generator บน Electron (แทนโปรแกรม Python เดิม — ผลลัพธ์ filter เหมือนเดิม)
 
 - **สร้าง loot filter ได้ 2 แบบในหน้าต่างเดียว** ทั้ง PoE1 และ PoE2: **NeverSink** (ใช้ tier ของ NeverSink ตรงๆ เลือก Strictness 0–6 ตั้งเสียงแจ้งเตือนเองได้ 6 ช่อง) และ **Whitelist** (โชว์เฉพาะที่คุณเลือกเป็น tier S / A / B / C ที่เหลือซ่อน ปรับสไตล์ เสียง จำนวนขั้นต่ำได้ทีละชิ้นหรือทีละหมวด)
 - **ติดตั้งคลิกเดียว** (ไม่ถามสิทธิ์ admin) หรือ **zip แตกแล้วรัน** — ค่าที่ตั้งเก็บใน `%LOCALAPPDATA%\PoeFilterGenTS` ไม่เขียนอะไรในโฟลเดอร์ที่แตก zip
