@@ -131,7 +131,7 @@ async function loadLists(force: boolean): Promise<void> {
     let hub = null, base: string | null = null, tag: string | null = null, names: string[] | null = null, from = "";
     let added: Record<string, string> | null = null;
     if (lg) {
-      try { hub = await getHub(g, lg.path); } catch (e: any) { log(`⚠ ดึง hub ไม่ได้ (${lg.label}): ${e.message}`, "warn"); } // no list from the hub; never another league's
+      try { hub = await getHub(g, lg.listPath); } catch (e: any) { log(`⚠ ดึง hub ไม่ได้ (${lg.label}): ${e.message}`, "warn"); } // no list from the hub; never another league's
     }
     try { [base, tag] = await fetchBase(g, 2, !!force); } catch (e: any) { log(`⚠ ดึง NeverSink base filter ไม่ได้: ${e.message}`, "warn"); }
     if (!base) log("⚠ ไม่มี NeverSink base filter (GitHub ล่ม + ไม่มี cache) — รายการ tier เริ่มต้นไม่ครบ", "warn");
@@ -145,7 +145,7 @@ async function loadLists(force: boolean): Promise<void> {
     if (stale) return;
     S.data = { hub, base, baseTag: tag, names, namesFrom: from, added, leaguePath: lg ? lg.path : null };
     logAll(S.api.wlLoad(hub, base || "", names, added));
-    if (lg) log(`ลีกของรายการ hub: ${lg.label}${hub ? "" : " (ไม่มีรายการจาก hub)"}`, "info");
+    if (lg) log(`ลีกที่เลือก: ${lg.label} · แหล่งรายชื่อไอเท็ม: ${lg.listPath}${hub ? "" : " (ไม่มีรายการจาก hub)"}`, "info");
     if (from) log(`รายชื่อไอเท็มจริง: ${from === "snapshot" ? "จาก snapshot ที่มากับหน้านี้" : "จากข้อมูล trade ของ GGG"}${tag ? ` · NeverSink ${tag}` : ""}`, "info");
     tabWl.reload();
     tabNs.showTag(game);
@@ -218,7 +218,7 @@ async function generate(mode: "tier" | "whitelist", refresh: boolean): Promise<b
         return false;
       }
       ({ hub, base, baseTag: tag, names, added } = S.data);
-      log(`ℹ ลีกที่ใช้กับรายการของ hub: ${S.league ? `${S.league.label} (${S.league.path})` : "-"}`, "info");
+      log(`ℹ ลีกที่เลือก: ${S.league ? S.league.label : "-"} · แหล่งรายชื่อไอเท็ม: ${S.league ? S.league.listPath : "-"}`, "info");
       if (!base) {
         log("⚠ ไม่มี NeverSink base filter — whitelist ไม่มี tier เริ่มต้น ไม่ generate", "warn");
         return false;
