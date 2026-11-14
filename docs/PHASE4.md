@@ -1,5 +1,8 @@
 # Phase 4 - the Checker: F4 skill reference + F5 trade (`apps/checker`)
 
+> **Current status (v1.0.0, released 2026-10-21):** this phase is part of the released programs. The text below is the state when the phase was written (betas, no release yet);
+> what shipped and what changed since is in docs/PHASE5.md, **Addendum 11**. The visible window titles no longer contain "(TypeScript)".
+
 Status: built as a one-click installer (`dist-checker\PoE-Price-Trade-Checker-TS-Setup-<version>.exe`, now v1.0.0-beta.9) and tested here; waiting for
 Winai's test in the game. **No release, no tag** (decided by Winai: nothing is released until every phase is done; then one release replaces
 the original - Filter Generator and Checker together). Title bar: `PoE Price & Trade Checker (TypeScript) v<version>`.

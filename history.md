@@ -1,7 +1,94 @@
 # PoE Price & Trade Checker (TypeScript) - History
 
 > Entry format: date - summary - files touched - status / open problems.
-> Newest entry on top.
+> Newest entry on top. Heading: `## YYYY-MM-DD (n) - title`, n = the order of the entry within its day (1 = the first).
+
+---
+
+## 2026-11-14 (1) - v1.0.1 preparation: hub schema guards, one hub address, documents brought up to date (committed, no tag, no release, version not bumped yet)
+
+- `parity:check` first: ok, 5,567 cases give the committed goldens (the original is at 8d14eeb = the release guard, goldens made at 26e29f6; the original's `git status` stayed clean).
+- Hub files are read only with the schema_version this code knows: prices / events / hardcore 2 (`getPrices` throws like a hub failure), `prices/index.json` 1 (null -> the latest.json fallback), `meta/latest.json` 2 (null -> a valid disk cache -> else no badges; a disk cache with another or no schema is ignored and never overwritten by a bad download), `gems.json` 1 (empty gem list). The warning names the file, the expected and the found version (`missing` when absent). New `packages/core/src/hub_schema.ts`, `packages/core/test/hub_schema.test.ts` (right / wrong / absent for each file). The live hub was read once to check the versions: index.json is **1** (SPEC 8.1b), not 2.
+- `HubClient.getGems` removed (no caller anywhere). `filterService.generateFilter` was NOT removed: no program code calls it, but ~20 tests and the shared `generate()` helper of six whitelist test files run through it (waiting for Winai's decision).
+- The hub address is written once (`HUB_BASE_URL`, core); `ui/data.ts`, `desktop/guard.ts` (same host and prefix) and the vite `/__hub` proxy read it.
+- Documents: history.md reordered (newest on top, `date (n)` headings, n counted per day); README.md; CLAUDE.md title bar; PHASE3/4/5 current-status lines; PLAN.md sections C/F marked decided; `docs/release-draft/` -> `docs/archive/release-draft/`; new `apps/web/CHANGELOG.md`.
+- Files: packages/core/src/{hub_schema,hub_client,mod_badge,index}.ts, packages/{ui,desktop}/src/{data,guard}.ts, apps/web/vite.config.ts, tests (hub_schema, net_clients, parity item_runner stub gets schema_version 2), docs.
+- Tests run: `npm test` all pass after the stub fix (6,410 incl. the new ones), typecheck and lint clean. Not run: e2e (installed exe), web ui tests.
+
+---
+
+## 2026-10-21 (2) - v1.0.0 released
+
+- Tag v1.0.0, release run green (build, web, publish); both releases Latest, README updated, web-1.0.0 live; the real Setups installed on the test machine (titles v1.0.0, no duplicate shortcuts, settings kept). An rc build cannot update itself to the stable 1.0.0 (electron-updater channel rule); the test machine was moved by hand. docs/PHASE5.md Addendum 11, PLAN phase 5 = done.
+
+---
+
+## 2026-10-21 (1) - v1.0.0
+
+- Last fix before the release: a held F5 ran twice on a real keyboard (rc.13 log: the second run 9 ms after the popup). `RepeatGuard` now frees a hotkey only when the key is seen up AND no press came for 0.7 s (every repeat renews the quiet time), logs every decision, and the mouse position is read first in the hotkey callback (the native calls are loaded at start). Checked by Winai on rc.15: held 8 times, one run each. e2e 129/129 + 44/44, live.mjs, npm test 6,390.
+- Release: version 1.0.0, CHANGELOG 1.0.0 (Thai, what the player sees), release/README_public.md from the checked draft, tag v1.0.0. The old repo's release workflow was already stopped from publishing (its commit 8d14eeb).
+
+---
+
+## 2026-10-20 (1) - Before v1.0.0: held keys, game in front, no "(TypeScript)" (v1.0.0-rc.13)
+
+- A held F5 / F4 runs once (`RepeatGuard`, watched only after the action: a timer made inside the hotkey callback took the keyboard focus away from the popup); F5 / F4 send no key unless a Path of Exile window (or our own) is in front; "(TypeScript)" removed from every visible name (internal names kept; rc.10 -> rc.11 install checked: same folders, no duplicate shortcuts, settings kept); popup / F4 window hand the focus back and wait for it before closing; README draft checked against the real UI; CHANGELOG 1.0.0 drafts; the old repo's release guard applied and pushed (its commit 8d14eeb, no tag). docs/PHASE5.md Addendum 10.
+
+---
+
+## 2026-10-19 (8) - The hub's public alias file (v1.0.0-rc.10)
+
+- Aliases from `{game}/aliases/latest.json` (SPEC 8.12), `stat_aliases` + `stat_groups` from it (no more guessing in dictionary.json), the bundled snapshot is the real file, the hub's 49 contract cases pass, the meta check is in `meta_rows.test.ts`. docs/PHASE5.md Addendum 9.
+
+---
+
+## 2026-10-19 (7) - Real PoE2 item texts, no property rows (v1.0.0-rc.9)
+
+- 27 PoE2 item texts from Exiled-Exchange-2 as fixtures (credit in the folder); the no-header fallback skips property lines and reads no mods from gems / currency; every other mod resolves or is a real gap shown as "?". docs/PHASE5.md Addendum 8.
+
+---
+
+## 2026-10-19 (6) - F8 refuses the program's own copy keys (v1.0.0-rc.8)
+
+- Hotkeys that equal what F5 presses to make the game copy (PoE1 Ctrl+C; PoE2 Ctrl + the game's advanced-description key, read from the ini each time F8 opens, + C) are refused with the reason, and listed in the settings page. docs/PHASE5.md Addendum 7. Raw PoE2 texts (Sanctified, augment, Grants Skill, Note) are still wanted from the player for the "no gray non-mod row" test.
+
+---
+
+## 2026-10-19 (5) - Labels of the item (v1.0.0-rc.7)
+
+- Sections are classified before they are read: label lines (Searing Exarch Item, Fractured Item, Mirrored ...) are never mods; influences kept in `ParsedItem.influences`; multi-line reminders skipped; the "mod without a stat id" log is for the final misses only. PoE1 sends the reminder lines with plain Ctrl+C itself (no Alt). Details: docs/PHASE5.md Addendum 6.
+
+---
+
+## 2026-10-19 (4) - First in-game F5 findings (v1.0.0-rc.6)
+
+- Reminder lines are not mods; ` — Unscalable Value` is cut; multi-line mods are matched as a block first (hub order) and shown as one row; the popup's X is logged as the player's and gives the focus back; "No published versions" is one info line; every copy chord releases Shift/Alt first and each F5 logs modifiers before/after, the events sent and how the text begins. Details: docs/PHASE5.md Addendum 5. The cause of the Alt in PoE1 is not proven yet.
+
+---
+
+## 2026-10-19 (3) - e2e: no silent skips
+
+- `tests/checker/installed.mjs`: the installed Checker is found at the normal per-user path when PFG_CHECKER_EXE is not set; a missing exe / feed / zip now FAILS the group with the reason. A skip only with E2E_ALLOW_SKIP=1.
+- Applies to the only two `skipIf` groups: `update.e2e.ts` B) (9 tests, were skipped without PFG_CHECKER_EXE) and `zip.e2e.ts` (2 tests). The other e2e files run the build output when no exe is given - that is a mode, not a skip.
+
+---
+
+## 2026-10-19 (2) - Stat id without guessing (v1.0.0-rc.4)
+
+- Removed the difflib guessing of `find_stat_id` and of the badge dictionary fallback (the hub measured 92% of its guesses wrong). New `stat_match.ts` / `rendering_aliases.ts` (ports of the rules of the hub ModNormalizer and of its AliasIndex), `ModDatabase.lookup/findStatId`, `ModBadgeDB.badgeState`, a no-data marker in the F5 popup, a bundled alias snapshot, once-only log lines.
+- Measured: 0 differences from the real normalizer of the hub on 120,000 texts (hub rules only); 0 wrong against RePoE (PoE1 16,173 wordings, PoE2 686) with the one addition described in docs/PHASE5.md Addendum 4 (the hub rules alone: 3 wrong).
+- 434 of 5,586 parity cases changed on purpose and are listed and explained; the F5 end-to-end oracle answers stat ids from a table.
+- Not done / waiting: the alias file and `stat_aliases` are not published by the hub yet; no tag v1.0.0.
+
+---
+
+## 2026-10-19 (1) - Part B1 - release workflow tested with prereleases
+
+- Added `.github/workflows/release.yml`, `tools/check-release.mjs`, `release/update_public_readme.sh`; `deploy-web.yml` can be called by the release.
+- Test-only env variables now need `POE_CHECKER_TEST=1` too. Removed a local path from a bundled comment (+ test).
+- Real GitHub test found that `autoUpdater.channel` hid pre-releases from installed betas; fixed in both updaters, Checker feed file renamed `latest.yml`.
+- Test prereleases v1.0.0-rc.1 / rc.3 released and deleted in both repos; Latest (v0.13.5), README and web untouched. Installed rc.2 -> rc.3 updated itself from GitHub in both programs.
+- No v1.0.0 tag. Waiting for Winai: README draft, old-repo diff, the order to release.
 
 ---
 
@@ -56,6 +143,8 @@
   import report in the Checker's Status. Part B drafts in docs/release-draft/.
 - Bugs found and fixed on the way: concurrent `AppConfig.save()`, F5 popup "Object has been destroyed", shared preload chunk. Details: docs/PHASE5.md.
 
+---
+
 ## 2026-10-18 (5) - phase 4 bug fix: window flash on F5 / popup close, v1.0.0-beta.10 (committed, no tag, no release)
 
 - Cause (docs/PHASE4.md): closing the popup (or the F4 window) while it held the focus made Windows give the focus to the Checker's main window, which jumped up over
@@ -63,6 +152,8 @@
 - New in log.txt: the popup's life (shown at, hide / blur, who closed it, covered-by check at +150 / +600 / +1500 ms, raised again when covered).
 - Tests: e2e 53 (new: M no window but the popup shows during F5, N focus back after Esc / Enter, O F4 window, picture on the clipboard). Dev tool: tests/checker/probe_windows.mjs.
 - Not proven: why only PoE1 for Winai; the real game's focus rules.
+
+---
 
 ## 2026-10-18 (4) - phase 4 round-fix: how F5 copies, v1.0.0-beta.9 (committed, no tag, no release)
 
@@ -75,6 +166,8 @@
 - Tests: copy.test.ts (24), item_lang.test.ts (14), e2e 45 (23 new: real key sequences, stuck keys, clipboard, 10 languages, popup position).
   A leftover INSTALLED Checker (beta.8) held F5 and made nearly every e2e case fail until it was closed - close the running Checker before `test:checker`.
 - PLAN.md P5: hotkey clash rules for the settings window, full Thai support is post-release work.
+
+---
 
 ## 2026-10-18 (3) - phase 4: the Checker with F4 skill reference + F5 trade (`apps/checker`), v1.0.0-beta.8 (committed, no tag, no release)
 
@@ -109,7 +202,7 @@
 
 ---
 
-## 2026-10-18 - phase 3: Filter Generator on Electron (`apps/filtergen`), v1.0.0-beta.3 (committed, no tag, no release)
+## 2026-10-18 (1) - phase 3: Filter Generator on Electron (`apps/filtergen`), v1.0.0-beta.3 (committed, no tag, no release)
 
 - `packages/ui` got one seam (`platform.ts`: network, names, store backend, game folder, desktop-only rows); the web page is unchanged
   (ui.mjs 119/119, web e2e 39/39). `apps/filtergen`: main / preload / renderer, `packages/node/src/config.ts` (AppConfig + one-time import
@@ -127,7 +220,7 @@
 
 ---
 
-## 2026-10-17 (7) - original's deploy job patched; verify step waits for the Pages build
+## 2026-10-17 (8) - original's deploy job patched; verify step waits for the Pages build
 
 - Original repo (c.f. its history.md): `deploy-web.yml` now writes only `legacy/` (commit 26e29f6, no tag). A manual run
   (`tag=v0.13.5`) succeeded: "legacy/ already up to date", live `/legacy/` reports 0.13.5; gh-pages blob list before/after
@@ -138,7 +231,7 @@
 
 ---
 
-## 2026-10-17 (6) - TS web page is live at the root; old page in /legacy/
+## 2026-10-17 (7) - TS web page is live at the root; old page in /legacy/
 
 - `RELEASE_TOKEN` fixed by Winai; `deploy-web.yml` pushed gh-pages (the workflow's own verify step timed out because Pages was
   still building; the page was live a few minutes later). gh-pages: 25 files before (old page at the root) -> 31 after
@@ -151,7 +244,7 @@
 
 ---
 
-## 2026-10-17 (5) - deploy retried: still 403; patch for the original's deploy job written (not applied)
+## 2026-10-17 (6) - deploy retried: still 403; patch for the original's deploy job written (not applied)
 
 - Second deploy run (16:05 UTC, after `RELEASE_TOKEN` was updated at 16:05:22): same 403 on push; gh-pages unchanged (25 files).
 - `docs/legacy-deploy.patch`: proposed change to the original's `deploy-web.yml` (write only `legacy/`, normal push, no force,
@@ -159,7 +252,7 @@
 
 ---
 
-## 2026-10-17 (4) - web deploy workflows; first real deploy stopped (403 on push)
+## 2026-10-17 (5) - web deploy workflows; first real deploy stopped (403 on push)
 
 - Added `.github/workflows/deploy-web.yml` (manual; first run moves the old page to `/legacy/`, then replaces the root web
   files, nothing else), `rollback-web.yml` (manual, `confirm=ROLLBACK`), `docs/DEPLOY.md`.
@@ -171,7 +264,7 @@
 
 ---
 
-## 2026-10-17 (3) - phase 2: web page on the TS core, no Pyodide (committed, no tag, not deployed)
+## 2026-10-17 (4) - phase 2: web page on the TS core, no Pyodide (committed, no tag, not deployed)
 
 - `packages/ui` (all UI, reused by Electron in phase 3), `apps/web` (Vite), `tests/web`, `tools/refresh-names*.ts`
   (`npm run names:refresh`), version `1.0.0-beta.1`. Details, run commands and results: `docs/PHASE2.md`.
@@ -185,7 +278,7 @@
 
 ---
 
-## 2026-10-17 (2) - phase 1 done: filter core in TypeScript, byte parity with the original (not committed to a release, no tag)
+## 2026-10-17 (3) - phase 1 done: filter core in TypeScript, byte parity with the original (not committed to a release, no tag)
 
 - `packages/core`: filter_style, filter_gen, filter_core, filter_whitelist, wl_embed, wl_model, wl_import, wl_session,
   filter_service, filter_output, hub_client, neversink_source, trade_names (+ `py.ts` Python-semantics helpers);
@@ -199,7 +292,9 @@
 - Left for later phases: Tk-only tests (replaced by Playwright), web glue/parity tests (phase 2), parser/badge/meta tests (phase 4).
 - The original folder and repo were not modified (checked with `git status` before and after every golden run).
 
-## 2026-10-17 - phase 1 started; decisions of Winai on the phase 0 questions
+---
+
+## 2026-10-17 (2) - phase 1 started; decisions of Winai on the phase 0 questions
 
 - Decisions: (1) npm workspaces; (2) `packages/ui` and `packages/node` accepted; (3) two exes; (4) `v1.0.0-beta.N` -> `v1.0.0`;
   (5) web staged at `/ts/`, Winai adds `RELEASE_TOKEN` to this repo himself when the release phase comes; (6) config in
@@ -209,7 +304,9 @@
 - Tooling: TypeScript **6.0.3**, not 7.0.2: `typescript-eslint` 8.71.2 declares peer `typescript >=4.8.4 <6.1.0` (npm ERESOLVE
   with 7.x); vitest 5.0.5 runs with 7.x but lint is wanted, so the whole repo is on 6.0.3 until typescript-eslint supports 7.
 
-## 2026-10-17 - phase 0: skeleton, survey of the Python original, plan (nothing converted)
+---
+
+## 2026-10-17 (1) - phase 0: skeleton, survey of the Python original, plan (nothing converted)
 
 - Created `D:\Projects\PoE_Price-Trade_Checker_TS` and the public repo `foolshang/PoE-Price-Trade-Checker-TS`
   ("PoE Price & Trade Checker (TypeScript)"). Skeleton only: `CLAUDE.md`, `docs/PLAN.md`, `docs/CONVERSION.md`,
@@ -222,45 +319,3 @@
   measured); web origin data (localStorage key `poeFilterGen.cfg`, IndexedDB `poe-filter-gen` v2) must stay compatible;
   the original drops unknown `config.json` keys on save, so two apps should not share one file.
 - Status: waiting for Winai's decisions (docs/PLAN.md section F). Next: phase 1 after approval.
-
-## (9) Part B1 - release workflow tested with prereleases (2026-10-19)
-- Added `.github/workflows/release.yml`, `tools/check-release.mjs`, `release/update_public_readme.sh`; `deploy-web.yml` can be called by the release.
-- Test-only env variables now need `POE_CHECKER_TEST=1` too. Removed a local path from a bundled comment (+ test).
-- Real GitHub test found that `autoUpdater.channel` hid pre-releases from installed betas; fixed in both updaters, Checker feed file renamed `latest.yml`.
-- Test prereleases v1.0.0-rc.1 / rc.3 released and deleted in both repos; Latest (v0.13.5), README and web untouched. Installed rc.2 -> rc.3 updated itself from GitHub in both programs.
-- No v1.0.0 tag. Waiting for Winai: README draft, old-repo diff, the order to release.
-
-## (10) Stat id without guessing (2026-10-19, v1.0.0-rc.4)
-- Removed the difflib guessing of `find_stat_id` and of the badge dictionary fallback (the hub measured 92% of its guesses wrong). New `stat_match.ts` / `rendering_aliases.ts` (ports of the rules of the hub ModNormalizer and of its AliasIndex), `ModDatabase.lookup/findStatId`, `ModBadgeDB.badgeState`, a no-data marker in the F5 popup, a bundled alias snapshot, once-only log lines.
-- Measured: 0 differences from the real normalizer of the hub on 120,000 texts (hub rules only); 0 wrong against RePoE (PoE1 16,173 wordings, PoE2 686) with the one addition described in docs/PHASE5.md Addendum 4 (the hub rules alone: 3 wrong).
-- 434 of 5,586 parity cases changed on purpose and are listed and explained; the F5 end-to-end oracle answers stat ids from a table.
-- Not done / waiting: the alias file and `stat_aliases` are not published by the hub yet; no tag v1.0.0.
-
-## (11) e2e: no silent skips (2026-10-19)
-- `tests/checker/installed.mjs`: the installed Checker is found at the normal per-user path when PFG_CHECKER_EXE is not set; a missing exe / feed / zip now FAILS the group with the reason. A skip only with E2E_ALLOW_SKIP=1.
-- Applies to the only two `skipIf` groups: `update.e2e.ts` B) (9 tests, were skipped without PFG_CHECKER_EXE) and `zip.e2e.ts` (2 tests). The other e2e files run the build output when no exe is given - that is a mode, not a skip.
-
-## (12) First in-game F5 findings (2026-10-19, v1.0.0-rc.6)
-- Reminder lines are not mods; ` — Unscalable Value` is cut; multi-line mods are matched as a block first (hub order) and shown as one row; the popup's X is logged as the player's and gives the focus back; "No published versions" is one info line; every copy chord releases Shift/Alt first and each F5 logs modifiers before/after, the events sent and how the text begins. Details: docs/PHASE5.md Addendum 5. The cause of the Alt in PoE1 is not proven yet.
-
-## (13) Labels of the item (2026-10-19, v1.0.0-rc.7)
-- Sections are classified before they are read: label lines (Searing Exarch Item, Fractured Item, Mirrored ...) are never mods; influences kept in `ParsedItem.influences`; multi-line reminders skipped; the "mod without a stat id" log is for the final misses only. PoE1 sends the reminder lines with plain Ctrl+C itself (no Alt). Details: docs/PHASE5.md Addendum 6.
-
-## (14) F8 refuses the program's own copy keys (2026-10-19, v1.0.0-rc.8)
-- Hotkeys that equal what F5 presses to make the game copy (PoE1 Ctrl+C; PoE2 Ctrl + the game's advanced-description key, read from the ini each time F8 opens, + C) are refused with the reason, and listed in the settings page. docs/PHASE5.md Addendum 7. Raw PoE2 texts (Sanctified, augment, Grants Skill, Note) are still wanted from the player for the "no gray non-mod row" test.
-
-## (15) Real PoE2 item texts, no property rows (2026-10-19, v1.0.0-rc.9)
-- 27 PoE2 item texts from Exiled-Exchange-2 as fixtures (credit in the folder); the no-header fallback skips property lines and reads no mods from gems / currency; every other mod resolves or is a real gap shown as "?". docs/PHASE5.md Addendum 8.
-
-## (16) The hub's public alias file (2026-10-19, v1.0.0-rc.10)
-- Aliases from `{game}/aliases/latest.json` (SPEC 8.12), `stat_aliases` + `stat_groups` from it (no more guessing in dictionary.json), the bundled snapshot is the real file, the hub's 49 contract cases pass, the meta check is in `meta_rows.test.ts`. docs/PHASE5.md Addendum 9.
-
-## (17) Before v1.0.0: held keys, game in front, no "(TypeScript)" (2026-10-20, v1.0.0-rc.13)
-- A held F5 / F4 runs once (`RepeatGuard`, watched only after the action: a timer made inside the hotkey callback took the keyboard focus away from the popup); F5 / F4 send no key unless a Path of Exile window (or our own) is in front; "(TypeScript)" removed from every visible name (internal names kept; rc.10 -> rc.11 install checked: same folders, no duplicate shortcuts, settings kept); popup / F4 window hand the focus back and wait for it before closing; README draft checked against the real UI; CHANGELOG 1.0.0 drafts; the old repo's release guard applied and pushed (its commit 8d14eeb, no tag). docs/PHASE5.md Addendum 10.
-
-## (18) v1.0.0 (2026-10-21)
-- Last fix before the release: a held F5 ran twice on a real keyboard (rc.13 log: the second run 9 ms after the popup). `RepeatGuard` now frees a hotkey only when the key is seen up AND no press came for 0.7 s (every repeat renews the quiet time), logs every decision, and the mouse position is read first in the hotkey callback (the native calls are loaded at start). Checked by Winai on rc.15: held 8 times, one run each. e2e 129/129 + 44/44, live.mjs, npm test 6,390.
-- Release: version 1.0.0, CHANGELOG 1.0.0 (Thai, what the player sees), release/README_public.md from the checked draft, tag v1.0.0. The old repo's release workflow was already stopped from publishing (its commit 8d14eeb).
-
-## (19) v1.0.0 released (2026-10-21)
-- Tag v1.0.0, release run green (build, web, publish); both releases Latest, README updated, web-1.0.0 live; the real Setups installed on the test machine (titles v1.0.0, no duplicate shortcuts, settings kept). An rc build cannot update itself to the stable 1.0.0 (electron-updater channel rule); the test machine was moved by hand. docs/PHASE5.md Addendum 11, PLAN phase 5 = done.

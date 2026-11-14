@@ -1,5 +1,8 @@
 # Phase 3 - the Filter Generator on Electron (`apps/filtergen`)
 
+> **Current status (v1.0.0, released 2026-10-21):** this phase is part of the released programs. The text below is the state when the phase was written (betas, no release yet);
+> what shipped and what changed since is in docs/PHASE5.md, **Addendum 11**. The visible window titles no longer contain "(TypeScript)".
+
 Status: built as a one-click installer (`dist\PoE-Filter-Generator-TS-Setup-<version>.exe`, now v1.0.0-beta.6; the first build was a
 portable exe, dropped because it opened in 9-10 s) and tested here; waiting for Winai's test on the real game folders. **No release, no tag.** Title bar: `PoE1 & PoE2 Filter Generator (TypeScript) v<version>`.
 

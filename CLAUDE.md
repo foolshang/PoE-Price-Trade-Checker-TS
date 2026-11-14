@@ -20,8 +20,9 @@
 - **F4 โหมดราคา (OCR) ไม่รวมในโปรแกรมใหม่** (อยู่ใน repo เดิม: `poe_price_trade/ocr/`, `capture.py`, `scan.py`,
   `motion.py`, `matcher.py`, `normalizer.py`, `repository.py`, `overlay.py`, hover loop ใน `app.py`) — F4 ใหม่ =
   โหมด skill_ref (`skill_ref.py`, `skill_ref_window.py` ของเดิม)
-- Title bar ช่วงใช้คู่ของเดิม: Checker = `PoE Price & Trade Checker (TypeScript) vX.Y.Z`,
-  Filter Generator = `PoE1 & PoE2 Filter Generator (TypeScript) vX.Y.Z`
+- Title bar (ตั้งแต่ v1.0.0-rc.13 ไม่มีคำว่า "(TypeScript)" แล้ว — ตัดออกจากทุกชื่อที่ผู้ใช้เห็น): Checker = `PoE Price & Trade Checker vX.Y.Z`,
+  Filter Generator = `PoE1 & PoE2 Filter Generator vX.Y.Z` (ชื่อภายในยังมี TS: appId, โฟลเดอร์ติดตั้ง `PoE-*-TS`, โฟลเดอร์ config
+  `PoePriceTradeTS`/`PoeFilterGenTS`, ชื่อ exe) — `tools/swap-exe.ps1` เทียบ title แบบนี้อยู่แล้ว
 
 ## ข้อมูลภายนอก (ใช้ต่อแบบเดิม ไม่เปลี่ยน)
 

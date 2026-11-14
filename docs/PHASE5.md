@@ -1,8 +1,10 @@
 # Phase 5 - the Checker complete + ready to replace the original
 
+> **Current status (v1.0.0, released 2026-10-21):** part B was done and v1.0.0 is out - see **Addendum 11** at the end of this file. The status lines below are the state of beta.13.
+
 Status: **part A built and tested** (the Checker has the filter page, settings, tray, message over the game, NeverSink auto-regenerate;
 the tier-ladder builder is TypeScript; both programs update themselves; both come as a Setup and a zip). Waiting for Winai's test in the game.
-**Part B (the release) is NOT done and does not start until Winai orders it** - drafts are in `docs/release-draft/`. No tag, no release.
+**Part B (the release) is NOT done and does not start until Winai orders it** - drafts are in `docs/archive/release-draft/`. No tag, no release.
 
 ## What part A is, item by item
 
@@ -32,7 +34,7 @@ apps/checker/src/main/ index.ts (+ hotkeys.ts, tray.ts, overlay.ts, regen.ts, ga
 apps/checker/src/renderer/  index (main), settings, overlay, filter, picker, skillref
 tools/build-mod-meta-main.ts   packages/core/src/mod_meta_build.ts   tools/parity/mod_meta_cases.py
 tests/checker/  checker.e2e.ts (phase 4 + copy round + window flash)  phase5.e2e.ts  update.e2e.ts  hotkeys.test.ts  updater_logic.test.ts  feed.mjs
-docs/release-draft/    part B drafts (not active)
+docs/archive/release-draft/    part B drafts (not active)
 ```
 
 ## Tests (all run on the INSTALLED v1.0.0-beta.13 of both programs, and the build output before)
@@ -68,7 +70,7 @@ Close the **original Checker** first (it holds F4 / F5).
 
 ## Part B (waits for the order)
 
-`docs/release-draft/`: `release.yml` (workflow), `README_public.draft.md`, `old-repo-release-guard.diff` (a change for the ORIGINAL repo's
+`docs/archive/release-draft/`: `release.yml` (workflow), `README_public.draft.md`, `old-repo-release-guard.diff` (a change for the ORIGINAL repo's
 release.yml so it cannot publish over "Latest"; **not applied**), `B0-where-does-the-checker-go.md` (the question for Winai).
 
 ## Addendum (beta.14): game buttons + follow the game in front
@@ -116,7 +118,7 @@ No v1.0.0 tag, no Latest change, no public README, no web deploy. Test releases 
 - **Test-only environment variables** (`POE_UPDATE_FEED`, `POE_UPDATE_FIRST_MS` / `EVERY_MS`, `POE_CHECKER_DOCUMENTS`, `POE_FILTERGEN_DOCUMENTS`, game-poll and regen timers) count only with `POE_CHECKER_TEST=1` as well (`packages/desktop/src/test_env.ts`; unit test + a zip e2e that starts the unpacked zip with a feed and no test flag: the feed gets no request). The code is shipped, the gate is the guarantee.
 - No dev files in the shipped programs: the Checker asar holds only `out/` plus koffi; the Filter Generator asar only `out/`; the zip holds the Electron files, `resources/{app.asar, app.asar.unpacked (koffi), app-update.yml, icon.ico, meta, elevate.exe}`. A comment naming a local path was found in the bundle and removed; `tests/checker/no_local_paths.test.ts` guards sources.
 - Real self-update from GitHub (`tests/release/real_update.mjs`, installed rc.2 -> rc.3): Checker saw it 20 s after the start, downloaded it, showed the real release text in About, "update now" installed it in the same folder; the Filter Generator did the same (banner "installed when the program is closed", About text, restart button).
-- Drafts for Winai: `docs/release-draft/README_public.draft.md` (complete, not pushed), `docs/release-draft/old-repo-release-guard.diff` (a real diff, checked with `patch --dry-run`, NOT applied).
+- Drafts for Winai: `docs/archive/release-draft/README_public.draft.md` (complete, not pushed), `docs/archive/release-draft/old-repo-release-guard.diff` (a real diff, checked with `patch --dry-run`, NOT applied).
 - Helper for the red-dot test: `tools/redtest.mjs` (see above).
 
 ## Addendum 4 - mod -> stat id without guessing (2026-10-19 report from the hub; v1.0.0-rc.4)

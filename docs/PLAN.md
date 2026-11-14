@@ -10,9 +10,9 @@ repo at v0.13.5, local experiments); estimates are marked as estimates.
 | 2 | Web page on core TS (no Pyodide), live at the site root (old page in `/legacy/`) | done 2026-10-17 (docs/PHASE2.md, docs/DEPLOY.md); Winai tested the live page |
 | 3 | Filter Generator on Electron | built as a one-click installer and tested 2026-10-18 (v1.0.0-beta.6), waiting for Winai's test; auto-update (electron-updater), a no-install zip and README / release asset names are decided when the release is prepared (docs/PHASE3.md) |
 | 4 | F4 skill reference + F5 trade (hotkeys, Ctrl+C, clipboard) | built and tested 2026-10-18; copy round-fix 2026-10-18 (v1.0.0-beta.10), waiting for Winai in the game (docs/PHASE4.md) |
-| 5 | Checker complete, replaces the original | **done 2026-10-21: v1.0.0 released** (tag v1.0.0; Filter Generator release on foolshang/PoE-Filter-Generator = Latest, Checker release on foolshang/PoE-Price-Trade-Checker-TS = Latest, public README updated, web page web-1.0.0; details docs/PHASE5.md Addendum 11, history.md (19)) |
+| 5 | Checker complete, replaces the original | **done 2026-10-21: v1.0.0 released** (tag v1.0.0; Filter Generator release on foolshang/PoE-Filter-Generator = Latest, Checker release on foolshang/PoE-Price-Trade-Checker-TS = Latest, public README updated, web page web-1.0.0; details docs/PHASE5.md Addendum 11, history.md 2026-10-21 (2)) |
 
-## C. Project structure (proposal)
+## C. Project structure (proposal - built as written; the open points below were decided, see the marks and section F)
 
 ```
 packages/core     pure TypeScript: filter_core/gen/style/whitelist, wl_*, item_parser, trade_url, mod_db/badge,
@@ -59,7 +59,11 @@ Libraries replacing Windows / Tk parts (maintenance and licence checked):
 
 ### C2. Executables
 
-Estimate (not measured): each Electron portable exe is 85-105 MB (the two upstream overlays are ~100 MB; our originals are
+> **Decided and measured (v1.0.0):** the portable exe was dropped (it opened in 9-10 s because it unpacks ~320 MB at every start); both apps ship as a one-click per-user
+> **installer (NSIS)** plus a no-install zip. Real sizes: Setup 98-104 MB, zip 136-142 MB per app (beta.13: Checker Setup 103.6 MB / zip 142.3 MB, Filter Generator Setup 103.0 MB /
+> zip 141.6 MB; the v1.0.0 release files are 98-136 MB); start to window 0.8 s; ~325 MB on disk. Details: docs/PHASE3.md, docs/PHASE5.md.
+
+Estimate (not measured, as written in phase 0): each Electron portable exe is 85-105 MB (the two upstream overlays are ~100 MB; our originals are
 12 MB and 29 MB). Levers: `compression: maximum`, `electronLanguages: ["en-US"]`, no `asar` bloat. Portable exe unpacks
 to a temp folder on every start (a few seconds). Measure in phase 3 and report before phase 4.
 
@@ -104,7 +108,7 @@ logs `version + build timestamp` first (CLAUDE.md rule 5).
 2. **Web (decided by Winai, the `/ts/` step was skipped):** the TypeScript page is at the site root of
    `foolshang.github.io/PoE-Filter-Generator/` and the old Pyodide page lives in `/legacy/` (same origin, so settings and
    folder handles are shared). Deploy / rollback: `docs/DEPLOY.md`. The original repo's deploy job writes `/legacy/` only.
-3. **Exe (decided by Winai after phase 3):** no release of any kind - no beta for the public - until every phase is done; then ONE release
+3. **Exe (decided by Winai after phase 3; done 2026-10-21 as v1.0.0):** no release of any kind - no beta for the public - until every phase is done; then ONE release
    replaces the original (Filter Generator + Checker together; `v1.0.0`, asset names and README then). Until then the builds are only for
    Winai's own tests (installers `PoE-Filter-Generator-TS-Setup-<v>.exe` / `PoE-Price-Trade-Checker-TS-Setup-<v>.exe`, per user, no admin).
    Open for the release: auto-update (electron-updater), a no-install zip, README / release asset names.
@@ -165,17 +169,17 @@ starts (the Checker's filter page reuses phase 2-3 output).
   F5 with forks of Exiled Exchange 2 / Awakened PoE Trade. This TS plan keeps our own F5; the two plans overlap on F5
   and Winai should say which one wins before phase 4.
 
-## F. Decisions needed from Winai
+## F. Decisions needed from Winai - ALL DECIDED (2026-10-17 .. 2026-10-19; the answers follow each item)
 
-1. Package manager: npm workspaces (recommended) or pnpm.
-2. Accept the added `packages/ui` and `packages/node` (recommended).
-3. Exe size 85-105 MB each, two exes (recommended, like today) or one exe with a mode switch.
-4. TS release line: `v1.0.0-beta.N` prereleases then `v1.0.0` (recommended) and the asset names in C6.
+1. Package manager: npm workspaces (recommended) or pnpm. **-> npm workspaces.**
+2. Accept the added `packages/ui` and `packages/node` (recommended). **-> accepted (and `packages/desktop` was added in phase 5).**
+3. Exe size 85-105 MB each, two exes (recommended, like today) or one exe with a mode switch. **-> two programs; an installer + zip each (98-142 MB), not a portable exe (see C2).**
+4. TS release line: `v1.0.0-beta.N` prereleases then `v1.0.0` (recommended) and the asset names in C6. **-> betas, then rc.N, then v1.0.0 (2026-10-21); asset names `PoE-<App>-TS-Setup-<v>.exe` / `-Portable-<v>.zip`.**
 5. Staged web at `/ts/` of the same site (recommended) and copying `RELEASE_TOKEN` into the new repo's secrets (only
-   Winai can add it).
+   Winai can add it). **-> the `/ts/` step was skipped: the TS page is at the site root, the old page in `/legacy/`; `RELEASE_TOKEN` added by Winai.**
 6. Config handling: import once into `%LOCALAPPDATA%\PoePriceTradeTS` and never write the old file
-   (recommended: the old app drops keys it does not know, so two writers on one file lose data) or share the old folder.
-7. Licence of the new public repo (the original has none, so nobody may reuse the code today): none / MIT / other.
-8. EE2 / APT fork plan vs our own F5 (R7).
-9. Branch name: `master` (as the original, current) or `main`.
-10. When the original gets a bug fix, tell me so I refresh the goldens (R6).
+   (recommended: the old app drops keys it does not know, so two writers on one file lose data) or share the old folder. **-> import once, never write the old file.**
+7. Licence of the new public repo (the original has none, so nobody may reuse the code today): none / MIT / other. **-> MIT (Copyright (c) 2026 foolshang).**
+8. EE2 / APT fork plan vs our own F5 (R7). **-> the fork plan is cancelled; F5 is our own (ideas only, no copied code).**
+9. Branch name: `master` (as the original, current) or `main`. **-> `master`.**
+10. When the original gets a bug fix, tell me so I refresh the goldens (R6). **-> agreed: Winai says so, then `parity:regen`.**
