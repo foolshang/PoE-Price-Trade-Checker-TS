@@ -5,6 +5,16 @@
 
 ---
 
+## 2026-11-15 (1) - v1.0.1 (cont.): why the universe shrank (data, not the parser), Hardcore lists = softcore lists, GGG cache checked on the installed app (committed, no push / tag / release)
+
+- **Check of the shrink 1,246 -> 1,043 (PoE1), read only:** the parser reads every name the file has. Live NeverSink 8.21.0a has no Scarab name at all (0 `BaseType` names with "Scarab"; the "[3601] Scarabs" section is gone; the fixture 8.20.1d has 118), and the live hub's Covens file has `Scarab: count 0` from poe.ninja (the fixture hub had 115 Scarabs). Also gone from NeverSink: 9 Vials and 47 tattoo names (category "NeverSink" 100 -> 53), 13 Divination Cards of the tier ladder. PoE2: 2 lineage gems less in the hub only (692 -> 690). Cause = the source data; nothing changed in the code for it.
+- **Hardcore reads the softcore file of the main league** (`LeagueOption.listPath`; spec 8.1c: the HC file is the main league's counterpart only, so the index says which league it pairs with). The dropdown still offers main / Hardcore / events; the hub cache is by path, so Hardcore and softcore share one entry (no second request, no request for the hardcore file). Generate logs `ℹ ลีกที่เลือก: <league> · แหล่งรายชื่อไอเท็ม: <file>`. Tests: `leagues.test.ts` (listPath, one request), `tests/web/ui.mjs` (no hardcore request, same list, missing hardcore file changes nothing; missing event file = no list), desktop K and Checker F cases and `app_path.ts` updated (those two e2e files NOT run: waiting for Winai's order).
+- **GGG cache on the installed Filter Generator exe** (temp profile, live GGG): no cache -> `trade_items_poe1.json` written in format 2 (22 groups, 7,912 names), Scarab list 193 rows, `Royal Visage` listed; old-form cache (names only, 7,904) fresh -> used, no crash, list the same (193 / 1 / 10 rows), file untouched; old-form cache older than 7 days -> reloaded from GGG and rewritten in format 2.
+- **Slow zip:** `compression: maximum` in both electron-builder files makes the zip step 7za `-mx=9 -mfb=258 -mpass=15` (about 12-13 minutes per app on this machine; the NSIS Setup takes about half a minute).
+- Files: packages/ui/src/{leagues,app}.ts, packages/ui/test/leagues.test.ts, packages/core/test/{app_path.ts,output_service.test.ts}, tests/web/ui.mjs, tests/desktop/desktop.e2e.ts, tests/checker/phase5.e2e.ts, the three CHANGELOGs, docs/PLAN.md.
+
+---
+
 ## 2026-11-14 (5) - v1.0.1: GGG item names as the 4th source of the Whitelist lists (committed, no push / tag / release)
 
 - New `packages/core/src/ggg_names.ts`: GGG payload -> names per group (`groupsFromPayload`), snapshot format 2 (`{format, groups, assigned}`; the old bare list is still read: names for the check, nothing added), rules "GGG group + name -> category" (`categoryByRule`), new-name fallback to the group's main category (`fallbackCategory`, never maps / waystones / tablets / internal ids / `badName`), `addedNames`, `nextAssigned` (a new name keeps its category in later snapshots). Table, live gap numbers and design: `docs/GGG_CATEGORY_MAP.md`; names not added: `docs/GGG_UNMATCHED_NAMES.md`.
