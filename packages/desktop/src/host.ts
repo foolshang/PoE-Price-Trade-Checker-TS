@@ -194,10 +194,10 @@ export class FilterHost {
     this.handle("fg:names", async (_e, game: unknown) => {
       if (!isGame(game)) return null;
       try {
-        const items = await tradeNames.getItems(game, path.join(o.configDir, "cache"), {
+        const names = await tradeNames.getNames(game, path.join(o.configDir, "cache"), {
           fs: this.nodeFs, http: this.http(), now: () => Date.now() / 1000, warn: (m: string) => o.log("WARNING", m),
         });
-        return { names: [...items.names], groups: items.groups };
+        return [...names];
       } catch (e) {
         o.log("WARNING", `trade names: ${(e as Error).message}`);
         return null;

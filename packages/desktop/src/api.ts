@@ -59,8 +59,7 @@ export interface DesktopApi {
   /** the network, for the few hosts the page needs (hub, NeverSink on GitHub) */
   httpGet(url: string, headers?: Record<string, string>): Promise<{ ok: boolean; status: number; text: string }>;
   /** GGG's trade item names (7-day cache on disk); null when unavailable */
-  /** GGG's item list: every name, and the names per GGG group (null = a cache of the old form had none) */
-  tradeNames(game: GameId): Promise<{ names: string[]; groups: Record<string, string[]> | null } | null>;
+  tradeNames(game: GameId): Promise<string[] | null>;
 
   folderInfo(game: GameId): Promise<FolderInfo>;
   /** the folder dialog (starts at the game's folder); the picked folder becomes the game's folder; null = cancelled */

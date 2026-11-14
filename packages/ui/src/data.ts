@@ -3,7 +3,7 @@
  * Google Cloud Storage, CORS set for this site), the real item names (the snapshot shipped with the page:
  * data/trade_names_<game>.json), the gem list (poe1). The localStorage keys are the ones the Pyodide page used.
  */
-import { hubClient, hubSchema, tradeSnapshot } from "@poe/core";
+import { hubClient, hubSchema, tradeNames } from "@poe/core";
 import { LeagueOption, isPricesPath, mainOnly, mainPath, optionsFromFiles } from "./leagues.ts";
 import { platform } from "./platform.ts";
 import { S } from "./state.ts";
@@ -85,8 +85,8 @@ export async function getLeagues(g: string): Promise<{ options: LeagueOption[]; 
 
 /**
  * The real item names (GGG's trade list, which a browser cannot call) = the snapshot shipped with the page
- * (data/trade_names_<game>.json, made by `npm run names:refresh`; the old form, a bare list, and format 2 are both read); the desktop apps
- * read GGG live. They are only the "second opinion" on names (see core filter_whitelist); GGG's names are never added to the lists.
+ * (data/trade_names_<game>.json, made by `npm run names:refresh`: a bare list of names); the desktop apps read GGG live. They are only the
+ * "second opinion" on names (see core filter_whitelist); GGG's names are never added to the lists.
  * Returns {names, from} or null.
  */
 export async function getNames(g: string, base = "./"): Promise<{ names: string[]; from: string } | null> {
@@ -94,13 +94,13 @@ export async function getNames(g: string, base = "./"): Promise<{ names: string[
   if (better) {
     try {
       const live = await better(g);
-      if (live && live.names.length >= 500) return { names: live.names, from: "live" };
+      if (live && live.length >= 500) return { names: live, from: "live" };
     } catch { /* the snapshot below */ }
   }
   try {
-    const snap = tradeSnapshot.parseSnapshot(JSON.parse(await fetchText(`${base}data/trade_names_${g}.json`, "names snapshot")));
-    if (!snap || snap.names.size < 500) throw new Error("too few names");
-    return { names: [...snap.names], from: "snapshot" };
+    const list = tradeNames.parseNameList(JSON.parse(await fetchText(`${base}data/trade_names_${g}.json`, "names snapshot")));
+    if (!list || list.size < 500) throw new Error("too few names");
+    return { names: [...list], from: "snapshot" };
   } catch {
     return null;
   }
