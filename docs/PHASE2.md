@@ -55,8 +55,11 @@ every gear block is copied from NeverSink). The Python original keeps this code;
   `LEGACY_RARITY_KEY`, `LEVELS` / `DEFAULT_STRICTNESS` / `filename` of `neversink_source`, `tierLabel`, `GEAR_PREFIX`
   (`wl_model`), `ladderNames`, `hubChaosValue` (price-mode helper), `soundBlockCounts` (moved to `packages/core/test/sound_counts.ts`).
 - Kept on purpose: persisted keys (`wl_block_tier_*`, `wl_gear_tier_*`: old settings are still read, dropped with a note);
-  `loadWhitelistInputs`, `generateFilter`, `checkNeversinkUpdate`, `neversinkUpdateMessage`, `rememberResult`, `NodeFs`, `NodeHttp`
-  (the desktop app of phase 3 calls them; they are unused by the web only).
+  `checkNeversinkUpdate`, `neversinkUpdateMessage`, `writeFailMsg`, `NodeFs`, `NodeHttp` (the desktop apps call them; the web page does not).
+  **Corrected for v1.0.1:** this list once also named `loadWhitelistInputs`, `generateFilter` and `rememberResult` as "called by the desktop app".
+  They were not: the desktop apps make and write a filter through the page (`packages/ui` `app.ts` generate() / `api.ts` `WebApi.generate`, the files by the
+  desktop host), never through `filter_service`. Only tests called them, so v1.0.1 removed them (with `filterNameFor` and the service types) and moved the tests to
+  the path the programs use (`packages/core/test/app_path.ts`).
 - Tests: the vacuous `gearBlocks` test, the `blockLabel` test and the chaos-value test were removed with their code. Parity
   cases for removed functions were dropped from `tools/parity/cases.py`; goldens regenerated (`parity:regen`), the old repo's
   `git status` was clean before and after.

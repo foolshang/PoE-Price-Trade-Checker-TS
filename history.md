@@ -5,6 +5,18 @@
 
 ---
 
+## 2026-11-14 (2) - v1.0.1 preparation: the filter tests run through the path the programs use; the unused filter_service code is removed (committed, no tag, no release)
+
+- Compared the two paths first (read only). The programs make a filter in the page (`packages/ui/src/app.ts` generate() -> `api.ts` `WebApi.generate` -> `filterCore.buildFilterText`; deliver() -> `files.ts` `writeToFolder`, CRLF once; the desktop host writes the bytes). `filterService.generateFilter` was a separate copy of that flow that nothing in the programs called; only tests did.
+- New `packages/core/test/app_path.ts`: the page's Generate for tests (the few lines of app.ts orchestration, each marked with its line; every piece of logic it calls is the real function). The 24 scenarios of the original's `filter_service_golden.json`, the sound-slot end-to-end tests and every whitelist test that used `generate()` now run through it.
+- Result against the golden: **every written filter file is byte-identical** (sha256 of all scenarios that write a file, the stored small files, the sound files in the folder, mode / count / tag / name). So v1.0.0 writes what the original wrote for these inputs. Not compared any more: the original's own log lines, events and spied I/O calls of its filter_service (the programs do not have that service).
+- Removed from `filter_service.ts` (each checked: no caller in any program code): `generateFilter`, `filterNameFor`, `ServiceDeps`, `ServiceEnv`, `GenerateOptions`, `GenResult`, `rememberResult` (the page's `afterGenerate` does this), `loadWhitelistInputs`. Kept: `writeFailMsg` (desktop host), `checkNeversinkUpdate`, `neversinkUpdateMessage`.
+- Tests: `npm test` 6,410 -> 6,406 (-4, all in tests of the removed code): `renaming leaves the old file alone and says so` and `remember_result` (features of the removed function only), `the default log is a no-op`, and two `blocked write logs a friendly message` tests of generateFilter replaced by one `a failed write hands nothing over` (the CFA text itself stays covered by the `writeFailMsg` unit tests and the desktop e2e).
+- Now without a caller in program code, left in place (not asked): `filterCore.planFetch`, `filterOutput.writeFilter` / `copySounds`, `neversinkSource.fetchBaseFilter`; the legacy (non-v2) whitelist builder is reached only when a config has no `wl_v2` (the page always sets it).
+- docs/PHASE2.md corrected (it said the desktop app called these functions). Filter Generator CHANGELOG beta.3 wording and the PLAN notes (post-release F4 league-age view; `f5_restore_clipboard` checkbox done) were committed before.
+
+---
+
 ## 2026-11-14 (1) - v1.0.1 preparation: hub schema guards, one hub address, documents brought up to date (committed, no tag, no release, version not bumped yet)
 
 - `parity:check` first: ok, 5,567 cases give the committed goldens (the original is at 8d14eeb = the release guard, goldens made at 26e29f6; the original's `git status` stayed clean).
