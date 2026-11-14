@@ -43,9 +43,9 @@ Result on 2026-10-17: **1,916 tests pass** = 1,491 parity cases (+ 8 bookkeeping
 | wl_import | wl_import.ts | done | open (59) + openmut (60) + 22 summary/version cases |
 | wl_session | wl_session.ts | done | open cases + golden_open_messages (headless) |
 | filter_service | filter_service.ts | done (ports: HTTP, file system, optional per-step `deps`) | golden of the original (24 scenarios) |
-| filter_output | filter_output.ts | done (file system port) | unit tests, e2e sounds |
+| filter_output | filter_output.ts | only `gameFilterDir` (the page writes the filter and sounds; write_filter / copy_sounds not ported) | unit tests, e2e sounds through the page path |
 | hub_client | hub_client.ts | done (`HubClient`, HTTP port); price helpers for OCR dropped | unit tests |
-| neversink_source | neversink_source.ts | done (HTTP + file system ports) | unit tests |
+| neversink_source | neversink_source.ts | only `getLatestTag` (the base filter is fetched by packages/ui/src/data.ts fetchBase) | unit tests; fetch + cache: packages/ui/test/neversink_fetch.test.ts |
 | trade_names | trade_names.ts | done | calls + service |
 | (py helpers) | py.ts | new: Python semantics (truthiness, `int()`, `strip`, `split`, `sorted`, `json.dumps`, ...) | everywhere |
 | (node adapters) | `packages/node/src/nodefs.ts` | new: `NodeFs`, `NodeHttp` | unit tests |

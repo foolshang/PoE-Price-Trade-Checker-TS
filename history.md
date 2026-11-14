@@ -5,6 +5,14 @@
 
 ---
 
+## 2026-11-14 (3) - v1.0.1 preparation: more unused code removed (committed, no tag, no release)
+
+- Removed (no caller in any program code, checked by grep): `filterOutput.writeFilter`, `filterOutput.copySounds`, `filterOutput.filterPath`, `neversinkSource.fetchBaseFilter` and its private helpers (download, cache, last-check), `NeverSinkEnv.fs/nowMs`. Kept: `filterOutput.gameFilterDir` (desktop host), `neversinkSource.getLatestTag` (Checker update check).
+- NOT removed: `filterCore.planFetch` - it has golden cases (`tests/parity/golden/calls.json`, runner `filter_core.plan_fetch`); removing it would mean editing goldens. Waiting for Winai. `filterCore.composeFilterBody` is in the same state (parity runner uses it).
+- Tests: 6,406 -> 6,396. Removed 19 (6 `write_filter`, 7 `copy_sounds`, 6 `fetchBaseFilter`); added 9: 7 in `packages/ui/test/neversink_fetch.test.ts` (the same 6 cases + tag parsing, on `ui/data.ts` `fetchBase`, the code the programs run) and 2 in `packages/ui/test/to_crlf.test.ts` (CR never doubled). The `copy_sounds` and `write_filter` cases have no one-to-one counterpart: the sound plan they exercised (`planSoundFiles` / `resolveSoundPlan`) is still tested through the page path (`app_path.ts`), the CRLF case by `toCrlf`.
+- Files: `packages/core/src/filter_output.ts`, `neversink_source.ts`, tests in `packages/core/test` and `packages/ui/test`, `docs/PHASE1.md`, `docs/PLAN.md` (after-release item: Generate coordination out of the DOM).
+- Status: nothing pushed, version still 1.0.0.
+
 ## 2026-11-14 (2) - v1.0.1 preparation: the filter tests run through the path the programs use; the unused filter_service code is removed (committed, no tag, no release)
 
 - Compared the two paths first (read only). The programs make a filter in the page (`packages/ui/src/app.ts` generate() -> `api.ts` `WebApi.generate` -> `filterCore.buildFilterText`; deliver() -> `files.ts` `writeToFolder`, CRLF once; the desktop host writes the bytes). `filterService.generateFilter` was a separate copy of that flow that nothing in the programs called; only tests did.

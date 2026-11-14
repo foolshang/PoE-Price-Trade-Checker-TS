@@ -1,13 +1,7 @@
-/** hub_client league routing / chaos value (test_hub_client.py) and the NeverSink fetch + cache (test_neversink_source.py) */
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, existsSync } from "node:fs";
-import os from "node:os";
-import path from "node:path";
+/** hub_client league routing / chaos value (test_hub_client.py) and the NeverSink release tag (test_neversink_source.py; the base filter fetch is tested in packages/ui/test) */
 import { describe, expect, it } from "vitest";
-import { NodeFs } from "../../node/src/nodefs.ts";
 import { HttpError, HttpPort, hubClient, neversinkSource } from "../src/index.ts";
 
-const fsx = new NodeFs({ eol: "lf" });
-const tmp = (): string => mkdtempSync(path.join(os.tmpdir(), "poe-ts-"));
 
 /** HttpPort whose answers come from a function of the url */
 const http = (f: (url: string) => string | Error): HttpPort & { urls: string[] } => {
@@ -83,75 +77,12 @@ describe("hub_client", () => {
 
 // ------------------------------------------------------------------------------------------------ neversink_source
 
-const env = (h: HttpPort, nowMs = () => Date.now()) => ({ fs: fsx, http: h, nowMs });
-const ago = (hours: number): string => new Date(Date.now() - hours * 3600_000).toISOString();
-
 describe("neversink_source", () => {
-  it("totally unreachable returns nothing", async () => {
-    expect(await neversinkSource.fetchBaseFilter("poe2", 2, tmp(), env(DOWN))).toEqual([null, null]);
-  });
-
+  // the base filter fetch and its cache are tested where they live: packages/ui/test/neversink_fetch.test.ts
   it("get_latest_tag parses tag_name", async () => {
     expect(await neversinkSource.getLatestTag("poe2", { http: http(() => JSON.stringify({ tag_name: "0.10.3", assets: [] })) })).toBe("0.10.3");
   });
 
   it("get_latest_tag of an unknown game is null", async () => expect(await neversinkSource.getLatestTag("poe3", { http: DOWN })).toBeNull());
   it("get_latest_tag on a network failure is null", async () => expect(await neversinkSource.getLatestTag("poe1", { http: DOWN })).toBeNull());
-
-  it("downloads and caches", async () => {
-    const t = tmp();
-    const h = http((url) => (url.includes("api.github.com") ? JSON.stringify({ tag_name: "1.0.0" }) : 'Show\n    BaseType == "Chaos Orb"\n'));
-    const [text, tag] = await neversinkSource.fetchBaseFilter("poe2", 2, t, env(h));
-    expect(tag).toBe("1.0.0");
-    expect(text).toContain("Chaos Orb");
-    expect(existsSync(path.join(t, "neversink", "poe2", "1.0.0_2.filter"))).toBe(true);
-  });
-
-  it("skips the GitHub check within a day", async () => {
-    const t = tmp();
-    const dir = path.join(t, "neversink", "poe2");
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(path.join(dir, "last_check.json"), JSON.stringify({ tag: "1.0.0", checked_at: new Date().toISOString() }));
-    writeFileSync(path.join(dir, "1.0.0_2.filter"), "cached text");
-    const h = http(() => new Error("must not be called"));
-    const [text, tag] = await neversinkSource.fetchBaseFilter("poe2", 2, t, env(h));
-    expect(h.urls).toEqual([]);
-    expect(text).toBe("cached text");
-    expect(tag).toBe("1.0.0");
-  });
-
-  it("force bypasses the daily cache", async () => {
-    const t = tmp();
-    const dir = path.join(t, "neversink", "poe2");
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(path.join(dir, "last_check.json"), JSON.stringify({ tag: "1.0.0", checked_at: new Date().toISOString() }));
-    writeFileSync(path.join(dir, "1.0.0_2.filter"), "old text");
-    const h = http((url) => (url.includes("api.github.com") ? JSON.stringify({ tag_name: "2.0.0" }) : "new text"));
-    const [text, tag] = await neversinkSource.fetchBaseFilter("poe2", 2, t, env(h), true);
-    expect(tag).toBe("2.0.0");
-    expect(text).toBe("new text");
-    expect(readFileSync(path.join(dir, "last_check.json"), "utf-8")).toMatch(/"checked_at": "\d{4}-\d\d-\d\dT[\d:.]+\+00:00"/); // like Python's isoformat()
-  });
-
-  it("falls back to the disk cache on a network failure", async () => {
-    const t = tmp();
-    const dir = path.join(t, "neversink", "poe1");
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(path.join(dir, "last_check.json"), JSON.stringify({ tag: "8.19.2", checked_at: ago(48) }));
-    writeFileSync(path.join(dir, "8.19.2_2.filter"), "previously cached");
-    const [text, tag] = await neversinkSource.fetchBaseFilter("poe1", 2, t, env(DOWN));
-    expect(text).toBe("previously cached");
-    expect(tag).toBe("8.19.2");
-  });
-
-  it("with no known tag it takes any cached file of that strictness (the latest by name)", async () => {
-    const t = tmp();
-    const dir = path.join(t, "neversink", "poe1");
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(path.join(dir, "8.1.0_2.filter"), "older");
-    writeFileSync(path.join(dir, "8.9.0_2.filter"), "newer by name");
-    writeFileSync(path.join(dir, "9.0.0_3.filter"), "other strictness");
-    const [text, tag] = await neversinkSource.fetchBaseFilter("poe1", 2, t, env(DOWN));
-    expect([text, tag]).toEqual(["newer by name", "8.9.0"]);
-  });
 });

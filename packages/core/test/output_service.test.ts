@@ -1,5 +1,5 @@
 /** filter_output / filter_service / sound split (test_filter_output.py, test_filter_service.py, test_sound_split.py) */
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -10,7 +10,6 @@ import { data } from "./helpers.ts";
 
 const fsx = new NodeFs({ eol: "lf" });
 const tmp = (): string => mkdtempSync(path.join(os.tmpdir(), "poe-ts-"));
-const read = (p: string): string => readFileSync(p, "utf-8");
 
 // ------------------------------------------------------------------------------------------------ filter_output
 
@@ -24,128 +23,6 @@ describe("filter_output", () => {
     expect(filterOutput.gameFilterDir(fsx, "D:/Docs", "poe1", "")).toBe(path.join("D:/Docs", "My Games", "Path of Exile"));
     expect(filterOutput.gameFilterDir(fsx, "D:/Docs", "poe2", "")).toBe(path.join("D:/Docs", "My Games", "Path of Exile 2"));
   });
-
-  it("write_filter writes generated and base", async () => {
-    const t = tmp();
-    const text = read(await filterOutput.writeFilter(fsx, t, "GENERATED", "BASE"));
-    expect(text).toContain("GENERATED");
-    expect(text).toContain("BASE");
-    expect(text.indexOf("GENERATED")).toBeLessThan(text.indexOf("BASE"));
-  });
-
-  it("write_filter writes generated only when base is null", async () => {
-    expect(read(await filterOutput.writeFilter(fsx, tmp(), "GENERATED", null)).trim()).toBe("GENERATED");
-  });
-
-  it("write_filter raises when both sources are empty", async () => {
-    await expect(filterOutput.writeFilter(fsx, tmp(), "", null)).rejects.toThrow();
-  });
-
-  it("write_filter overwrites an existing file", async () => {
-    const t = tmp();
-    await filterOutput.writeFilter(fsx, t, "FIRST", null);
-    expect(read(await filterOutput.writeFilter(fsx, t, "SECOND", null)).trim()).toBe("SECOND");
-  });
-
-  it("write_filter uses the given name and rejects bad ones", async () => {
-    const t = tmp();
-    const p = await filterOutput.writeFilter(fsx, t, "G", "B", "my filter");
-    expect(path.basename(p)).toBe("my filter.filter");
-    expect(read(p).endsWith("B")).toBe(true);
-    expect(path.basename(await filterOutput.writeFilter(fsx, t, "G", null))).toBe("poe-checker.filter");
-    for (const bad of ["a/b", "CON", "x.", "", "q?"]) await expect(filterOutput.writeFilter(fsx, t, "G", "B", bad)).rejects.toThrow();
-  });
-
-  it("write_filter on Windows line ends never doubles a CR", async () => {
-    const t = tmp();
-    const crlf = new NodeFs({ eol: "crlf" });
-    const p = await filterOutput.writeFilter(crlf, t, "A\nB", "x\r\ny\n");
-    expect(readFileSync(p, "latin1")).toBe("A\r\nB\r\n# ===== base filter below =====\r\nx\r\ny\r\n");
-  });
-});
-
-function src(t: string, name: string, bytes: string): string {
-  const d = path.join(t, "src");
-  mkdirSync(d, { recursive: true });
-  const p = path.join(d, name);
-  writeFileSync(p, bytes);
-  return p;
-}
-
-describe("copy_sounds", () => {
-  it("keeps the original file name", async () => {
-    const t = tmp(), out = path.join(t, "out");
-    const msgs: string[] = [];
-    const written = await filterOutput.copySounds(fsx, out, { S: src(t, "airhorn.mp3", "fake mp3 data"), A: null }, null, (m) => msgs.push(m));
-    expect(written).toEqual({ S: "airhorn.mp3" });
-    expect(msgs).toEqual([]);
-    expect(read(path.join(out, "airhorn.mp3"))).toBe("fake mp3 data");
-    expect(readdirSync(out).filter((n) => n.startsWith("poe-checker-"))).toEqual([]);
-  });
-
-  it("same content is reused, not copied again", async () => {
-    const t = tmp(), out = path.join(t, "out");
-    mkdirSync(out);
-    writeFileSync(path.join(out, "ping.mp3"), "same");
-    const before = statSync(path.join(out, "ping.mp3")).mtimeMs;
-    const msgs: string[] = [];
-    const written = await filterOutput.copySounds(fsx, out, { S: src(t, "ping.mp3", "same") }, null, (m) => msgs.push(m));
-    expect(written).toEqual({ S: "ping.mp3" });
-    expect(statSync(path.join(out, "ping.mp3")).mtimeMs).toBe(before);
-    expect(msgs.some((m) => m.includes("ใช้ไฟล์เดิม"))).toBe(true);
-  });
-
-  it("different content asks and obeys", async () => {
-    const t = tmp(), out = path.join(t, "out");
-    mkdirSync(out);
-    writeFileSync(path.join(out, "ping.mp3"), "old");
-    const s = src(t, "ping.mp3", "new");
-    const asked: [string, string][] = [];
-    const keep = await filterOutput.copySounds(fsx, out, { S: s }, (n, alt) => { asked.push([n, alt]); return "keep"; });
-    expect(asked).toEqual([["ping.mp3", "ping-2.mp3"]]);
-    expect(keep).toEqual({ S: "ping-2.mp3" });
-    expect(read(path.join(out, "ping.mp3"))).toBe("old");
-    expect(read(path.join(out, "ping-2.mp3"))).toBe("new");
-    const over = await filterOutput.copySounds(fsx, out, { S: s }, () => "overwrite");
-    expect(over).toEqual({ S: "ping.mp3" });
-    expect(read(path.join(out, "ping.mp3"))).toBe("new");
-    // no decide callback = keep the old file; the free name skips ones already taken
-    expect(await filterOutput.copySounds(fsx, out, { S: src(t, "ping.mp3", "third") })).toEqual({ S: "ping-3.mp3" });
-  });
-
-  it("one file for several slots is copied once and bad names are fixed", async () => {
-    const t = tmp(), out = path.join(t, "out");
-    const a = src(t, "a#b;c.mp3", "x");
-    const msgs: string[] = [];
-    const written = await filterOutput.copySounds(fsx, out, { S: a, A: a, Q: a }, null, (m) => msgs.push(m));
-    expect(written).toEqual({ S: "a_b_c.mp3", A: "a_b_c.mp3", Q: "a_b_c.mp3" });
-    expect(readdirSync(out)).toEqual(["a_b_c.mp3"]);
-    expect(msgs.length).toBe(1);
-    expect(msgs[0]).toContain("#");
-    expect(msgs[0]).toContain(";");
-  });
-
-  it("two different files with one name are told apart without asking", async () => {
-    const t = tmp(), out = path.join(t, "out");
-    const d1 = path.join(t, "d1"), d2 = path.join(t, "d2");
-    mkdirSync(d1);
-    mkdirSync(d2);
-    writeFileSync(path.join(d1, "x.mp3"), "1");
-    writeFileSync(path.join(d2, "x.mp3"), "2");
-    const asked: unknown[] = [];
-    const written = await filterOutput.copySounds(fsx, out, { S: path.join(d1, "x.mp3"), A: path.join(d2, "x.mp3") }, (...a) => { asked.push(a); return "overwrite"; });
-    expect(asked).toEqual([]);
-    expect(written).toEqual({ S: "x.mp3", A: "x-2.mp3" });
-    expect(read(path.join(out, "x.mp3"))).toBe("1");
-    expect(read(path.join(out, "x-2.mp3"))).toBe("2");
-  });
-
-  it("a missing source is skipped, not raised", async () => {
-    const t = tmp();
-    expect(await filterOutput.copySounds(fsx, path.join(t, "out"), { S: path.join(t, "missing.mp3") })).toEqual({});
-  });
-
-  it("an empty map returns empty", async () => expect(await filterOutput.copySounds(fsx, tmp(), {})).toEqual({}));
 });
 
 // ------------------------------------------------------------------------------------------------ the filter the programs write (was filter_service.generate_filter)
