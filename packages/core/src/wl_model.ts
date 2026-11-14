@@ -173,7 +173,7 @@ export class WlModel {
 
   /** Every list the tab offers (the category ids). */
   listsNow(): string[] {
-    return this.categories().map(([c]) => c);
+    return this.allCategories().map(([c]) => c);
   }
 
   /** The lists that appeared after v0.10.2: the name categories. */
@@ -212,7 +212,7 @@ export class WlModel {
     }
     this.known_lists = this.listsNow();
     if (fresh.length) {
-      const labels = new Map(this.categories());
+      const labels = new Map(this.allCategories());
       const names = fresh.map((c) => labels.get(c) || c);
       this._notes.push("หมวดที่ไฟล์/ค่าที่เปิดมายังไม่มี หรือซ่อน (D) ทั้งหมวดที่โปรแกรมเติมให้เอง ใช้ค่าเริ่มต้น" +
         "ของ NeverSink แทน: " + names.join(", "));
@@ -407,8 +407,29 @@ export class WlModel {
 
   // ------------------------------------------------------------------ categories
 
-  /** [id, label] in the order the list offers them. */
+  /**
+   * The name categories (the ones whose rows are item names) that have no name at all in the lists loaded for this game and league, and
+   * are hidden for that reason. Only judged when the data is whole: the hub's prices have items and NeverSink's text is there - a
+   * hub or NeverSink that could not be loaded must never make a category look empty (those categories stay, as before).
+   */
+  hiddenCategories(): string[] {
+    if (!this._loaded || !this.base_text) return [];
+    let hubItems = 0;
+    for (const _ of filterGen.iterHubItems(this.hub || {})) { hubItems++; break; }
+    if (!hubItems) return [];
+    const have = new Set(this._names.values());
+    const nameCats = [...(filterGen.WHITELIST_CATEGORIES[this.game] ?? []), ...(w.NAMED_CATEGORIES[this.game] ?? []).map(([c]) => c), w.OTHER_CATEGORY];
+    return nameCats.filter((c) => !have.has(c));
+  }
+
+  /** [id, label] in the order the list offers them (without the empty name categories, see hiddenCategories). */
   categories(): [string, string][] {
+    const hidden = new Set(this.hiddenCategories());
+    return this.allCategories().filter(([c]) => !hidden.has(c));
+  }
+
+  /** Every category the tab can have, empty ones too (what the saved settings are measured against). */
+  allCategories(): [string, string][] {
     const out: [string, string][] = (filterGen.WHITELIST_CATEGORIES[this.game] ?? []).map((c) => [c, c]);
     for (const [c] of w.NAMED_CATEGORIES[this.game] ?? []) out.push([c, c]); // Runegraft, Vial, Corpse ...
     out.push([w.OTHER_CATEGORY, "อื่นๆ (NeverSink จัด tier ให้)"]);

@@ -129,6 +129,13 @@ export class WebApi {
     return this.model.categories().map(([id, label]) => ({ id, label }));
   }
 
+  /** the name categories left out of the tab because the lists loaded have no name for them, and the ones of those the saved settings give a tier */
+  wlHidden(): { ids: string[]; withTier: string[] } {
+    const ids = this.model.hiddenCategories();
+    const cat = (this.model.cfg() as Record<string, any>)[`wl_cat_tier_${this.game}`] ?? {};
+    return { ids, withTier: ids.filter((c) => cat[c] !== undefined) };
+  }
+
   wlRows(cat: string, query = ""): RowsResult {
     const m = this.model;
     if (!m.loaded) return { loading: true, rows: [], info: {} };

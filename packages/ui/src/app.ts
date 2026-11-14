@@ -216,6 +216,10 @@ async function generate(mode: "tier" | "whitelist", refresh: boolean): Promise<b
       }
       ({ hub, base, baseTag: tag, names } = S.data);
       log(`ℹ ลีกที่เลือก: ${S.league ? S.league.label : "-"} · แหล่งรายชื่อไอเท็ม: ${S.league ? S.league.listPath : "-"}`, "info");
+      const hidden = S.api.wlHidden();
+      if (hidden.ids.length) {
+        log(`ℹ หมวดที่ซ่อนเพราะไม่มีชื่อไอเท็มในรายการของลีกนี้: ${hidden.ids.join(", ")}${hidden.withTier.length ? ` · ค่า tier ที่ตั้งไว้ของ ${hidden.withTier.join(", ")} ยังเก็บไว้ แต่ไม่มีชื่อให้เขียนลง filter` : ""}`, "info");
+      }
       if (!base) {
         log("⚠ ไม่มี NeverSink base filter — whitelist ไม่มี tier เริ่มต้น ไม่ generate", "warn");
         return false;

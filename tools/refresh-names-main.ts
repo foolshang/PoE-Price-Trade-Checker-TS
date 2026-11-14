@@ -1,16 +1,14 @@
 /**
- * Refresh the names snapshot the web page and both desktop apps ship (apps/web/public/data/trade_names_<game>.json) from GGG's
- * trade data.
+ * Refresh the names snapshot the web page ships (apps/web/public/data/trade_names_<game>.json) from GGG's trade data.
  *
  *     npm run names:refresh
  *
- * The page cannot call GGG's API itself (no CORS), so it uses this snapshot. The snapshot holds the names per GGG group
- * (format 2; `assigned` stays empty: nothing assigns categories any more). The names are only the real-name check of the
- * whitelist; they are never added to its lists. Run it before a release; it refuses to write a list that shrank by more than 20%.
+ * The page cannot call GGG's API itself (no CORS), so it uses the hub's `<game>/trade_names.json` when that exists and this
+ * snapshot otherwise. Run it before a web release; it refuses to write a list that shrank by more than 20%.
  */
 import fs from "node:fs";
 import path from "node:path";
-import { tradeNames, tradeSnapshot } from "../packages/core/src/index.ts";
+import { py, tradeNames } from "../packages/core/src/index.ts";
 import { mayWrite } from "./refresh-names.ts";
 
 async function main(): Promise<number> {
@@ -24,21 +22,16 @@ async function main(): Promise<number> {
       code = 1;
       continue;
     }
-    const groups = tradeSnapshot.groupsFromPayload(await res.json());
-    const count = tradeSnapshot.namesOfGroups(groups).size;
+    const names = [...tradeNames.namesFromPayload(await res.json())].sort(py.cmpStr);
     const file = path.join(outDir, `trade_names_${game}.json`);
-    let prev: tradeSnapshot.Loaded | null = null;
-    try {
-      prev = fs.existsSync(file) ? tradeSnapshot.parseSnapshot(JSON.parse(fs.readFileSync(file, "utf-8"))) : null;
-    } catch { /* unreadable: treated as no snapshot */ }
-    const shipped = prev ? prev.names.size : 0;
-    if (!mayWrite(count, shipped)) {
-      console.log(`${game}: got ${count} names (had ${shipped}) - not written`);
+    const shipped = fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, "utf-8")) as string[]).length : 0;
+    if (!mayWrite(names.length, shipped)) {
+      console.log(`${game}: got ${names.length} names (had ${shipped}) - not written`);
       code = 1;
       continue;
     }
-    fs.writeFileSync(file, tradeSnapshot.snapshotJson(groups, {}), "utf-8");
-    console.log(`${game}: ${count} names (had ${shipped})`);
+    fs.writeFileSync(file, JSON.stringify(names), "utf-8");
+    console.log(`${game}: ${names.length} names (had ${shipped})`);
   }
   return code;
 }
