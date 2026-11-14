@@ -5,6 +5,7 @@
 
 ## web-1.0.1 - 2026-11-14
 
+- **Categories with no item are hidden (Scarabs were removed in 3.30):** the Whitelist tab does not offer a category that has no name at all in the lists loaded for the game and league (judged from the data, not from a category name). When the hub or NeverSink could not be loaded nothing is hidden, and the category comes back by itself when the data has names again. A tier saved for a hidden category stays in the settings; Generate names the hidden categories in the Status.
 - **Item lists follow the league, one set for Hardcore and Softcore:** picking Hardcore on the Whitelist tab loads the item names from the softcore file of the same main league (the Whitelist does not use prices, so the hardcore file is never read); an event uses its own file. The dropdown still offers Hardcore, and Generate logs the league picked and the file the names came from.
 - **League choice on the Whitelist tab:** a "ลีก" dropdown lists the main league, the hardcore league and the open events of the game, from the hub's `prices/index.json`. The item lists and
   what Generate uses come from the file of the league picked (before: always the main league's `latest.json`). The choice is kept per game in the browser (`localStorage`, inside the
