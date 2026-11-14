@@ -1,5 +1,5 @@
 /** filter_output / filter_service / sound split (test_filter_output.py, test_filter_service.py, test_sound_split.py) */
-import { existsSync, mkdtempSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -71,6 +71,21 @@ describe("the filter the programs write, per mode", () => {
     expect(res.mode).toBe("tier");
     expect(res.base_tag).toBe("tag1");
     expect(readLf(res.path!)).toBe(filterCore.composeFilterBody(filterCore.TIER_HEADER, BASE));
+  });
+
+  it("tier mode without a base filter: nothing is written, the old file stays, and the Status says both (the original's text)", async () => {
+    const t = tmp();
+    const dir = path.join(t, "game");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path.join(dir, "poe-checker.filter"), "OLD FILE");
+    const lines: [string, string][] = [];
+    const res = await appGenerate({ fg: { filter_name_tier: "poe-checker" }, game: "poe2", mode: "tier", gameDir: dir, base: [null, null], log: (m, tag = "info") => lines.push([m, tag]) });
+    expect(res.status).toBe("aborted");
+    expect(readFileSync(path.join(dir, "poe-checker.filter"), "utf-8")).toBe("OLD FILE");
+    expect(lines).toEqual([
+      ["⚠ ไม่มี NeverSink base filter ให้ใช้ (GitHub ล่ม + ไม่มี cache)", "warn"],
+      ["✗ nothing to write — no NeverSink base filter available — ไฟล์เดิมไม่ถูกแตะ", "err"],
+    ]);
   });
 
   const osErr = (code: string): Error => Object.assign(new Error("boom"), { code });

@@ -77,7 +77,11 @@ export async function appGenerate(i: AppGenInput, appVersion = "t"): Promise<App
   const name = v.name || cfg[key];
   const [base, tag] = i.base;
   if (i.mode === "whitelist" && !base) return { status: "aborted" }; // app.ts:132-135
-  if (i.mode === "tier" && base === null) return { status: "aborted" }; // app.ts:140-143
+  if (i.mode === "tier" && base === null) { // app.ts:140-144
+    log("⚠ ไม่มี NeverSink base filter ให้ใช้ (GitHub ล่ม + ไม่มี cache)", "warn");
+    log("✗ nothing to write — no NeverSink base filter available — ไฟล์เดิมไม่ถูกแตะ", "err");
+    return { status: "aborted" };
+  }
   const srcs = soundSources(cfg);
   const hashes = Object.fromEntries(Object.entries(srcs).map(([l, p]) => [l, sha256(readFileSync(p))])); // sounds.hashes()
   const existing: Record<string, string | null> = {}; // FS.existingFor(wanted)

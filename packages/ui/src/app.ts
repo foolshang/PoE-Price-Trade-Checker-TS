@@ -226,6 +226,7 @@ async function generate(mode: "tier" | "whitelist", refresh: boolean): Promise<b
       [base, tag] = await fetchBase(game, Number.isInteger(s) ? s : 2, !!refresh);
       if (base === null) {
         log("⚠ ไม่มี NeverSink base filter ให้ใช้ (GitHub ล่ม + ไม่มี cache)", "warn");
+        log("✗ nothing to write — no NeverSink base filter available — ไฟล์เดิมไม่ถูกแตะ", "err"); // (the original's text, filter_service.py: the old file is not touched)
         return false;
       }
       log(`✓ NeverSink base filter พร้อม (tag=${tag})`, "ok");

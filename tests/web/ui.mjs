@@ -605,6 +605,20 @@ await shot("15_poe1_unique");
   await page.click("#tab-wl");
 }
 
+// ---------------------------------------------------------------- NeverSink tab without a base filter
+{
+  await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("poeFilterGen.ns.text.")) localStorage.removeItem(k); }); // (no cached text)
+  const off = async (re) => { const h = (route) => route.fulfill({ status: 404, contentType: "text/plain", headers: { "Access-Control-Allow-Origin": "*" }, body: "not found" }); await context.route(re, h); return () => context.unroute(re, h); };
+  const undo = [await off(/^https:\/\/raw\.githubusercontent\.com\//), await off(/^https:\/\/api\.github\.com\//)];
+  await page.click("#tab-ns");
+  await page.evaluate(() => { document.querySelector("#result").hidden = true; });
+  await page.click("#btn-generate-tier");
+  check("tier without a base: the Status says why and that the old file is not touched (the original's text)", await waitLog("✗ nothing to write — no NeverSink base filter available — ไฟล์เดิมไม่ถูกแตะ", 30000) && (await logText()).includes("ไม่มี NeverSink base filter ให้ใช้"), await logText());
+  check("tier without a base: no result is offered", await page.locator("#result").isHidden());
+  for (const u of undo) await u();
+  await page.click("#tab-wl");
+}
+
 // ---------------------------------------------------------------- a phone-sized screen
 await page.setViewportSize({ width: 360, height: 780 });
 await page.click("#tab-wl");
