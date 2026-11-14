@@ -9,7 +9,6 @@ export interface ListData {
   names: string[] | null;
   namesFrom: string;
   /** {name: category} the whitelist adds from GGG's item list (names no other source has) */
-  added: Record<string, string> | null;
   /** the hub file of the league these lists were made from (null = not loaded yet) */
   leaguePath: string | null;
 }
@@ -35,7 +34,7 @@ export const S = {
   league: null as LeagueOption | null,
   api: new WebApi(),
   cfg: {} as Record<string, any>,
-  data: { hub: null, base: null, baseTag: null, names: null, namesFrom: "", added: null, leaguePath: null } as ListData,
+  data: { hub: null, base: null, baseTag: null, names: null, namesFrom: "", leaguePath: null } as ListData,
   ctx: null as Ctx | null,
   /** set when "เปิด filter…" threw once: the next click goes straight to the plain file input */
   openFilterBroken: false,

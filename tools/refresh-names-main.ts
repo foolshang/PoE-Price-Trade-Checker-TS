@@ -5,13 +5,12 @@
  *     npm run names:refresh
  *
  * The page cannot call GGG's API itself (no CORS), so it uses this snapshot. The snapshot holds the names per GGG group
- * (format 2) and `assigned`: the NEW names (not in the previous snapshot) that no category rule fits, with the main category of
- * their group; a name keeps that category in every later snapshot (see packages/core/src/ggg_names.ts). Run it before a
- * release; it refuses to write a list that shrank by more than 20%.
+ * (format 2; `assigned` stays empty: nothing assigns categories any more). The names are only the real-name check of the
+ * whitelist; they are never added to its lists. Run it before a release; it refuses to write a list that shrank by more than 20%.
  */
 import fs from "node:fs";
 import path from "node:path";
-import { gggNames, tradeNames } from "../packages/core/src/index.ts";
+import { tradeNames, tradeSnapshot } from "../packages/core/src/index.ts";
 import { mayWrite } from "./refresh-names.ts";
 
 async function main(): Promise<number> {
@@ -25,12 +24,12 @@ async function main(): Promise<number> {
       code = 1;
       continue;
     }
-    const groups = gggNames.groupsFromPayload(await res.json());
-    const count = gggNames.namesOfGroups(groups).size;
+    const groups = tradeSnapshot.groupsFromPayload(await res.json());
+    const count = tradeSnapshot.namesOfGroups(groups).size;
     const file = path.join(outDir, `trade_names_${game}.json`);
-    let prev: gggNames.Loaded | null = null;
+    let prev: tradeSnapshot.Loaded | null = null;
     try {
-      prev = fs.existsSync(file) ? gggNames.parseSnapshot(JSON.parse(fs.readFileSync(file, "utf-8"))) : null;
+      prev = fs.existsSync(file) ? tradeSnapshot.parseSnapshot(JSON.parse(fs.readFileSync(file, "utf-8"))) : null;
     } catch { /* unreadable: treated as no snapshot */ }
     const shipped = prev ? prev.names.size : 0;
     if (!mayWrite(count, shipped)) {
@@ -38,10 +37,8 @@ async function main(): Promise<number> {
       code = 1;
       continue;
     }
-    const assigned = gggNames.nextAssigned(game, groups, prev);
-    fs.writeFileSync(file, gggNames.snapshotJson(groups, assigned), "utf-8");
-    const fresh = Object.keys(assigned).filter((n) => !(prev?.snapshot?.assigned ?? {})[n]);
-    console.log(`${game}: ${count} names (had ${shipped}); assigned ${Object.keys(assigned).length}, ${fresh.length} new: ${fresh.slice(0, 20).join(" | ")}`);
+    fs.writeFileSync(file, tradeSnapshot.snapshotJson(groups, {}), "utf-8");
+    console.log(`${game}: ${count} names (had ${shipped})`);
   }
   return code;
 }

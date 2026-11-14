@@ -12,7 +12,7 @@ export * as hubClient from "./hub_client.ts";
 export * as hubSchema from "./hub_schema.ts";
 export * as neversinkSource from "./neversink_source.ts";
 export * as tradeNames from "./trade_names.ts";
-export * as gggNames from "./ggg_names.ts";
+export * as tradeSnapshot from "./trade_snapshot.ts";
 export { WlModel } from "./wl_model.ts";
 export * from "./ports.ts";
 export * as wlModel from "./wl_model.ts";

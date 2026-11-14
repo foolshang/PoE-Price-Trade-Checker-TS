@@ -1,11 +1,11 @@
 /**
- * Real item names from GGG's trade data (trade(2)/data/items), cached on disk (with their GGG groups, see ggg_names.ts).
+ * Real item names from GGG's trade data (trade(2)/data/items), cached on disk (with their GGG groups, see trade_snapshot.ts).
  * Port of poe_price_trade/trade_names.py.
  * Used by the whitelist filter as a second opinion on names NeverSink's base filter does not use. Never throws - no data
  * = empty set.
  */
 import { FsPort, HttpPort } from "./ports.ts";
-import * as ggg from "./ggg_names.ts";
+import * as ggg from "./trade_snapshot.ts";
 import { Log, noopLog, truthy } from "./py.ts";
 
 export const URLS: Record<string, string> = {

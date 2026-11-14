@@ -34,7 +34,7 @@ export function dataLoadedMessages(model: WlModel, baseText: string): Message[] 
   return out;
 }
 
-export type WlData = [hub: any, baseText: string, realNames: Iterable<string> | null, gggAdded?: ReadonlyMap<string, string> | null];
+export type WlData = [hub: any, baseText: string, realNames: Iterable<string> | null];
 
 export interface OpenOptions {
   /** (unused now: the tier sound is read from the model) */
@@ -65,7 +65,7 @@ export function openText(text: string, filename: string, game: string, current: 
   const model = WlModel.fromConfig(emb.cfg, game);
   const msgs: Message[] = [];
   if (data !== null) {
-    model.setData(data[0], data[1], data[2], data[3] ?? null);
+    model.setData(data[0], data[1], data[2]);
     msgs.push(...model.takeNotes().map((n): Message => ["warn", "⚠ " + n]));
   }
   const made = truthy(emb.app) ? ` (ค่าฝังจากรุ่น ${emb.app})` : " (ค่าฝังไม่ได้บันทึกรุ่น)";

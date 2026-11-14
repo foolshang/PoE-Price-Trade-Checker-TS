@@ -60,7 +60,7 @@ const tierOrNull = (t: unknown): string | null => (typeof t === "string" && wlMo
 export class WebApi {
   game = "poe2";
   model: WlModel = new WlModel("poe2");
-  data: [any, string, Set<string>, ReadonlyMap<string, string> | null] | null = null;
+  data: [any, string, Set<string>] | null = null;
 
   // ---------------------------------------------------------------------------------------------- urls / names
   nsLatestUrl = (game: string): string => filterCore.neversinkLatestApiUrl(game);
@@ -114,10 +114,9 @@ export class WebApi {
   }
 
   /** The item lists arrived: give them to the model. Returns the messages for the Status. */
-  wlLoad(hub: any, baseText: string | null, names: Iterable<string> | null, gggAdded: Record<string, string> | null = null): Msg[] {
-    const added = gggAdded ? new Map(Object.entries(gggAdded)) : null;
-    this.data = [hub ?? null, baseText || "", new Set(names ?? []), added];
-    this.model.setData(this.data[0], this.data[1], this.data[2], added);
+  wlLoad(hub: any, baseText: string | null, names: Iterable<string> | null): Msg[] {
+    this.data = [hub ?? null, baseText || "", new Set(names ?? [])];
+    this.model.setData(this.data[0], this.data[1], this.data[2]);
     return wlSession.dataLoadedMessages(this.model, baseText || "");
   }
 
@@ -249,7 +248,7 @@ export class WebApi {
    */
   async generate(o: {
     cfg: Cfg; game: string; hub: any; baseText: string | null; baseTag: string | null; log: (m: string, t?: string) => void;
-    hashes?: Record<string, string>; names?: Iterable<string> | null; added?: Record<string, string> | null; existing?: Record<string, string | null> | null; decisions?: Record<string, string>;
+    hashes?: Record<string, string>; names?: Iterable<string> | null; existing?: Record<string, string | null> | null; decisions?: Record<string, string>;
   }): Promise<GenerateResult> {
     const hashes = o.hashes ?? {};
     const decisions = o.decisions ?? {};
@@ -272,7 +271,7 @@ export class WebApi {
     let res, text: string;
     try {
       res = await filterCore.buildFilterText(o.cfg, o.game, {
-        hubData: o.hub ?? null, baseText: o.baseText || null, baseTag: o.baseTag || null, extraNames: o.names ?? null, gggAdded: o.added ? new Map(Object.entries(o.added)) : null, copySoundsFn,
+        hubData: o.hub ?? null, baseText: o.baseText || null, baseTag: o.baseTag || null, extraNames: o.names ?? null, copySoundsFn,
         appVersion: APP_VERSION, log: o.log,
       });
       if (res === null) return { status: "none" };

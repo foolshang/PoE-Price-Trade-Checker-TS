@@ -131,9 +131,6 @@ export class WlModel {
   hub: any = null;
   base_text = "";
   extra_names: Set<string> = new Set();
-  /** {name: category} added from GGG's item list (names no other source has), and which of the names are those */
-  ggg_added: ReadonlyMap<string, string> | null = null;
-  _gggOnly: Set<string> = new Set();
   _names = new Map<string, string>();
   _defaults = new Map<string, string>();
   _stackDefaults = new Map<string, [number, string]>();
@@ -157,16 +154,15 @@ export class WlModel {
     return this._loaded;
   }
 
-  setData(hub: any, baseText: string, extraNames: Iterable<string> | null = null, gggAdded: ReadonlyMap<string, string> | null = null): void {
+  setData(hub: any, baseText: string, extraNames: Iterable<string> | null = null): void {
     this.hub = hub;
     this.base_text = baseText || "";
     this.extra_names = new Set(extraNames ?? []);
-    this.ggg_added = gggAdded;
-    ({ names: this._names, gggOnly: this._gggOnly } = w.universeWithSources(this.game, hub, this.base_text, gggAdded));
+    this._names = w.universe(this.game, hub, this.base_text);
     [this._defaults, this._stackDefaults] = w.startTiers(this.base_text);
     this._stackable = w.stackInfo(this.base_text)[1];
     this._uniqueDefaults = w.uniqueBaseDefaults(this.base_text);
-    const real = new Set([...w.knownNames(this.base_text), ...this.extra_names, ...(gggAdded ? gggAdded.keys() : [])]);
+    const real = new Set([...w.knownNames(this.base_text), ...this.extra_names]);
     this._entries = w.uniqueEntries(hub).filter(([, b]) => real.has(b) && !w.badName(b));
     this._defaultLines = this.base_text ? w.defaultTierLines(this.base_text) : {};
     this._loaded = true;
@@ -430,12 +426,12 @@ export class WlModel {
   }
 
   private _resolved(): Map<string, string> {
-    return w.resolveTiers(this.game, this.cfg(), this._names, this._defaults, this._gggOnly);
+    return w.resolveTiers(this.game, this.cfg(), this._names, this._defaults);
   }
 
   defaultOf(name: string): string {
     if (w.isTablet(this.game, name)) return w.TABLET_DEFAULT;
-    return this._defaults.get(name) || (this._gggOnly.has(name) ? w.HIDE_TIER : "B");
+    return this._defaults.get(name) || "B";
   }
 
   // ------------------------------------------------------------------ rows
@@ -707,7 +703,7 @@ export class WlModel {
   // ------------------------------------------------------------------ build
 
   build(questText = "", soundNames: Record<string, string> | null = null): w.WhitelistResult {
-    return w.buildWhitelistFilter(this.game, this.cfg(), this.base_text, this.hub, questText, soundNames, this.extra_names, this.ggg_added);
+    return w.buildWhitelistFilter(this.game, this.cfg(), this.base_text, this.hub, questText, soundNames, this.extra_names);
   }
 }
 
