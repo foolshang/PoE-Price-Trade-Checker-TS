@@ -307,7 +307,7 @@ export function read(text: string, game: string, current: WlModel, folder: Folde
   let guessed: string[] = [];
   const baseCfg = current.cfg();
   const wm = WlModel.fromConfig(baseCfg, game);
-  wm.setData(current.hub, current.base_text, current.extra_names);
+  wm.setData(current.hub, current.base_text, current.extra_names, current.ggg_added);
   wm.item_tier = {};
   wm.cat_tier = {};
   wm.unique_tier = {};

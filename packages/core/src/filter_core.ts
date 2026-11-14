@@ -272,6 +272,8 @@ export interface BuildOptions {
   baseTag?: string | null;
   copySoundsFn?: CopySounds | null;
   extraNames?: Iterable<string> | null;
+  /** {name: category} of the names added from GGG's item list (ggg_names.addedNames); none = the old behaviour */
+  gggAdded?: ReadonlyMap<string, string> | null;
   appVersion?: string;
   log?: Log;
 }
@@ -283,10 +285,10 @@ export type BuildResult = Record<string, any>;
  * generated_section, base_text, base_tag}; null: whitelist with nothing selected (warning already logged).
  */
 export async function buildFilterText(fgCfgIn: Cfg, game: string, opts: BuildOptions = {}): Promise<BuildResult | null> {
-  const { hubData = null, baseText = null, baseTag = null, copySoundsFn = null, extraNames = null, appVersion = "", log = noopLog } = opts;
+  const { hubData = null, baseText = null, baseTag = null, copySoundsFn = null, extraNames = null, gggAdded = null, appVersion = "", log = noopLog } = opts;
   const [fgCfg] = migrateSounds(fgCfgIn); // a config that still has sound_s / sound_a / sound_b (read once)
   if (truthy(fgCfg.whitelist_enabled) && truthy(fgCfg.wl_v2)) {
-    return await buildWhitelistV2(fgCfg, game, hubData, baseText, copySoundsFn, extraNames, log, appVersion);
+    return await buildWhitelistV2(fgCfg, game, hubData, baseText, copySoundsFn, extraNames, log, appVersion, gggAdded);
   }
   if (truthy(fgCfg.whitelist_enabled)) return await buildWhitelist(fgCfg, game, hubData, log, copySoundsFn);
   return await buildTier(fgCfg, game, baseText, baseTag, copySoundsFn, log);
@@ -354,7 +356,7 @@ async function buildWhitelist(fgCfg: Cfg, gv: string, hubData: any, log: Log, co
 }
 
 async function buildWhitelistV2(fgCfg: Cfg, gv: string, hubData: any, baseText: string | null, copySoundsFn: BuildOptions["copySoundsFn"],
-  extraNames: Iterable<string> | null, log: Log, appVersion = ""): Promise<BuildResult | null> {
+  extraNames: Iterable<string> | null, log: Log, appVersion = "", gggAdded: ReadonlyMap<string, string> | null = null): Promise<BuildResult | null> {
   if (!baseText) {
     log("⚠ ไม่มี NeverSink base filter — whitelist ไม่มี tier เริ่มต้น ไม่ generate", "warn");
     return null;
@@ -364,7 +366,7 @@ async function buildWhitelistV2(fgCfg: Cfg, gv: string, hubData: any, baseText: 
   const copied = copySoundsFn ? await copySoundsFn(soundMap as Record<string, string>) : {};
   // the whitelist ends in `Hide`, so the quest blocks are always written: the player's Q style, else NeverSink's own look
   const quest = buildQuestBlocks(gv, fgCfg.style_q, get(copied, "Q"), filterWhitelist.neversinkQuestLines(baseText));
-  const res = filterWhitelist.buildWhitelistFilter(gv, fgCfg, baseText, hubData, quest, copied, extraNames);
+  const res = filterWhitelist.buildWhitelistFilter(gv, fgCfg, baseText, hubData, quest, copied, extraNames, gggAdded);
   for (const [base, tiers] of res.unique_conflicts) {
     log(`⚠ unique หลายตัวบน base ${base} มี tier ไม่เท่ากัน — ใช้ tier สูงสุด: ` +
       Object.entries(tiers).sort((a, b) => cmpStr(a[0], b[0])).map(([n, t]) => `${n}=${t}`).join(", "), "warn");
@@ -378,6 +380,12 @@ async function buildWhitelistV2(fgCfg: Cfg, gv: string, hubData: any, baseText: 
     const shown = res.bad_names.slice(0, 8).map(([n, where]) => `${n} (${where})`).join(", ");
     const more = res.bad_names.length > 8 ? ` … +${res.bad_names.length - 8}` : "";
     log(`⚠ ข้าม ${res.bad_names.length} ชื่อที่รู้ว่าไม่ใช่ชื่อไอเท็ม (เช่น [DNT], INCOMPLETE) ไม่เขียนลงไฟล์: ${shown}${more}`, "warn");
+  }
+  if (res.ggg) {
+    const per = Object.entries(res.ggg.written).sort((a, b) => cmpStr(a[0], b[0])).map(([c, n]) => `${c} ${n}`).join(", ");
+    const total = Object.values(res.ggg.written).reduce((a, b) => a + b, 0);
+    log(`ℹ ชื่อจาก GGG ที่เติมในรายการ ${res.ggg.added} ชื่อ · เขียนลง filter ${total} ชื่อ${per ? ` (${per})` : ""}` +
+      ` · ${res.ggg.unset} ชื่อยังไม่ได้ตั้ง tier (ไม่เขียน)`, "info");
   }
   // the settings go into the file too (comment lines), so the Whitelist tab can open and edit it again
   return { mode: "whitelist", generated_section: wlEmbed.embed(res.text, fgCfg, gv, appVersion), base_text: null, count: res.count,

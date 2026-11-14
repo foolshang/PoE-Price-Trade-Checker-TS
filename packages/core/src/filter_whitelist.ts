@@ -460,8 +460,12 @@ export function namedCategories(game: string, baseText: string): Map<string, str
   return out;
 }
 
-/** {name: category}: hub names of the whitelist categories, plus the names only NeverSink tiers. */
-export function universe(game: string, hubData: any, baseText: string): Map<string, string> {
+/**
+ * {name: category}: hub names of the whitelist categories, plus the names only NeverSink tiers, plus (4th, last) GGG's names
+ * `ggg` ({name: category}, see ggg_names.ts) that none of the first three has. `gggOnly` = the names that came from `ggg`.
+ */
+export function universeWithSources(game: string, hubData: any, baseText: string, ggg: ReadonlyMap<string, string> | null = null):
+  { names: Map<string, string>; gggOnly: Set<string> } {
   const wanted = new Set(filterGen.WHITELIST_CATEGORIES[game] ?? []);
   const out = new Map<string, string>();
   for (const it of filterGen.iterHubItems(hubData || {})) {
@@ -474,7 +478,19 @@ export function universe(game: string, hubData: any, baseText: string): Map<stri
     if (!out.has(n)) out.set(n, cat !== null && wanted.has(cat) ? cat : OTHER_CATEGORY);
   }
   for (const [n, cat] of namedCategories(game, baseText)) if (!out.has(n)) out.set(n, cat);
-  return out;
+  const gggOnly = new Set<string>();
+  if (ggg) {
+    for (const [n, cat] of [...ggg].sort((a, b) => cmpStr(a[0], b[0]))) {
+      if (out.has(n) || !wanted.has(cat) || badName(n)) continue;
+      out.set(n, cat);
+      gggOnly.add(n);
+    }
+  }
+  return { names: out, gggOnly };
+}
+
+export function universe(game: string, hubData: any, baseText: string, ggg: ReadonlyMap<string, string> | null = null): Map<string, string> {
+  return universeWithSources(game, hubData, baseText, ggg).names;
 }
 
 const NL_END = "(?=\\n?$)"; // Python's `$` also matches before a final newline
@@ -497,14 +513,25 @@ export const TABLET_CATEGORY = "Tablet";
 export const isTablet = (game: string, name: string): boolean => game === "poe2" && name.endsWith(" Tablet");
 
 /** {name: tier}: the user's item tier > the user's category tier > NeverSink's default > B. */
-export function resolveTiers(game: string, cfg: Record<string, any>, names: Map<string, string>, defaults: Map<string, string>): Map<string, string> {
+export function resolveTiers(game: string, cfg: Record<string, any>, names: Map<string, string>, defaults: Map<string, string>,
+  gggOnly: ReadonlySet<string> | null = null): Map<string, string> {
   const items = orEmpty(cfg[`wl_item_tier_${game}`]);
   const cats = orEmpty(cfg[`wl_cat_tier_${game}`]);
   const out = new Map<string, string>();
   for (const [n, cat] of names) {
     if (isTablet(game, n)) out.set(n, valid(dget(items, n)) || valid(dget(cats, TABLET_CATEGORY)) || TABLET_DEFAULT);
-    else out.set(n, valid(dget(items, n)) || valid(dget(cats, cat)) || defaults.get(n) || "B");
+    // a name only GGG has: no NeverSink tier, so none unless the player sets one (shown as D = not shown; it is not written)
+    else out.set(n, valid(dget(items, n)) || valid(dget(cats, cat)) || defaults.get(n) || (gggOnly?.has(n) ? HIDE_TIER : "B"));
   }
+  return out;
+}
+
+/** The GGG-only names the player gave no tier (neither the item nor its category): they are not written to the filter. */
+export function gggUnset(game: string, cfg: Record<string, any>, names: Map<string, string>, gggOnly: ReadonlySet<string>): Set<string> {
+  const items = orEmpty(cfg[`wl_item_tier_${game}`]);
+  const cats = orEmpty(cfg[`wl_cat_tier_${game}`]);
+  const out = new Set<string>();
+  for (const n of gggOnly) if (!valid(dget(items, n)) && !valid(dget(cats, names.get(n) ?? ""))) out.add(n);
   return out;
 }
 
@@ -639,6 +666,8 @@ export interface WhitelistResult {
   skipped: [string, string][];
   bad_names: [string, string][];
   stack_min: Map<string, number>;
+  /** only when GGG's names were given: how many were added to the lists, how many have no tier (not written), written per category */
+  ggg?: { added: number; unset: number; written: Record<string, number> };
 }
 
 /**
@@ -647,12 +676,13 @@ export interface WhitelistResult {
  * NeverSink's copied blocks, Hide.
  */
 export function buildWhitelistFilter(game: string, cfgIn: Record<string, any> | null, baseText: string, hubData: any,
-  questText = "", soundNamesIn: Record<string, string> | null = null, extraNames: Iterable<string> | null = null): WhitelistResult {
+  questText = "", soundNamesIn: Record<string, string> | null = null, extraNames: Iterable<string> | null = null,
+  gggAdded: ReadonlyMap<string, string> | null = null): WhitelistResult {
   const cfg = cfgIn || {};
   const soundNames = soundNamesIn || {};
   // a single unknown name in a `BaseType ==` line makes the game reject the whole filter, so only names the base filter
   // itself uses (or `extraNames`, e.g. GGG's item list) are ever written
-  const real = new Set<string>([...knownNames(baseText), ...(extraNames ?? []), ...filterGen.GOLD_BASETYPES,
+  const real = new Set<string>([...knownNames(baseText), ...(extraNames ?? []), ...(gggAdded ? gggAdded.keys() : []), ...filterGen.GOLD_BASETYPES,
     ...(filterGen.WHITELIST_GEM_UNCUT[game] ?? [])]);
   const skipped = new Map<string, string>();
   const bad = new Map<string, string>();
@@ -670,12 +700,13 @@ export function buildWhitelistFilter(game: string, cfgIn: Record<string, any> | 
 
   const exactOk = new Set<string>([...knownNames(baseText), ...filterGen.GOLD_BASETYPES]);
   const defaultLines = defaultTierLines(baseText);
-  const names = universe(game, hubData, baseText);
+  const { names, gggOnly } = universeWithSources(game, hubData, baseText, gggAdded);
   const [start, stackDefaults] = startTiers(baseText);
   const stackable = stackInfo(baseText)[1];
-  const resolved = resolveTiers(game, cfg, names, start);
+  const resolved = resolveTiers(game, cfg, names, start, gggOnly);
+  const unset = gggUnset(game, cfg, names, gggOnly);
   let tiers = new Map<string, string>();
-  for (const [n, t] of resolved) if (usable(n, "item")) tiers.set(n, t);
+  for (const [n, t] of resolved) if (!unset.has(n) && usable(n, "item")) tiers.set(n, t);
   const stackMin = stackMinimums(cfg, game, tiers, stackDefaults, stackable);
   // tablets the player gave a tier leave the Tablet block and follow that tier like any other item
   const tabletTier = new Map<string, string>();
@@ -844,11 +875,17 @@ export function buildWhitelistFilter(game: string, cfgIn: Record<string, any> | 
   const report: Record<string, number> = {};
   for (const t of ALL_TIERS) report[t] = [...allTiers.values()].filter((v) => v === t).length;
   report[TABLET_DEFAULT] = [...allTiers.values()].filter((v) => v === TABLET_DEFAULT).length;
-  return {
+  const res: WhitelistResult = {
     text: out.join("\n"), count, tiers: allTiers, categories: names, unique_conflicts: conflicts, report,
     skipped: skippedList, bad_names: [...bad].sort((a, b) => cmpTuple(a, b)),
     stack_min: stackMin,
   };
+  if (gggAdded) { // only when GGG's names were given (a golden run gives none: its result keeps its old shape)
+    const written: Record<string, number> = {};
+    for (const n of gggOnly) if (allTiers.has(n)) written[names.get(n)!] = (written[names.get(n)!] ?? 0) + 1;
+    res.ggg = { added: gggOnly.size, unset: unset.size, written };
+  }
+  return res;
 }
 
 /** `s.rstrip("\n")` */
