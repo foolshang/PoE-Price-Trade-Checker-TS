@@ -70,4 +70,4 @@
 
 ## 1.0.0-beta.3 - 2026-10-18
 
-- รุ่นแรกบน Electron: สร้าง loot filter แบบ NeverSink และ Whitelist เหมือนเว็บและโปรแกรม Python เดิมทุกไบต์
+- รุ่นแรกบน Electron: สร้าง loot filter แบบ NeverSink และ Whitelist เหมือนเว็บและโปรแกรม Python เดิม (ตรวจ byte ต่อ byte กับชุดทดสอบ parity ของ filter ทุกเคส; ที่ต่างจากของเดิมโดยตั้งใจมีเฉพาะ 493 จาก 5,586 เคสฝั่ง Checker เช่นการเลิกเดา stat id แบบ fuzzy ไม่มีเคสของ filter อยู่ในนั้น)
