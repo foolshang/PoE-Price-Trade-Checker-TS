@@ -3,9 +3,9 @@ import { mkdtempSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { NodeFs } from "../../node/src/nodefs.ts";
-import { HttpPort, filterCore, filterService, filterStyle, filterWhitelist as w } from "../src/index.ts";
+import { filterCore, filterStyle, filterWhitelist as w } from "../src/index.ts";
 import { EXACT_LINE } from "../src/filter_whitelist.ts";
+import { appGenerate, readLf } from "./app_path.ts";
 import { fixture } from "./helpers.ts";
 import { gunzipSync } from "node:zlib";
 import { FIX } from "../../../tests/parity/runner.ts";
@@ -345,19 +345,9 @@ function filterGen_UNCUT(game: string): string[] {
 }
 const w_UNCUT: Record<string, string[]> = { poe2: ["Uncut Skill Gem", "Uncut Spirit Gem", "Uncut Support Gem"], poe1: [] };
 
-// ------------------------------------------------------------------------------------------------ through filter_service
+// ------------------------------------------------------------------------------------------------ through the path the programs use (app_path.ts)
 
-const stubHttp = (hubPayload: any, baseText: string): HttpPort => ({
-  async getText(url: string): Promise<string> {
-    if (url.includes("api.github.com")) return JSON.stringify({ tag_name: "t" });
-    if (url.includes("raw.githubusercontent.com")) return baseText;
-    if (url.includes("storage.googleapis.com")) return JSON.stringify(hubPayload);
-    if (url.includes("/data/items")) return JSON.stringify({ result: [] });
-    throw new Error(`unexpected url ${url}`);
-  },
-});
-
-describe("filter service", () => {
+describe("filter generation, both tabs", () => {
   it.each([false, true])("one sound file in both tabs is copied once (wl_v2=%s)", async (v2) => {
     const tmp = mkdtempSync(path.join(os.tmpdir(), "poe-ts-"));
     const src = path.join(tmp, "src", "ragnarok.mp3");
@@ -365,11 +355,10 @@ describe("filter service", () => {
     writeFileSync(src, "sound");
     const fg = { sound_3: src, whitelist_custom_poe2: ["Divine Orb"], whitelist_gold: true, wl_v2: v2,
       wl_tier_style: { S: { sound: { kind: "file", file: src, volume: 300 } } }, game_dir_poe2: path.join(tmp, "game") };
-    const config = { get: (k: string, d?: any) => (k === "filter_gen" ? { ...fg } : d), set: () => {}, save: () => {}, appDir: () => path.join(tmp, "app") };
-    const env = { fs: new NodeFs({ eol: "lf" }), http: stubHttp(hub(["Divine Orb", "Currency", null]), POE2), documentsDir: tmp, nowMs: () => Date.now(), appVersion: "t" };
-    const tier = (await filterService.generateFilter(config, "poe2", "p", env, { mode: "tier" }))!;
-    const wl = (await filterService.generateFilter(config, "poe2", "p", env, { mode: "whitelist" }))!;
-    const tText = readFileSync(tier.path, "utf-8"), wText = readFileSync(wl.path, "utf-8");
+    const io = { fg, game: "poe2", gameDir: path.join(tmp, "game"), base: [POE2, "t"] as [string, string], hub: hub(["Divine Orb", "Currency", null]), names: [] as string[] };
+    const tier = await appGenerate({ ...io, mode: "tier" });
+    const wl = await appGenerate({ ...io, mode: "whitelist" });
+    const tText = readLf(tier.path!), wText = readLf(wl.path!);
     const line = 'CustomAlertSoundOptional "ragnarok.mp3" 300';
     expect(tText).toContain(line);
     if (v2) expect(readdirSync(path.join(tmp, "game")).filter((n) => n.endsWith(".mp3"))).toEqual(["ragnarok.mp3"]);

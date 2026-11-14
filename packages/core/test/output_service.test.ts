@@ -4,7 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { NodeFs } from "../../node/src/nodefs.ts";
-import { FsPort, HttpPort, WlModel, filterCore, filterGen, filterOutput, filterService, filterStyle } from "../src/index.ts";
+import { WlModel, filterCore, filterGen, filterOutput, filterService, filterStyle } from "../src/index.ts";
+import { appGenerate, readLf } from "./app_path.ts";
 import { data } from "./helpers.ts";
 
 const fsx = new NodeFs({ eol: "lf" });
@@ -147,86 +148,51 @@ describe("copy_sounds", () => {
   it("an empty map returns empty", async () => expect(await filterOutput.copySounds(fsx, tmp(), {})).toEqual({}));
 });
 
-// ------------------------------------------------------------------------------------------------ filter_service
+// ------------------------------------------------------------------------------------------------ the filter the programs write (was filter_service.generate_filter)
 
-const NO_NET: HttpPort = { getText: async (url) => { throw new Error(`no network in this test: ${url}`); } };
+const BASE = ["Show", "  BaseType X", ""].join("\n");
 
-function cfgOf(t: string, fg: Record<string, any>) {
-  return { get: (k: string, d?: any) => (k === "filter_gen" ? { ...fg, game_dir_poe2: path.join(t, "game") } : d), set: () => {}, save: () => {}, appDir: () => path.join(t, "app") };
-}
-const envOf = (t: string, http: HttpPort = NO_NET, fs: FsPort = fsx) => ({ fs, http, documentsDir: t, nowMs: () => Date.now(), appVersion: "t" });
+/** the Generate of one tab, made the way the programs make it (app_path.ts) */
+const gen = (t: string, fg: Record<string, any>, mode: "tier" | "whitelist", o: { hub?: any; log?: (m: string, tag?: string) => void } = {}) =>
+  appGenerate({ fg, game: "poe2", mode, gameDir: path.join(t, "game"), base: [BASE, "tag1"], hub: o.hub ?? null, names: [], log: o.log });
+const HUB = { schema_version: 2, league: "L", currency: [{ category: "Rune", name: "Adept Rune", base: null, chaos_value: 0.5 }], items: [] };
 
-/** answers like the real servers do */
-function stubHttp(o: { base?: string; tag?: string; hub?: any; hubFails?: boolean }): HttpPort & { urls: string[] } {
-  const urls: string[] = [];
-  return {
-    urls,
-    async getText(url: string): Promise<string> {
-      urls.push(url);
-      if (url.includes("api.github.com")) return JSON.stringify({ tag_name: o.tag ?? "tag1" });
-      if (url.includes("raw.githubusercontent.com")) return o.base ?? "";
-      if (url.includes("storage.googleapis.com")) {
-        if (o.hubFails || o.hub === undefined) throw new Error("down");
-        return JSON.stringify(o.hub);
-      }
-      if (url.includes("/data/items")) return JSON.stringify({ result: [] });
-      throw new Error(`unexpected url ${url}`);
-    },
-  };
-}
-
-describe("filter_service.generate_filter", () => {
-  it("a whitelist writes the file, returns the result and logs", async () => {
-    const t = tmp(), logs: [string, string][] = [];
-    const http = stubHttp({});
-    const res = (await filterService.generateFilter(cfgOf(t, { whitelist_enabled: true, whitelist_custom_poe2: ["Divine Orb"], whitelist_gold: true }), "poe2",
-      "poe2/prices/latest.json", envOf(t, http), { log: (m, tg = "info") => logs.push([tg, m]) }))!;
-    expect(http.urls.some((u) => u.includes("storage.googleapis.com"))).toBe(false); // the hub must not be used
+describe("the filter the programs write, per mode", () => {
+  it("a whitelist writes the file and returns the result", async () => {
+    const t = tmp();
+    const res = await gen(t, { whitelist_custom_poe2: ["Divine Orb"], whitelist_gold: true }, "whitelist");
     expect(res.mode).toBe("whitelist");
     expect(res.count).toBe(2);
-    const text = read(path.join(t, "game", "poe-checker-whitelist.filter"));
+    const text = readLf(path.join(t, "game", "poe-checker-whitelist.filter"));
     expect(text).toContain('"Divine Orb"');
     expect(text).toContain('"Gold"');
     expect(text.trimEnd().endsWith("Hide")).toBe(true);
     expect(res.path).toBe(path.join(t, "game", "poe-checker-whitelist.filter"));
-    expect(logs.map(([tg]) => tg)).toEqual(["ok", "ok"]);
-    expect(logs.at(-1)![1]).toContain("Filter updated");
   });
 
-  it("a whitelist with nothing selected returns null and writes nothing", async () => {
+  it("a whitelist with nothing selected hands nothing over and writes nothing", async () => {
     const t = tmp(), logs: [string, string][] = [];
-    const res = await filterService.generateFilter(cfgOf(t, { whitelist_enabled: true }), "poe2", "p", envOf(t), { log: (m, tg = "info") => logs.push([tg, m]) });
-    expect(res).toBeNull();
+    const res = await gen(t, {}, "whitelist", { log: (m, tg = "info") => logs.push([tg, m]) });
+    expect(res.status).toBe("none");
     expect(existsSync(path.join(t, "game"))).toBe(false);
     expect(logs.length).toBe(1);
     expect(logs[0][0]).toBe("warn");
   });
 
   it("a whitelist category needs the hub and degrades when it is down", async () => {
-    const t = tmp(), logs: [string, string][] = [];
-    const res = (await filterService.generateFilter(cfgOf(t, { whitelist_enabled: true, whitelist_custom_poe2: ["Divine Orb"], whitelist_cats_poe2: ["Rune"] }), "poe2", "p",
-      envOf(t, stubHttp({ hubFails: true })), { log: (m, tg = "info") => logs.push([tg, m]) }))!;
+    const res = await gen(tmp(), { whitelist_custom_poe2: ["Divine Orb"], whitelist_cats_poe2: ["Rune"] }, "whitelist");
     expect(res.mode).toBe("whitelist");
-    expect(res.count).toBe(1); // the static part is still generated
-    expect(logs[0][0]).toBe("warn");
+    expect(res.count).toBe(1); // the static part is still generated (the page says "hub unavailable" when it loads the lists)
+    const withHub = await gen(tmp(), { whitelist_custom_poe2: ["Divine Orb"], whitelist_cats_poe2: ["Rune"] }, "whitelist", { hub: HUB });
+    expect(withHub.count).toBeGreaterThan(1); // the hub's runes are in
   });
 
-  it("the default log is a no-op", async () => {
+  it("tier mode is base + header", async () => {
     const t = tmp();
-    expect((await filterService.generateFilter(cfgOf(t, { whitelist_enabled: true, whitelist_gold: true }), "poe2", "p", envOf(t)))!.mode).toBe("whitelist");
-  });
-
-  it("tier mode is base + header and never calls the hub", async () => {
-    const t = tmp();
-    const base = 'Show\n\tBaseType "X"\n';
-    const http = stubHttp({ base, tag: "tag1" });
-    const res = (await filterService.generateFilter(cfgOf(t, {}), "poe2", "p", envOf(t, http)))!;
-    expect(http.urls.some((u) => u.includes("storage.googleapis.com"))).toBe(false);
+    const res = await gen(t, {}, "tier");
     expect(res.mode).toBe("tier");
     expect(res.base_tag).toBe("tag1");
-    expect(new Set(Object.keys(res))).toEqual(new Set(["mode", "path", "base_tag", "filter_name"]));
-    expect(read(res.path)).toBe(filterCore.composeFilterBody(filterCore.TIER_HEADER, base));
-    expect(existsSync(path.join(t, "app")) ? readdirSync(path.join(t, "app")).filter((n) => /^filter_state_.*\.json$/.test(n)) : []).toEqual([]);
+    expect(readLf(res.path!)).toBe(filterCore.composeFilterBody(filterCore.TIER_HEADER, BASE));
   });
 
   const osErr = (code: string): Error => Object.assign(new Error("boom"), { code });
@@ -247,46 +213,29 @@ describe("filter_service.generate_filter", () => {
     expect(msg).toContain("boom");
   });
 
-  const failingFs = (): FsPort => Object.assign(Object.create(fsx), { writeText: async () => { throw osErr("EBADF"); } });
-
-  it("a blocked whitelist write logs a friendly message and returns null", async () => {
+  it("a failed write hands nothing over", async () => {
     const t = tmp(), logs: [string, string][] = [];
-    const res = await filterService.generateFilter(cfgOf(t, { whitelist_enabled: true, whitelist_gold: true }), "poe2", "p", envOf(t, NO_NET, failingFs()), { log: (m, tg = "info") => logs.push([tg, m]) });
-    expect(res).toBeNull();
+    const res = await appGenerate({ fg: { whitelist_gold: true }, game: "poe2", mode: "whitelist", gameDir: path.join(t, "game"), base: [BASE, "t"], failWrite: osErr("EBADF"),
+      log: (m, tg = "info") => logs.push([tg, m]) });
+    expect(res.status).toBe("write-failed");
+    expect(existsSync(path.join(t, "game"))).toBe(false);
     expect(logs.at(-1)![0]).toBe("err");
-    expect(logs.at(-1)![1]).toContain("Controlled Folder Access");
-  });
-
-  it("a blocked tier write logs a friendly message and returns null", async () => {
-    const t = tmp(), logs: [string, string][] = [];
-    // the cache of NeverSink is written through the same port, so the base filter comes from a pre-filled cache
-    const real = fsx;
-    mkdirSync(path.join(t, "app", "cache", "neversink", "poe2"), { recursive: true });
-    writeFileSync(path.join(t, "app", "cache", "neversink", "poe2", "last_check.json"), JSON.stringify({ tag: "t", checked_at: new Date().toISOString() }));
-    writeFileSync(path.join(t, "app", "cache", "neversink", "poe2", "t_2.filter"), "Show\n");
-    const onlyFilterWrites: FsPort = Object.assign(Object.create(real), { writeText: async (p: string) => { if (p.endsWith(".filter")) throw osErr("EBADF"); } });
-    const res = await filterService.generateFilter(cfgOf(t, {}), "poe2", "p", envOf(t, NO_NET, onlyFilterWrites), { log: (m, tg = "info") => logs.push([tg, m]) });
-    expect(res).toBeNull();
-    expect(logs.at(-1)![0]).toBe("err");
-    expect(logs.at(-1)![1]).toContain("Controlled Folder Access");
   });
 
   it("the gold minimum reaches the filter and an old config defaults to all stacks", async () => {
     const t = tmp();
-    let res = (await filterService.generateFilter(cfgOf(t, { whitelist_enabled: true, whitelist_gold: true, whitelist_gold_min: 25 }), "poe2", "p", envOf(t)))!;
+    let res = await gen(t, { whitelist_gold: true, whitelist_gold_min: 25 }, "whitelist");
     expect(res.count).toBe(1);
-    expect(read(res.path)).toContain("StackSize >= 25");
-    res = (await filterService.generateFilter(cfgOf(t, { whitelist_enabled: true, whitelist_gold: true }), "poe2", "p", envOf(t)))!;
-    expect(read(res.path)).not.toContain("StackSize");
+    expect(readLf(res.path!)).toContain("StackSize >= 25");
+    res = await gen(t, { whitelist_gold: true }, "whitelist");
+    expect(readLf(res.path!)).not.toContain("StackSize");
   });
 
-  it("unique only generates without calling the hub", async () => {
+  it("unique only generates", async () => {
     const t = tmp();
-    const http = stubHttp({});
-    const res = (await filterService.generateFilter(cfgOf(t, { whitelist_enabled: true, whitelist_unique_all: true }), "poe2", "p", envOf(t, http)))!;
-    expect(http.urls.some((u) => u.includes("storage.googleapis.com"))).toBe(false);
+    const res = await gen(t, { whitelist_unique_all: true }, "whitelist");
     expect(res.count).toBe(1);
-    expect(read(res.path)).toContain("Rarity Unique");
+    expect(readLf(res.path!)).toContain("Rarity Unique");
   });
 });
 

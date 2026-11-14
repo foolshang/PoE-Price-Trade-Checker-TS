@@ -165,21 +165,20 @@ export function everythingOn(game: string): [string, string] {
 
 // ------------------------------------------------------------------------------------------------ _generate (tests.test_wl_phase3b)
 
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { NodeFs } from "../../node/src/nodefs.ts";
-import { filterService } from "../src/index.ts";
+import { appGenerate, readLf } from "./app_path.ts";
 
 export const tmpDir = (): string => mkdtempSync(path.join(os.tmpdir(), "poe-ts-"));
-export const readText = (p: string): string => readFileSync(p, "utf-8");
+/** a written filter as the original's Python read it back (CRLF -> LF; the programs write CRLF) */
+export const readText = readLf;
 
-/** generate_filter (whitelist mode, wl_v2) with the fixtures as inputs; returns the result of the service */
+/** the whitelist tab's Generate (wl_v2) with the fixtures as inputs, through the path the programs use (app_path.ts); returns {path, count, mode, filter_name} */
 export async function generate(cfgDict: Record<string, any>, game: string, tmp: string, name = "wl-test") {
   const [hub, base, extra] = data(game);
-  const fg = { ...cfgDict, whitelist_enabled: true, wl_v2: true, [`game_dir_${game}`]: path.join(tmp, "game"), filter_name_whitelist: name };
-  const config = { get: (k: string, d?: any) => (k === "filter_gen" ? { ...fg } : d), set: () => {}, save: () => {}, appDir: () => path.join(tmp, "app") };
-  const env = { fs: new NodeFs({ eol: "lf" }), http: { getText: async (): Promise<string> => { throw new Error("no net"); } }, documentsDir: tmp, nowMs: () => Date.now(), appVersion: "t",
-    deps: { fetchBaseFilter: async (): Promise<[string | null, string | null]> => [base, "t"], getPrices: async () => hub, getNames: async () => extra } };
-  return (await filterService.generateFilter(config, game, "p", env, { mode: "whitelist" }))!;
+  const fg = { ...cfgDict, wl_v2: true, filter_name_whitelist: name };
+  const res = await appGenerate({ fg, game, mode: "whitelist", gameDir: path.join(tmp, "game"), base: [base, "t"], hub, names: extra });
+  if (res.status !== "ok") throw new Error(`generate: ${res.status} ${res.message ?? ""}`);
+  return res as typeof res & { path: string; count: number };
 }

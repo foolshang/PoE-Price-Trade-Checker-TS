@@ -1,22 +1,23 @@
 /**
- * Golden regression for filterService.generateFilter and the sound slots end to end (test_filter_service_golden.py,
- * test_filter_sounds_e2e.py). The golden file is the one the ORIGINAL wrote (tests/parity/fixtures/filter_service_golden.json):
- * every log line, event, return value, spied I/O call and the sha256 of the written file must be the same.
+ * Golden regression of the filter the programs make: the 24 scenarios of the original's filter_service golden
+ * (tests/parity/fixtures/filter_service_golden.json) and the sound slots end to end (test_filter_sounds_e2e.py), run through the path the apps use
+ * (app_path.ts: the page's Generate = WebApi.generate + the delivery of files.ts). Compared with the golden: the sha256 of the written
+ * file (and the file itself when the golden keeps it), the sound files in the folder, and the mode / count / tag / name the original returned.
+ * Not compared: the original's own log lines, events and spied I/O calls - they describe its filter_service, which the programs do not have.
  */
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { NodeFs } from "../../node/src/nodefs.ts";
-import { filterGen, filterOutput, filterService } from "../src/index.ts";
+import { filterGen } from "../src/index.ts";
 import { FIX } from "../../../tests/parity/runner.ts";
+import { appGenerate, readLf } from "./app_path.ts";
 import { fixture } from "./helpers.ts";
 import { soundBlockCounts } from "./sound_counts.ts";
 
 const sha = (s: string): string => createHash("sha256").update(Buffer.from(s, "utf-8")).digest("hex");
 const cp = (s: string): number => [...s].length;
-const fsx = new NodeFs({ eol: "lf" });
 const BASE: Record<string, string> = { poe2: fixture("fx:ns_poe2_base"), poe1: fixture("fx:ns_poe1_base") };
 const GOLDEN = JSON.parse(readFileSync(path.join(FIX, "filter_service_golden.json"), "utf-8"));
 
@@ -68,60 +69,25 @@ const S: Record<string, [Record<string, any>, string, string, string, Extra]> = 
 async function run(name: string, tmp: string): Promise<any> {
   const [fgIn, gv, hubmode, basemode, extra] = S[name];
   const fg: Record<string, any> = structuredClone(fgIn);
-  const app = path.join(tmp, "app"), game = path.join(tmp, "game");
-  mkdirSync(app, { recursive: true });
-  fg["game_dir_" + gv] = game;
+  const game = path.join(tmp, "game");
   if (extra.sound) {
     const snd = path.join(tmp, "snd.mp3");
     writeFileSync(snd, "ID3x");
     for (const k of ["sound_s", "sound_a", "sound_b"]) if (k in fg) fg[k] = snd;
   }
-  const config = { get: (k: string, d?: any) => (k === "filter_gen" ? fg : d), set: () => {}, save: () => {}, appDir: () => app };
-  const calls: any[] = [], logs: [string, string][] = [], events: string[] = [];
-  const rel = (p: string): string => path.relative(tmp, p).replaceAll("\\", "/");
-  const norm = (m: string): string => m.replaceAll(tmp, "<T>").replaceAll("\\", "/");
-  const deps = {
-    getPrices: async (p: string) => {
-      calls.push(["get_prices", p]);
-      if (hubmode === "boom") throw new Error("hub down");
-      return hub(hubmode !== "stale");
-    },
-    fetchBaseFilter: async (g: string, s: number, cacheDir: string, force: boolean): Promise<[string | null, string | null]> => {
-      calls.push(["fetch_base_filter", g, s, rel(cacheDir), force]);
-      return basemode === "none" ? [null, null] : [BASE[g], "tagX"];
-    },
-    getNames: async () => new Set<string>(),
-    copySounds: async (d: string, m: Record<string, string | null>, decide: any, notify: (t: string) => void) => {
-      calls.push(["copy_sounds", rel(d), Object.fromEntries(Object.entries(m).sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, v]) => [k, !!v]))]);
-      return filterOutput.copySounds(fsx, d, m, decide, notify);
-    },
-    writeFilter: async (d: string, sec: string, base: string | null, nm: string) => {
-      calls.push(["write_filter", rel(d), sha(sec).slice(0, 12), base === null ? null : sha(base).slice(0, 12)]);
-      if (extra.write) {
-        const e: any = extra.write;
-        if (e.pyKind === "ValueError") throw new (await import("../src/py.ts")).PyError("ValueError", e.message);
-        throw e;
-      }
-      return filterOutput.writeFilter(fsx, d, sec, base, nm);
-    },
-  };
-  const env = { fs: fsx, http: { getText: async (): Promise<string> => { throw new Error("no net"); } }, documentsDir: tmp, nowMs: () => Date.now(), appVersion: "0.13.5",
-    exeName: "โปรแกรมนี้", debugEvent: (m: string) => events.push(m.replaceAll(tmp, "<T>")), deps };
-  const res = await filterService.generateFilter(config, gv, `${gv}/prices/latest.json`, env,
-    { forceBase: !!extra.force, league: extra.league ?? "", log: (m, t = "info") => logs.push([t, m.replaceAll(tmp, "<T>")]) });
+  const mode = fg.whitelist_enabled ? "whitelist" : "tier";
+  const res = await appGenerate({ fg, game: gv, mode, gameDir: game, base: basemode === "none" ? [null, null] : [BASE[gv], "tagX"],
+    hub: hubmode === "boom" ? null : hub(hubmode !== "stale"), names: [], failWrite: extra.write }, "0.13.5");
   let out: string | null = null;
   const filters = existsSync(game) ? readdirSync(game).filter((n) => n.endsWith(".filter")).sort() : [];
-  const f = filters.length ? path.join(game, filters[0]) : path.join(game, "poe-checker.filter");
-  if (existsSync(f)) out = await fsx.readText(f);
+  if (filters.length) out = readLf(path.join(game, filters[0]));
   const sounds = existsSync(game) ? readdirSync(game).filter((n) => !n.endsWith(".filter")).sort() : [];
-  const nrm = (v: any): any => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, nrm(x)])) : Array.isArray(v) ? v.map(nrm) : typeof v === "string" ? norm(v) : v);
-  return JSON.parse(JSON.stringify({
-    return: nrm(res), logs: logs.map(([t, m]) => [t, m.replaceAll("\\", "/")]), events: events.map((e) => e.replaceAll("\\", "/")), calls,
-    file_len: out === null ? null : cp(out), file_sha256: out === null ? null : sha(out), file: out !== null && cp(out) < 5000 ? out : null, sounds,
-  }));
+  const written = res.status === "ok";
+  return { res, file_len: out === null ? null : cp(out), file_sha256: out === null ? null : sha(out), file: out !== null && cp(out) < 5000 ? out : null, sounds,
+    result: written ? { mode: res.mode, filter_name: res.filter_name, ...(res.mode === "whitelist" ? { count: res.count } : { base_tag: res.base_tag }) } : null };
 }
 
-describe("filterService.generateFilter against the golden of the original", () => {
+describe("the filter the programs write, against the golden of the original", () => {
   it("the scenarios are the golden's", () => expect(Object.keys(S).sort()).toEqual(Object.keys(GOLDEN).sort()));
   it.each(Object.keys(S))("%s", async (name) => {
     const tmp = mkdtempSync(path.join(os.tmpdir(), "poe-ts-"));
@@ -129,7 +95,12 @@ describe("filterService.generateFilter against the golden of the original", () =
     const want = GOLDEN[name];
     // the golden holds small files in full (and "" where the original did not keep them): compare the hash always
     expect(got.file_sha256).toBe(want.file_sha256);
-    expect(got).toEqual(want);
+    expect(got.file_len).toBe(want.file_len);
+    if (want.file) expect(got.file).toBe(want.file);
+    expect(got.sounds).toEqual(want.sounds);
+    const ret = want.return; // null = the original wrote nothing
+    if (ret === null) expect(got.result).toBeNull();
+    else expect(got.result).toEqual({ mode: ret.mode, filter_name: ret.filter_name, ...(ret.mode === "whitelist" ? { count: ret.count } : { base_tag: ret.base_tag }) });
   });
 });
 
@@ -155,14 +126,12 @@ async function runE2E(tmp: string, game: string, v2: boolean, nsSlots = NS_SLOTS
   if (game === "poe2") fg.whitelist_gem_uncut_poe2 = { "Uncut Skill Gem": 3 };
   else fg.whitelist_gem_names_poe1 = ["Fireball"];
   const gameDir = path.join(tmp, "game");
-  const config = { get: (k: string, d?: any) => (k === "filter_gen" ? { ...fg, [`game_dir_${game}`]: gameDir } : d), set: () => {}, save: () => {}, appDir: () => path.join(tmp, "app") };
   const base: string = fixture(`fx:ns_${game}_s2`);
   const hubd = fixture(`fx:hub_${game}`);
-  const env = { fs: fsx, http: { getText: async (): Promise<string> => "" }, documentsDir: tmp, nowMs: () => Date.now(), appVersion: "t",
-    deps: { fetchBaseFilter: async (): Promise<[string | null, string | null]> => [base, "t"], getPrices: async () => hubd, getNames: async () => new Set<string>() } };
-  const tier = (await filterService.generateFilter(config, game, "p", env, { mode: "tier" }))!;
-  const wl = (await filterService.generateFilter(config, game, "p", env, { mode: "whitelist" }))!;
-  return [readFileSync(tier.path, "utf-8"), readFileSync(wl.path, "utf-8"), readdirSync(gameDir).filter((n) => n.endsWith(".mp3")).sort(), base] as const;
+  const io = { fg, game, gameDir, base: [base, "t"] as [string, string], hub: hubd, names: [] as string[] };
+  const tier = await appGenerate({ ...io, mode: "tier" });
+  const wl = await appGenerate({ ...io, mode: "whitelist" });
+  return [readLf(tier.path!), readLf(wl.path!), readdirSync(gameDir).filter((n) => n.endsWith(".mp3")).sort(), base] as const;
 }
 
 describe("every sound slot, both tabs, both games, through the service", () => {

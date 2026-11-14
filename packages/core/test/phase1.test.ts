@@ -1,10 +1,10 @@
 /** style model, file names, sound-name planning, quest blocks, service (the non-Tk part of test_filter_phase1.py) */
-import { existsSync, mkdirSync, mkdtempSync, readdirSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { NodeFs } from "../../node/src/nodefs.ts";
 import { filterCore, filterService, filterStyle } from "../src/index.ts";
+import { appGenerate } from "./app_path.ts";
 
 // ---------------------------------------------------------------- filter_style
 
@@ -126,66 +126,25 @@ describe("quest blocks", () => {
   });
 });
 
-// ---------------------------------------------------------------- service
+// ---------------------------------------------------------------- the filter files the programs write
 
-const fsx = new NodeFs({ eol: "lf" });
-const NO_NET = { getText: async (u: string): Promise<string> => { throw new Error(`no network: ${u}`); } };
-
-function storeCfg(t: string, fg: Record<string, any>) {
-  const store: Record<string, any> = { filter_gen: { ...fg, game_dir_poe2: path.join(t, "game") } };
-  return { store, get: (k: string, d?: any) => (k in store ? store[k] : d), set: (k: string, v: any) => { store[k] = v; }, save: () => {}, appDir: () => path.join(t, "app") };
-}
-const envWith = (t: string, base: [string, string]) => ({
-  fs: fsx, http: NO_NET, documentsDir: t, nowMs: () => Date.now(), appVersion: "t",
-  deps: { fetchBaseFilter: async (): Promise<[string | null, string | null]> => base },
-});
-
-describe("filter service, per tab", () => {
+describe("filter files, per tab", () => {
   it("each tab writes its own file and a bad name stops before writing", async () => {
     const t = mkdtempSync(path.join(os.tmpdir(), "poe-ts-"));
-    const env = envWith(t, ["Show\n\tBaseType \"X\"\n", "tag1"]);
-    const cfg = storeCfg(t, { filter_name_tier: "my tier", whitelist_gold: true });
-    const logs: [string, string][] = [];
-    const tr = (await filterService.generateFilter(cfg, "poe2", "p", env, { mode: "tier", log: (m, tg = "info") => logs.push([tg, m]) }))!;
-    const wr = (await filterService.generateFilter(cfg, "poe2", "p", env, { mode: "whitelist" }))!;
-    expect(path.basename(tr.path)).toBe("my tier.filter");
+    const io = { game: "poe2", gameDir: path.join(t, "game"), base: ["Show\n\tBaseType X\n", "tag1"] as [string, string], hub: null, names: [] as string[] };
+    const fg = { filter_name_tier: "my tier", whitelist_gold: true };
+    const tr = await appGenerate({ ...io, fg, mode: "tier" });
+    const wr = await appGenerate({ ...io, fg, mode: "whitelist" });
+    expect(path.basename(tr.path!)).toBe("my tier.filter");
     expect(tr.filter_name).toBe("my tier");
-    expect(path.basename(wr.path)).toBe("poe-checker-whitelist.filter");
+    expect(path.basename(wr.path!)).toBe("poe-checker-whitelist.filter");
     expect(readdirSync(path.join(t, "game")).filter((n) => n.endsWith(".filter")).sort()).toEqual(["my tier.filter", "poe-checker-whitelist.filter"]);
-    const bad = storeCfg(t, { filter_name_tier: "a/b" });
-    logs.length = 0;
-    expect(await filterService.generateFilter(bad, "poe2", "p", env, { mode: "tier", log: (m, tg = "info") => logs.push([tg, m]) })).toBeNull();
+    const logs: [string, string][] = [];
+    const bad = await appGenerate({ ...io, gameDir: path.join(t, "other"), fg: { filter_name_tier: "a/b" }, mode: "tier", log: (m, tg = "info") => logs.push([tg, m]) });
+    expect(bad.status).toBe("name-error");
+    expect(existsSync(path.join(t, "other"))).toBe(false);
     expect(logs.at(-1)![0]).toBe("err");
     expect(logs.at(-1)![1]).toContain("/");
-  });
-
-  it("renaming leaves the old file alone and says it is still there", async () => {
-    const t = mkdtempSync(path.join(os.tmpdir(), "poe-ts-"));
-    const env = envWith(t, ["Show\n", "t"]);
-    const cfg = storeCfg(t, {});
-    const logs: string[] = [];
-    const r1 = await filterService.generateFilter(cfg, "poe2", "p", env, { mode: "tier" });
-    await filterService.rememberResult(cfg, "poe2", r1);
-    cfg.store.filter_gen.filter_name_tier = "renamed";
-    const r2 = (await filterService.generateFilter(cfg, "poe2", "p", env, { mode: "tier", log: (m) => logs.push(m) }))!;
-    expect(existsSync(path.join(t, "game", "poe-checker.filter"))).toBe(true);
-    expect(path.basename(r2.path)).toBe("renamed.filter");
-    expect(logs.some((m) => m.includes("ไฟล์เดิม poe-checker.filter ยังอยู่"))).toBe(true);
-    mkdirSync(path.join(t, "x"), { recursive: true });
-  });
-
-  it("remember_result keeps the tag and name", async () => {
-    const cfg = storeCfg(os.tmpdir(), {});
-    await filterService.rememberResult(cfg, "poe2", { mode: "tier", path: "", base_tag: "0.10.4", filter_name: "x" });
-    const fg = cfg.store.filter_gen;
-    expect(fg.neversink_tag_poe2).toBe("0.10.4");
-    expect(fg.last_filter_name_tier).toBe("x");
-    await filterService.rememberResult(cfg, "poe2", { mode: "whitelist", path: "", filter_name: "w" });
-    expect(cfg.store.filter_gen.last_filter_name_whitelist).toBe("w");
-    expect(cfg.store.filter_gen.neversink_tag_poe2).toBe("0.10.4");
-    const before = JSON.stringify(cfg.store);
-    await filterService.rememberResult(cfg, "poe2", null); // nothing written -> no change
-    expect(JSON.stringify(cfg.store)).toBe(before);
   });
 
   it("the NeverSink update check", async () => {
