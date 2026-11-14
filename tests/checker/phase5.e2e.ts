@@ -612,6 +612,6 @@ describe("F) the league of the filter page follows the main window's", () => {
     await w.click(".tier-btns button[data-t=S]");
     await w.click("#btn-cat-tier");
     await generate(w, "whitelist");
-    expect(await w.locator("#log").innerText()).toContain(`ลีกที่ใช้กับรายการของ hub: ${ix.hardcore.league} (${ix.hardcore.path})`);
+    expect(await w.locator("#log").innerText()).toContain(`ลีกที่เลือก: ${ix.hardcore.league} · แหล่งรายชื่อไอเท็ม: ${ix.main.path}`);
   }, 180000);
 });

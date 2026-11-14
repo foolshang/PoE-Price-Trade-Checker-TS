@@ -525,17 +525,17 @@ await shot("15_poe1_unique");
   await page.click("#tab-wl");
   check("league: the dropdown lists main and hardcore of PoE1 (the hub's index), main first", JSON.stringify(await optionsOf()) === JSON.stringify(["Allflame", "Hardcore Allflame"]), JSON.stringify(await optionsOf()));
   check("league: starts at the main league and the lists are its file", (await selectedPath()) === "poe1/prices/latest.json" && await hubHas(poe1gone) && !(await hubHas(HC_EXTRA)));
-  check("league: the Status names the league of the lists", (await logText()).includes("ลีกของรายการ hub: Allflame"));
+  check("league: the Status names the league of the lists", (await logText()).includes("ลีกที่เลือก: Allflame · แหล่งรายชื่อไอเท็ม: poe1/prices/latest.json"));
   await shot("14b_league_dropdown");
 
   const before = calls.length;
   await page.selectOption("#league-select", { label: "Hardcore Allflame" });
-  check("league: picking hardcore loads the hardcore file", await waitFor(async () => (await hubHas(HC_EXTRA)) && (await hubState()).path === HC1, 30000), JSON.stringify(await hubState()));
-  check("league: ... it asked the hub for exactly that file", calls.slice(before).includes("hub:" + HC1), calls.slice(before).join(","));
-  check("league: ... and the list shows the hardcore's item, not the main's", !(await hubHas(poe1gone)));
+  check("league: picking hardcore selects it and its lists are the softcore main league's", await waitFor(async () => (await hubState()).path === HC1 && (await hubHas(poe1gone)), 30000), JSON.stringify(await hubState()));
+  check("league: ... it never asked the hub for the hardcore file (and not for the main file again: one cache entry)", !calls.slice(before).includes("hub:" + HC1) && !calls.slice(before).includes("hub:poe1/prices/latest.json"), calls.slice(before).join(","));
+  check("league: ... and the list is the main's item list, not a hardcore-only one", !(await hubHas(HC_EXTRA)));
   await page.selectOption("#pane-whitelist select[aria-label=หมวด]", { label: "Currency" });
-  await page.fill('#pane-whitelist input[aria-label=ค้นหา]', HC_EXTRA);
-  check("league: the row of the hardcore-only item is in the Currency list", await waitFor(async () => (await page.locator(`table.items tr[data-key="${HC_EXTRA}"]`).count()) === 1));
+  await page.fill('#pane-whitelist input[aria-label=ค้นหา]', poe1gone);
+  check("league: the main league's currency row is in the list under hardcore", await waitFor(async () => (await page.locator(`table.items tr[data-key="${poe1gone}"]`).count()) === 1));
   await page.fill('#pane-whitelist input[aria-label=ค้นหา]', "");
   await shot("14c_league_hardcore");
 
@@ -543,17 +543,17 @@ await shot("15_poe1_unique");
   await page.click(".tier-btns button[data-t=S]");
   await page.click("#btn-cat-tier");
   await page.click("#btn-generate-wl");
-  check("league: Generate names the league it used", await waitLog("ลีกที่ใช้กับรายการของ hub: Hardcore Allflame (poe1/prices/hardcore/latest.json)", 30000), await logText());
+  check("league: Generate names the league it used", await waitLog("ลีกที่เลือก: Hardcore Allflame · แหล่งรายชื่อไอเท็ม: poe1/prices/latest.json", 30000), await logText());
 
   // back to main: the main file again (the cache is by path: the hardcore answer is not given for main)
   await page.selectOption("#league-select", { label: "Allflame" });
-  check("league: back to main gives the main list (no mixing)", await waitFor(async () => (await hubHas(poe1gone)) && !(await hubHas(HC_EXTRA)), 30000));
+  check("league: back to main gives the same list, no new request", await waitFor(async () => (await hubState()).path === "poe1/prices/latest.json" && (await hubHas(poe1gone)), 30000) && !calls.slice(before).includes("hub:" + HC1) && !calls.slice(before).includes("hub:poe1/prices/latest.json"), calls.slice(before).join(","));
 
   // remembered in the settings, and used after a reload
   await page.selectOption("#league-select", { label: "Hardcore Allflame" });
   await waitFor(async () => (await hubState()).path === HC1, 30000);
   await reload();
-  check("league: the league picked is remembered (settings)", (await selectedPath()) === HC1 && await hubHas(HC_EXTRA), await selectedPath());
+  check("league: the league picked is remembered (settings); its lists are the softcore main league's", (await selectedPath()) === HC1 && await hubHas(poe1gone) && !(await hubHas(HC_EXTRA)), await selectedPath());
 
   // a remembered league the hub does not offer any more: main + a line in the Status
   await setCfg({ hub_league_poe1: "Gone League" });
@@ -561,14 +561,13 @@ await shot("15_poe1_unique");
   check("league: a remembered league that is gone -> the main league", (await selectedPath()) === "poe1/prices/latest.json" && await hubHas(poe1gone));
   check("league: ... and the Status says so", (await logText()).includes('ลีก "Gone League" ไม่อยู่ในรายการของ hub แล้ว'), await logText());
 
-  // the league's file cannot be had: no list from the hub, never another league's
+  // the hardcore file is not used for the lists: when it is not there, nothing changes
   {
     await setCfg({ hub_league_poe1: "Hardcore Allflame" });
     const undo = await failRoute(/poe-data-hub\/poe1\/prices\/hardcore\/latest\.json/, 404);
     await reload();
     const st = await hubState();
-    check("league: its file missing -> no hub list (not the main league's)", st.has === false && st.path === HC1, JSON.stringify(st));
-    check("league: ... the Status says which league failed", (await logText()).includes("ดึง hub ไม่ได้ (Hardcore Allflame)"), await logText());
+    check("league: hardcore file missing on the hub -> the lists still load (softcore file)", st.has === true && st.path === HC1 && await hubHas(poe1gone), JSON.stringify(st));
     await undo();
   }
 
@@ -594,6 +593,22 @@ await shot("15_poe1_unique");
   await page.selectOption("#league-select", { label: "Runes of Aldur" });
   check("league: picking the event loads the event's file", await waitFor(async () => (await hubState()).path === EV2 && (await hubHas(EVENT_EXTRA)), 30000), JSON.stringify(await hubState()));
   await shot("14d_league_event_poe2");
+  // an event reads its own file; when that file is missing: no list from the hub (never another league's)
+  {
+    const undo = await failRoute(/poe-data-hub\/poe2\/prices\/events\/runes-of-aldur\.json/, 404);
+    await setCfg({ hub_league_poe2: "Runes of Aldur" });
+    await reload();
+    await page.click("#game-poe2");
+    await waitLog("โหลดรายการ whitelist แล้ว");
+    const st = await hubState();
+    check("league: the event's file missing -> no hub list (not the main league's)", st.has === false && st.path === EV2, JSON.stringify(st));
+    check("league: ... the Status says which league failed", (await logText()).includes("ดึง hub ไม่ได้ (Runes of Aldur)"), await logText());
+    await undo();
+    await setCfg({ hub_league_poe2: "" });
+    await reload();
+    await page.click("#game-poe2");
+    await waitLog("โหลดรายการ whitelist แล้ว");
+  }
   // the league of one game is not the league of the other
   await page.click("#game-poe1");
   await waitFor(async () => (await optionsOf()).includes("Allflame"));

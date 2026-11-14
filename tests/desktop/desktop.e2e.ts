@@ -542,11 +542,11 @@ describe("K) the league of the lists (Whitelist tab dropdown)", () => {
     await page.click("#tab-wl");
     expect(await optionsOf(page)).toEqual(names("poe2"));
     expect(await pickedOf(page)).toBe(idx("poe2").main.league);
-    expect(await page.locator("#log").innerText()).toContain(`ลีกของรายการ hub: ${idx("poe2").main.league}`);
+    expect(await page.locator("#log").innerText()).toContain(`ลีกที่เลือก: ${idx("poe2").main.league} · แหล่งรายชื่อไอเท็ม: ${idx("poe2").main.path}`);
     expect(page.errors).toEqual([]);
   }, 120000);
 
-  it("picking another league loads its file, is kept in the config, and is the league after a restart; Generate names it", async () => {
+  it("picking Hardcore keeps the softcore main league's lists (no hardcore file is asked for), is kept in the config, and is the league after a restart; Generate names it", async () => {
     const sbx = sandbox();
     const hc = idx("poe2").hardcore;
     {
@@ -555,13 +555,13 @@ describe("K) the league of the lists (Whitelist tab dropdown)", () => {
       const before = net.calls().length;
       await page.selectOption("#league-select", { label: hc.league });
       await page.waitForFunction((p) => window.PFG.state.data.leaguePath === p && !!window.PFG.state.data.hub, hc.path, { timeout: 60000 });
-      expect(net.calls().slice(before).some((u) => u.includes(`/poe-data-hub/${hc.path}`))).toBe(true);
+      expect(net.calls().slice(before).some((u) => u.includes(`/poe-data-hub/${hc.path}`))).toBe(false); // the lists are the softcore main league's: one file, already loaded
       const cfg = await savedCfg(sbx, (v) => v.hub_league_poe2 === hc.league);
       expect(cfg.hub_league_poe2).toBe(hc.league);
       await page.click(".tier-btns button[data-t=S]");
       await page.click("#btn-cat-tier");
       await generate(page, "whitelist");
-      expect(await page.locator("#log").innerText()).toContain(`ลีกที่ใช้กับรายการของ hub: ${hc.league} (${hc.path})`);
+      expect(await page.locator("#log").innerText()).toContain(`ลีกที่เลือก: ${hc.league} · แหล่งรายชื่อไอเท็ม: ${idx("poe2").main.path}`);
       await app.close();
     }
     const { page } = await start(sbx, { game: "poe2" }); // (no cfg given: the saved one is read)

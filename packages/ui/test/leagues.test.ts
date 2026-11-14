@@ -22,12 +22,17 @@ describe("options of the dropdown", () => {
       ["Covens", "poe2/prices/latest.json"], ["HC Covens", "poe2/prices/hardcore/latest.json"],
       ["Runes", "poe2/prices/events/runes.json"], ["Other", "poe2/prices/events/other.json"]]);
   });
+  it("the item lists: Hardcore reads the softcore main league's file (one file for both), main and events their own", () => {
+    expect(optionsFromFiles("poe2", files()).map((o) => [o.label, o.listPath])).toEqual([
+      ["Covens", "poe2/prices/latest.json"], ["HC Covens", "poe2/prices/latest.json"],
+      ["Runes", "poe2/prices/events/runes.json"], ["Other", "poe2/prices/events/other.json"]]);
+  });
   it("no hardcore, no events: the main league only", () => {
     expect(optionsFromFiles("poe2", files({ schema_version: 1, main: INDEX.main, hardcore: null, events: [] }))).toHaveLength(1);
   });
   it("a main league without a name is 'ลีกหลัก'; a missing main path is latest.json", () => {
     const o = optionsFromFiles("poe2", files({ schema_version: 1, main: {} }));
-    expect(o).toEqual([{ name: null, label: "ลีกหลัก", path: "poe2/prices/latest.json" }]);
+    expect(o).toEqual([{ name: null, label: "ลีกหลัก", path: "poe2/prices/latest.json", listPath: "poe2/prices/latest.json" }]);
   });
   it("a path that is not a prices file of this game is left out", () => {
     const bad = { schema_version: 1, main: INDEX.main, hardcore: { league: "X", path: "poe1/prices/hardcore/latest.json" },
@@ -140,23 +145,23 @@ describe("getLeagues (the index)", () => {
 describe("getHub (a league's file)", () => {
   let t = Date.parse("2031-01-01T00:00:00Z");
   const at = (): void => { t += 3600_000; vi.setSystemTime(t); };
-  const byPath = (u: string): string => prices(u.endsWith("hardcore/latest.json") ? "hardcore" : u.includes("/events/") ? "event" : "main");
+  const byPath = (u: string): string => prices(u.endsWith("events/other.json") ? "other" : u.includes("/events/") ? "event" : "main");
 
-  it("each league's file is its own: main, hardcore, event", async () => {
+  it("each league's file is its own: main and events", async () => {
     at();
     hub(byPath);
     expect((await getHub("poe2")).league).toBe("main");
-    expect((await getHub("poe2", "poe2/prices/hardcore/latest.json")).league).toBe("hardcore");
+    expect((await getHub("poe2", "poe2/prices/events/other.json")).league).toBe("other");
     expect((await getHub("poe2", "poe2/prices/events/runes.json")).league).toBe("event");
-    expect(urls).toEqual(["/poe2/prices/latest.json", "/poe2/prices/hardcore/latest.json", "/poe2/prices/events/runes.json"]);
+    expect(urls).toEqual(["/poe2/prices/latest.json", "/poe2/prices/events/other.json", "/poe2/prices/events/runes.json"]);
   });
   it("the cache is by path: switching back and forth never returns another league's data", async () => {
     at();
     hub(byPath);
-    for (const p of ["poe2/prices/latest.json", "poe2/prices/hardcore/latest.json", "poe2/prices/latest.json", "poe2/prices/hardcore/latest.json"]) {
-      expect((await getHub("poe2", p)).league).toBe(p.includes("hardcore") ? "hardcore" : "main");
+    for (const p of ["poe2/prices/latest.json", "poe2/prices/events/other.json", "poe2/prices/latest.json", "poe2/prices/events/other.json"]) {
+      expect((await getHub("poe2", p)).league).toBe(p.includes("other") ? "other" : "main");
     }
-    expect(urls).toEqual(["/poe2/prices/latest.json", "/poe2/prices/hardcore/latest.json"]); // one request per file; the other two from the cache
+    expect(urls).toEqual(["/poe2/prices/latest.json", "/poe2/prices/events/other.json"]); // one request per file; the other two from the cache
   });
   it("is kept 5 minutes, then asked again", async () => {
     at();
@@ -171,8 +176,8 @@ describe("getHub (a league's file)", () => {
   });
   it("a file that cannot be had throws (no list); it is not answered with another league's", async () => {
     at();
-    hub((u) => (u.includes("hardcore") ? new Error("HTTP 404") : prices("main")));
-    await expect(getHub("poe2", "poe2/prices/hardcore/latest.json")).rejects.toThrow("hub fetch failed");
+    hub((u) => (u.includes("events/other") ? new Error("HTTP 404") : prices("main")));
+    await expect(getHub("poe2", "poe2/prices/events/other.json")).rejects.toThrow("hub fetch failed");
     expect((await getHub("poe2")).league).toBe("main");
   });
   it("the schema guard covers every league's file", async () => {
@@ -191,5 +196,18 @@ describe("getHub (a league's file)", () => {
       await expect(getHub("poe2", p)).rejects.toThrow("hub path not allowed");
     }
     expect(urls).toEqual([]);
+  });
+});
+
+describe("Hardcore and softcore of one league share one hub request", () => {
+  it("getHub for the list paths of main and Hardcore asks the hub once, and both give the same names", async () => {
+    vi.setSystemTime(Date.parse("2032-01-01T00:00:00Z"));
+    hub(() => prices("main"));
+    const [main, hc] = optionsFromFiles("poe2", files());
+    const a = await getHub("poe2", main.listPath);
+    const b = await getHub("poe2", hc.listPath);
+    expect(b.items.map((i: any) => i.name)).toEqual(a.items.map((i: any) => i.name));
+    expect(urls).toEqual(["/poe2/prices/latest.json"]);
+    expect(urls.some((u) => u.includes("hardcore"))).toBe(false);
   });
 });
