@@ -5,6 +5,16 @@
 
 ---
 
+## 2026-11-14 (4) - v1.0.1: league choice on the filter page; planFetch removed with its parity cases; tier "no base" message; version 1.0.1, CHANGELOGs, installers (committed, no push / tag / release)
+
+- League dropdown on the Whitelist tab (`packages/ui`: `leagues.ts`, `data.ts` getLeagues / getHub by path, `app.ts` resolveLeague / pickLeague / relist, `tab_wl.ts`). Options = main / hardcore / events of the game from `{game}/prices/index.json` (schema 1); item lists and Generate use the file of the league picked; cache 5 min by path; index not readable or wrong schema -> main only (latest.json) + a Status line; a league file that cannot be loaded -> no hub list (never another league's); the prices schema guard covers every league file; Generate logs the league. Filter Generator / web keep the pick in the settings (`hub_league_<game>`); the Checker page follows the main window (`window.desktop.onLeague`, `InitData.league`) and saves nothing. A load asked for during a load now runs after it; Generate waits for a running load. Core: `leagueFilesFromIndex()` split out of `HubClient.getLeagueFiles`.
+- Hub CORS checked live (read only): index, hardcore and event files carry `Access-Control-Allow-Origin: https://foolshang.github.io`; the `/__hub` proxy of `web:local` serves them (200, schema 1 / 2). `desktop/guard.ts` unchanged (paths are under the same bucket prefix); guard tests added.
+- `filterCore.planFetch` removed (only tests and its own 10 parity cases `calls/534-543` used it): cases taken out of `tools/parity/cases.py`, `parity:regen`; the other 894 `calls` results are identical (compared by function + arguments), ids after 543 moved up by 10, no other group changed, MANIFEST now names the original at 8d14eeb. Parity cases 5,567 -> 5,557. `composeFilterBody` is NOT dead (`ui/api.ts` WebApi.generate builds the filter text with it): kept.
+- Tier tab without a base filter: "✗ nothing to write - no NeverSink base filter available - ไฟล์เดิมไม่ถูกแตะ" after the warning, like the original.
+- Tests: `npm test` 6,396 -> 6,413; test:ui 119 -> 144 checks; desktop / Checker e2e cases added, NOT run. `app_path.ts` follows `app.ts`.
+- Version 1.0.1 (root package.json), CHANGELOG 1.0.1 of the Checker, the Filter Generator and the web page. Both installers built and installed over the old ones, title bars checked.
+- Open: e2e of the exes (waiting for Winai), `buildWhitelist` legacy engine and `LeagueChoice.leaguePaths` are only reached by golden cases (not removed: would change goldens), update rehearsal 1.0.0 -> 1.0.1 (plan in the report).
+
 ## 2026-11-14 (3) - v1.0.1 preparation: more unused code removed (committed, no tag, no release)
 
 - Removed (no caller in any program code, checked by grep): `filterOutput.writeFilter`, `filterOutput.copySounds`, `filterOutput.filterPath`, `neversinkSource.fetchBaseFilter` and its private helpers (download, cache, last-check), `NeverSinkEnv.fs/nowMs`. Kept: `filterOutput.gameFilterDir` (desktop host), `neversinkSource.getLatestTag` (Checker update check).

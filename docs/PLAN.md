@@ -145,6 +145,10 @@ starts (the Checker's filter page reuses phase 2-3 output).
 3. ~~**Clipboard restore** (`f5_restore_clipboard`, default on) belongs in the settings window as a checkbox.~~ **Done:** the checkbox is in F8 (`apps/checker/src/renderer/settings.ts:63`), tested by `tests/checker/phase5.e2e.ts` (default on, unticked and saved).
 4. **Influence / item-state filters in the trade search (post-release work).** The parser keeps the item's labels (`ParsedItem.influences`: Searing Exarch, Eater of Worlds, Shaper, Elder, Crusader, Hunter, Redeemer, Warlord; `ParsedItem.flags`: Fractured Item, Synthesised Item, Mirrored, Split ...) but nothing uses them yet. Later: tick boxes in the F5 popup that add the matching trade filters (`misc_filters`: `searing_item`, `tangled_item`, `fractured_item`, ... and the `pseudo_has_<name>_influence` stats).
 
+### v1.0.1 (built, not released)
+
+League choice on the filter page (all three programs), hub schema guards, `planFetch` removed, tier "no base" message, CHANGELOG 1.0.1, installers built. Waiting: e2e of the installed exes (`test:desktop`, `test:checker`), Winai's test in the game, the update rehearsal 1.0.0 -> 1.0.1, then Winai's order to tag.
+
 ### After the release (not started)
 
 - **F4: league-age view and whole-league totals.** Views by league age (days 1-21 / 22-60 / 61+) and the cumulative figures of the whole league. The data exists in the hub's
