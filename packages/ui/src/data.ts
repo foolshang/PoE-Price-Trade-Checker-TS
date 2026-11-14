@@ -3,7 +3,7 @@
  * Google Cloud Storage, CORS set for this site), the real item names (the snapshot shipped with the page:
  * data/trade_names_<game>.json), the gem list (poe1). The localStorage keys are the ones the Pyodide page used.
  */
-import { hubClient, hubSchema } from "@poe/core";
+import { gggNames, hubClient, hubSchema } from "@poe/core";
 import { LeagueOption, isPricesPath, mainOnly, mainPath, optionsFromFiles } from "./leagues.ts";
 import { platform } from "./platform.ts";
 import { S } from "./state.ts";
@@ -85,23 +85,33 @@ export async function getLeagues(g: string): Promise<{ options: LeagueOption[]; 
 
 /**
  * The real item names (GGG's trade list, which a browser cannot call) = the snapshot shipped with the page
- * (data/trade_names_<game>.json, made by `npm run names:refresh`). Returns {names, from} or null.
+ * (data/trade_names_<game>.json, made by `npm run names:refresh`); the desktop apps read GGG live and use the snapshot as the
+ * baseline for what is new. `added` = {name: category} of the names the whitelist adds from GGG (core ggg_names.addedNames); empty
+ * when the snapshot is of the old form (names only), and only by the rules when there is no snapshot. Returns null when there are no names at all.
  */
-export async function getNames(g: string, base = "./"): Promise<{ names: string[]; from: string } | null> {
+export async function getNames(g: string, base = "./"): Promise<{ names: string[]; from: string; added: Record<string, string> } | null> {
+  let snap: gggNames.Loaded | null = null;
+  try {
+    snap = gggNames.parseSnapshot(JSON.parse(await fetchText(`${base}data/trade_names_${g}.json`, "names snapshot")));
+    if (snap && snap.names.size < 500) snap = null; // too few to be a real list
+  } catch { /* no snapshot */ }
+  const addedFor = (groups: Record<string, string[]> | null | undefined): Record<string, string> => {
+    // a snapshot of the old form (names only) adds nothing; no snapshot at all = only the rules (nothing can be told new)
+    if (!groups || (snap && !snap.snapshot)) return {};
+    return Object.fromEntries(gggNames.addedNames(g, groups, snap?.snapshot ?? null));
+  };
   const better = platform().getNames;
   if (better) {
     try {
       const live = await better(g);
-      if (live && live.length >= 500) return { names: live, from: "live" };
+      if (live && live.names.length >= 500) {
+        // live groups when the cache has them; else the snapshot's own groups (the shipped list: its rules and assigned names)
+        return { names: live.names, from: "live", added: addedFor(live.groups ?? snap?.snapshot?.groups) };
+      }
     } catch { /* the snapshot below */ }
   }
-  try {
-    const list = JSON.parse(await fetchText(`${base}data/trade_names_${g}.json`, "names snapshot"));
-    if (!Array.isArray(list) || list.length < 500) throw new Error("too few names");
-    return { names: list, from: "snapshot" };
-  } catch {
-    return null;
-  }
+  if (!snap) return null;
+  return { names: [...snap.names], from: "snapshot", added: addedFor(snap.snapshot?.groups) };
 }
 
 let gemAll: string[] | null = null;

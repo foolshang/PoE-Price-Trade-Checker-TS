@@ -109,7 +109,7 @@ async function relistFor(g: string): Promise<void> {
 
 /** the lists of another league (or game): forget the old ones, load the new ones */
 async function relist(): Promise<void> {
-  S.data = { hub: null, base: null, baseTag: null, names: null, namesFrom: "", leaguePath: null };
+  S.data = { hub: null, base: null, baseTag: null, names: null, namesFrom: "", added: null, leaguePath: null };
   tabWl.reload();
   await loadLists(false);
 }
@@ -129,6 +129,7 @@ async function loadLists(force: boolean): Promise<void> {
     await resolveLeague(g);
     const lg = S.league;
     let hub = null, base: string | null = null, tag: string | null = null, names: string[] | null = null, from = "";
+    let added: Record<string, string> | null = null;
     if (lg) {
       try { hub = await getHub(g, lg.path); } catch (e: any) { log(`⚠ ดึง hub ไม่ได้ (${lg.label}): ${e.message}`, "warn"); } // no list from the hub; never another league's
     }
@@ -138,11 +139,12 @@ async function loadLists(force: boolean): Promise<void> {
     if (n) {
       names = n.names;
       from = n.from;
+      added = n.added;
     } else log("⚠ ไม่มีรายชื่อไอเท็มจริง (hub และ snapshot ใช้ไม่ได้) — ชื่อที่ NeverSink ไม่มีจะไม่ถูกเขียน", "warn");
     stale = reloadAgain !== "no" || g !== game || lg !== S.league;
     if (stale) return;
-    S.data = { hub, base, baseTag: tag, names, namesFrom: from, leaguePath: lg ? lg.path : null };
-    logAll(S.api.wlLoad(hub, base || "", names));
+    S.data = { hub, base, baseTag: tag, names, namesFrom: from, added, leaguePath: lg ? lg.path : null };
+    logAll(S.api.wlLoad(hub, base || "", names, added));
     if (lg) log(`ลีกของรายการ hub: ${lg.label}${hub ? "" : " (ไม่มีรายการจาก hub)"}`, "info");
     if (from) log(`รายชื่อไอเท็มจริง: ${from === "snapshot" ? "จาก snapshot ที่มากับหน้านี้" : "จากข้อมูล trade ของ GGG"}${tag ? ` · NeverSink ${tag}` : ""}`, "info");
     tabWl.reload();
@@ -204,6 +206,7 @@ async function generate(mode: "tier" | "whitelist", refresh: boolean): Promise<b
   setBusy(true);
   try {
     let hub = null, base: string | null = null, tag: string | null = null, names: string[] | null = null;
+    let added: Record<string, string> | null = null;
     if (mode === "whitelist") {
       if (loadingLists) {
         log("⏳ กำลังโหลดรายการของลีกที่เลือก — รอให้โหลดเสร็จก่อนแล้วกด Generate อีกครั้ง", "warn");
@@ -214,7 +217,7 @@ async function generate(mode: "tier" | "whitelist", refresh: boolean): Promise<b
         log("⏳ รายการยังไม่ตรงกับลีกที่เลือก — รอโหลดเสร็จแล้วกด Generate อีกครั้ง", "warn");
         return false;
       }
-      ({ hub, base, baseTag: tag, names } = S.data);
+      ({ hub, base, baseTag: tag, names, added } = S.data);
       log(`ℹ ลีกที่ใช้กับรายการของ hub: ${S.league ? `${S.league.label} (${S.league.path})` : "-"}`, "info");
       if (!base) {
         log("⚠ ไม่มี NeverSink base filter — whitelist ไม่มี tier เริ่มต้น ไม่ generate", "warn");
@@ -246,7 +249,7 @@ async function generate(mode: "tier" | "whitelist", refresh: boolean): Promise<b
     let decisions: Record<string, string> = {};
     let res = null;
     for (let round = 0; round < 3; round++) {
-      res = await S.api.generate({ cfg, game, hub, baseText: base, baseTag: tag, log: logFn, hashes: sounds.hashes(), names, existing, decisions });
+      res = await S.api.generate({ cfg, game, hub, baseText: base, baseTag: tag, log: logFn, hashes: sounds.hashes(), names, added, existing, decisions });
       if (res.status !== "ask") break;
       decisions = await askConflicts(res.conflicts!);
     }
@@ -427,7 +430,7 @@ async function setGame(g: string): Promise<void> {
   Object.assign(S.cfg, init.updates);
   for (const n of init.notes) log("ℹ " + n, "warn");
   for (const [from, to] of Object.entries(init.moved || {})) await sounds.copy(from, to); // the old S / A / B files -> sounds 1 / 2 / 3
-  S.data = { hub: null, base: null, baseTag: null, names: null, namesFrom: "", leaguePath: null };
+  S.data = { hub: null, base: null, baseTag: null, names: null, namesFrom: "", added: null, leaguePath: null };
   S.league = null;
   tabNs.load(S.cfg, g);
   tabWl.load(S.cfg);

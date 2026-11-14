@@ -19,7 +19,7 @@ export interface Platform {
   /** GET a text file from the network (the desktop goes through the main process: no CORS, host allow-list) */
   getText(url: string, headers?: Record<string, string>): Promise<HttpResult>;
   /** the real item names from somewhere better than the shipped snapshot (desktop: GGG's trade data, 7-day cache) */
-  getNames?(game: string): Promise<string[] | null>;
+  getNames?(game: string): Promise<{ names: string[]; groups: Record<string, string[]> | null } | null>;
   /**
    * (Checker) the league picked in the main window for this game (a name), or null when there is none. The page starts at it and follows it
    * (`onMainLeague`); without this the page keeps the league the player picked in its own dropdown (the Filter Generator, the web page).
