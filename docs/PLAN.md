@@ -142,8 +142,13 @@ starts (the Checker's filter page reuses phase 2-3 output).
    "F5 รองรับเกมภาษาอังกฤษเท่านั้น (ตั้งภาษาในเกมเป็น English)" and is not parsed. Full Thai (and other language) support needs the
    localized stat / base / item class tables and the trade site's language; it is **after the release**, not in phase 5. Known limit: an
    uncut gem in Thai / Simplified Chinese keeps the English word "Rarity:" on its first line, so it cannot be told from English there.
-3. **Clipboard restore** (`f5_restore_clipboard`, default on) belongs in the settings window as a checkbox.
+3. ~~**Clipboard restore** (`f5_restore_clipboard`, default on) belongs in the settings window as a checkbox.~~ **Done:** the checkbox is in F8 (`apps/checker/src/renderer/settings.ts:63`), tested by `tests/checker/phase5.e2e.ts` (default on, unticked and saved).
 4. **Influence / item-state filters in the trade search (post-release work).** The parser keeps the item's labels (`ParsedItem.influences`: Searing Exarch, Eater of Worlds, Shaper, Elder, Crusader, Hunter, Redeemer, Warlord; `ParsedItem.flags`: Fractured Item, Synthesised Item, Mirrored, Split ...) but nothing uses them yet. Later: tick boxes in the F5 popup that add the matching trade filters (`misc_filters`: `searing_item`, `tangled_item`, `fractured_item`, ... and the `pseudo_has_<name>_influence` stats).
+
+### After the release (not started)
+
+- **F4: league-age view and whole-league totals.** Views by league age (days 1-21 / 22-60 / 61+) and the cumulative figures of the whole league. The data exists in the hub's
+  `archive/*.skills.json`, but those files are big (PoE2: about 18 MB gzip, over 120 MB unpacked). To use them the hub must first publish a small summary file; ask the hub for it before any work here.
 
 ## R. Risks found while surveying (details for the phases)
 
