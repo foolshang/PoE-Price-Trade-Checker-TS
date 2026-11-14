@@ -147,9 +147,12 @@ starts (the Checker's filter page reuses phase 2-3 output).
 
 ### v1.0.1 (built, not released)
 
-League choice on the filter page (all three programs), hub schema guards, `planFetch` removed, tier "no base" message, GGG item names as the 4th source of the Whitelist lists (`docs/GGG_CATEGORY_MAP.md`, snapshot format 2), Hardcore reads the item lists of the softcore main league (no hardcore file for the lists), CHANGELOG 1.0.1, installers built. Waiting: e2e of the installed exes (`test:desktop`, `test:checker`), Winai's test in the game, the update rehearsal 1.0.0 -> 1.0.1, then Winai's order to tag.
+League choice on the filter page (all three programs), hub schema guards, `planFetch` removed, tier "no base" message, Hardcore reads the item lists of the softcore main league (no hardcore file for the lists), CHANGELOG 1.0.1, installers built. Waiting: e2e of the installed exes (`test:desktop`, `test:checker`), Winai's test in the game, the update rehearsal 1.0.0 -> 1.0.1, then Winai's order to tag.
 
 ### After the release (not started)
+
+- **Category "Thread" (PoE1).** 3.30 replaced the Scarabs with Threads. Check which names the hub, NeverSink and GGG's trade data give for them, then add the category to the Whitelist (a name only GGG has is NOT enough: GGG still lists the removed Scarab names, and the game rejects a BaseType it does not know).
+- **Empty categories on the Whitelist tab.** A category with no names left (PoE1 Scarab since 3.30: the hub has none, NeverSink 8.21.0a has none) should be hidden or say that it is empty; today the button is still there.
 
 - **F4: league-age view and whole-league totals.** Views by league age (days 1-21 / 22-60 / 61+) and the cumulative figures of the whole league. The data exists in the hub's
   `archive/*.skills.json`, but those files are big (PoE2: about 18 MB gzip, over 120 MB unpacked). To use them the hub must first publish a small summary file; ask the hub for it before any work here.

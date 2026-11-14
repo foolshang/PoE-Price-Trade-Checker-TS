@@ -1,5 +1,7 @@
 # GGG trade items -> whitelist categories (implemented in `packages/core/src/ggg_names.ts`)
 
+> **Archived (tried, then removed in v1.0.1).** GGG's trade item names were tried as a 4th source of the Whitelist lists and taken out again, because a name from GGG's trade data cannot be used as a `BaseType`: in 3.30 the game still has the old Scarab names in the trade data but rejects them ("No base types found matching ..."), and one unknown name makes the game refuse the whole filter. Kept for the record only; nothing in the code follows this document any more.
+
 `universe()` (`packages/core/src/filter_whitelist.ts`) has a 4th source: the names of GGG's `trade/data/items` and `trade2/data/items`, only for names the
 three sources before it (hub prices, NeverSink value ladders, NeverSink named lists) do not have. Order: hub -> NeverSink tier -> NeverSink category blocks -> GGG (last).
 The name is GGG's string, character for character; a rule only decides the category.

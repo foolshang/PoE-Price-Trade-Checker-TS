@@ -1,5 +1,7 @@
 # GGG names that are NOT added to the whitelist lists (live data of 2026-11-14)
 
+> **Archived (tried, then removed in v1.0.1).** GGG's trade item names were tried as a 4th source of the Whitelist lists and taken out again, because a name from GGG's trade data cannot be used as a `BaseType`: in 3.30 the game still has the old Scarab names in the trade data but rejects them ("No base types found matching ..."), and one unknown name makes the game refuse the whole filter. Kept for the record only; nothing in the code follows this document any more.
+
 Produced with live GGG trade data (trade/data/items, trade2/data/items), the live hub prices (main league) and NeverSink 8.21.0a (PoE1) / 0.10.4a (PoE2), strictness 2. "Old/new" is relative to the snapshot that was shipped before this change (names:refresh of 2026-10-17). Names are GGG's strings, unchanged.
 
 A NEW name no rule fits is added to the main category of its group (see GGG_CATEGORY_MAP.md), so a NEW name here is one that was kept out on purpose (an internal id, a map-like name).
