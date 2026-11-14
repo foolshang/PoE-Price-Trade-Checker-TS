@@ -5,6 +5,17 @@
 
 ---
 
+## 2026-11-14 (5) - v1.0.1: GGG item names as the 4th source of the Whitelist lists (committed, no push / tag / release)
+
+- New `packages/core/src/ggg_names.ts`: GGG payload -> names per group (`groupsFromPayload`), snapshot format 2 (`{format, groups, assigned}`; the old bare list is still read: names for the check, nothing added), rules "GGG group + name -> category" (`categoryByRule`), new-name fallback to the group's main category (`fallbackCategory`, never maps / waystones / tablets / internal ids / `badName`), `addedNames`, `nextAssigned` (a new name keeps its category in later snapshots). Table, live gap numbers and design: `docs/GGG_CATEGORY_MAP.md`; names not added: `docs/GGG_UNMATCHED_NAMES.md`.
+- `filterWhitelist.universeWithSources` / `universe(..., ggg)`: GGG last, only names the first three sources lack, GGG's string unchanged. `resolveTiers` / `gggUnset`: a GGG-only name has no start tier (D in the list) and is not written until the player gives an item or category tier. `buildWhitelistFilter(..., gggAdded)` returns `ggg: {added, unset, written}` only when GGG names were given; `buildFilterText` logs "ℹ ชื่อจาก GGG ที่เติมในรายการ ... เขียนลง filter ... (หมวด n)". Golden / parity runners pass nothing: output unchanged.
+- `tradeNames.getItems` replaces `getNames` (desktop cache `trade_items_<game>.json` in format 2; an old-form cache still serves the check until due; never deleted when GGG is down). IPC `fg:names` now returns `{names, groups}`. `ui/data.ts getNames` returns `added` (shipped snapshot = baseline for "new"); `app.ts` passes it to `wlLoad` / `generate`. `WlModel.setData(..., gggAdded)`, `WlData[3]`.
+- `npm run names:refresh` writes format 2 and prints the newly assigned names; the shipped snapshots were refreshed from live GGG (PoE1 7,908 names, 40 assigned; PoE2 4,364, 0 assigned).
+- Tests: `packages/core/test/ggg_names.test.ts` (63), `tests/web/ui.mjs` GGG cases, `app_path.ts` takes `added`. Desktop / Checker e2e not run (waiting for Winai's order).
+- Open: "Hardcore uses the softcore file of the same league" (item 0 of the task) is not in this session's records - not done, asked in the report.
+
+---
+
 ## 2026-11-14 (4) - v1.0.1: league choice on the filter page; planFetch removed with its parity cases; tier "no base" message; version 1.0.1, CHANGELOGs, installers (committed, no push / tag / release)
 
 - League dropdown on the Whitelist tab (`packages/ui`: `leagues.ts`, `data.ts` getLeagues / getHub by path, `app.ts` resolveLeague / pickLeague / relist, `tab_wl.ts`). Options = main / hardcore / events of the game from `{game}/prices/index.json` (schema 1); item lists and Generate use the file of the league picked; cache 5 min by path; index not readable or wrong schema -> main only (latest.json) + a Status line; a league file that cannot be loaded -> no hub list (never another league's); the prices schema guard covers every league file; Generate logs the league. Filter Generator / web keep the pick in the settings (`hub_league_<game>`); the Checker page follows the main window (`window.desktop.onLeague`, `InitData.league`) and saves nothing. A load asked for during a load now runs after it; Generate waits for a running load. Core: `leagueFilesFromIndex()` split out of `HubClient.getLeagueFiles`.

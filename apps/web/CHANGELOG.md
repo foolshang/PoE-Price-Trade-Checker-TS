@@ -5,6 +5,7 @@
 
 ## web-1.0.1 - 2026-11-14
 
+- **The Whitelist lists are fuller, from GGG's item list:** names GGG has but the hub and NeverSink do not (Scarabs, Breachstones, Delirium Orbs, Artifacts, Divination Cards nobody sells yet ...) are in the list of their category. Such a name has no starting tier (shown as D) and **is not written to the filter** until the player gives a tier to the name or to its whole category, so a filter made with the same settings is the same as before. Generate logs how many names were added and how many were written, per category. The page's snapshot of GGG's names (`data/trade_names_<game>.json`) now carries the GGG group of each name and remembers the category given to names that were new when it was made.
 - **League choice on the Whitelist tab:** a "ลีก" dropdown lists the main league, the hardcore league and the open events of the game, from the hub's `prices/index.json`. The item lists and
   what Generate uses come from the file of the league picked (before: always the main league's `latest.json`). The choice is kept per game in the browser (`localStorage`, inside the
   page's settings). A remembered league the hub no longer has -> the main league, with a line in the Status. The index not readable (network, wrong `schema_version`) -> only the

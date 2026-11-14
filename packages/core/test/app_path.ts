@@ -45,6 +45,8 @@ export interface AppGenInput {
   league?: { label: string; path: string };
   /** the real item names the page loaded (the whitelist tab) */
   names?: Iterable<string> | null;
+  /** the names the page adds from GGG's item list ({name: category}); none = a run like the original's (the goldens) */
+  added?: Record<string, string> | null;
   decisions?: Record<string, string>;
   /** make writing `<name>.filter` fail with this error (the page then logs it and hands nothing over) */
   failWrite?: Error;
@@ -76,14 +78,14 @@ export async function appGenerate(i: AppGenInput, appVersion = "t"): Promise<App
   }
   const name = v.name || cfg[key];
   const [base, tag] = i.base;
-  if (i.mode === "whitelist") { // app.ts:218-222 (the league the lists are from is named first)
+  if (i.mode === "whitelist") { // app.ts:221-225 (the league the lists are from is named first)
     log(`ℹ ลีกที่ใช้กับรายการของ hub: ${i.league ? `${i.league.label} (${i.league.path})` : "-"}`, "info");
     if (!base) {
       log("⚠ ไม่มี NeverSink base filter — whitelist ไม่มี tier เริ่มต้น ไม่ generate", "warn");
       return { status: "aborted" };
     }
   }
-  if (i.mode === "tier" && base === null) { // app.ts:227-231
+  if (i.mode === "tier" && base === null) { // app.ts:230-234
     log("⚠ ไม่มี NeverSink base filter ให้ใช้ (GitHub ล่ม + ไม่มี cache)", "warn");
     log("✗ nothing to write — no NeverSink base filter available — ไฟล์เดิมไม่ถูกแตะ", "err");
     return { status: "aborted" };
@@ -95,9 +97,9 @@ export async function appGenerate(i: AppGenInput, appVersion = "t"): Promise<App
     const wanted = new Set(Object.values(srcs).map((p) => api.safeName(path.basename(p))));
     for (const n of readdirSync(i.gameDir)) existing[n] = wanted.has(n) ? sha256(readFileSync(path.join(i.gameDir, n))) : null;
   }
-  const hub = i.mode === "whitelist" ? (i.hub ?? null) : null; // tier mode never reads the hub (app.ts:213-232)
+  const hub = i.mode === "whitelist" ? (i.hub ?? null) : null; // tier mode never reads the hub (app.ts:213-235)
   const names = i.mode === "whitelist" ? (i.names ? [...i.names] : []) : null;
-  const res = await api.generate({ cfg, game: i.game, hub, baseText: base, baseTag: tag, log, hashes, names, existing, decisions: i.decisions ?? {} }); // app.ts:249
+  const res = await api.generate({ cfg, game: i.game, hub, baseText: base, baseTag: tag, log, hashes, names, added: i.mode === "whitelist" ? (i.added ?? null) : null, existing, decisions: i.decisions ?? {} }); // app.ts:252
   if (res.status !== "ok") return { status: res.status, message: res.message };
   const filePath = path.join(i.gameDir, `${name}.filter`);
   try { // deliver() -> writeToFolder: sounds, then the filter, CRLF once
