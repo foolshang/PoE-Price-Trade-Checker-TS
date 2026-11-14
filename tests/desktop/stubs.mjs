@@ -6,6 +6,7 @@ import https from "node:https";
 import path from "node:path";
 import zlib from "node:zlib";
 import { FIXTURES } from "./harness.mjs";
+import { leagueKind, leagueVariant } from "../web/league_fixture.mjs";
 
 const gz = (f) => zlib.gunzipSync(fs.readFileSync(path.join(FIXTURES, f))).toString("utf-8");
 const withSchema = (text) => JSON.stringify({ schema_version: 2, ...JSON.parse(text) });
@@ -61,6 +62,8 @@ export async function fakeInternet(data = fixtureData(), { tag = "v-test" } = {}
         const c = data.checker[m[1]];
         const path = m[2];
         if (path === "prices/index.json") return send(state.noLeagueIndex ? 404 : 200, state.noLeagueIndex ? "not found" : (state.leagueIndex?.[m[1]] ?? c.leagues), "application/json");
+        const kind = leagueKind(path);
+        if (kind) return send(200, withSchema(leagueVariant(gz(`hub_${m[1]}.json.gz`), kind).text), "application/json");
         if (path === "meta/latest.json") return send(200, c.meta, "application/json");
         if (path === "skills/index.json") return send(200, JSON.stringify(state.skillsIndex ?? c.skills.index), "application/json");
         if (path === "skills/dictionary.json") return send(200, JSON.stringify(c.skills.dictionary), "application/json");

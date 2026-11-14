@@ -23,6 +23,8 @@ export interface FilterPageOptions {
   shortName: string;
   /** look for a newer NeverSink release a moment after the page is up, and regenerate (if asked) or say so (the Filter Generator does; the Checker does it from its main process, every 6 hours) */
   checkNeverSinkAtStart: boolean;
+  /** the league of the page follows the main window's (the Checker); the Filter Generator keeps the one the player picked */
+  followMainLeague?: boolean;
   /** an About button next to the PoE 2 button (the Filter Generator has one; the Checker's filter window does not) */
   about?: Pick<AboutOptions, "name" | "changelog" | "repoUrl"> & { trayOption: boolean };
 }
@@ -55,7 +57,9 @@ async function importLegacySounds(d: Window["desktop"], game: GameId): Promise<v
   if (changed) store.set(KEY_CFG, JSON.stringify(cfg));
 }
 
-const desktopPlatform = (d: Window["desktop"], init: Pick<InitData, "version" | "configDir" | "importNote">, o: FilterPageOptions): Platform => ({
+const desktopPlatform = (d: Window["desktop"], init: Pick<InitData, "version" | "configDir" | "importNote" | "league">, o: FilterPageOptions): Platform => {
+  let main = o.followMainLeague ? init.league : null; // the main window's league now, and its game
+  const platform: Platform = {
   kind: "desktop",
   async getText(url, headers) {
     const r = await d.httpGet(url, headers);
@@ -63,6 +67,10 @@ const desktopPlatform = (d: Window["desktop"], init: Pick<InitData, "version" | 
     return r;
   },
   getNames: (game) => d.tradeNames(game as GameId),
+  ...(o.followMainLeague ? {
+    mainLeague: (game: string) => (main && main.game === game ? main.league : null),
+    onMainLeague: (cb: (game: string, league: string) => void) => d.onLeague((game, league) => { main = { game, league }; cb(game, league); }),
+  } : {}),
   beforeStart: (game) => importLegacySounds(d, game as GameId),
   onShell(log) {
     log(`${o.shortName} v${init.version} — config: ${init.configDir}`, "info"); // the version marker first (CLAUDE.md rule 5)
@@ -111,7 +119,9 @@ const desktopPlatform = (d: Window["desktop"], init: Pick<InitData, "version" | 
       } catch { /* a failed check is not worth a message */ }
     }, 1500);
   },
-});
+  };
+  return platform;
+};
 
 export async function runFilterPage(o: FilterPageOptions): Promise<void> {
   const d = window.desktop;

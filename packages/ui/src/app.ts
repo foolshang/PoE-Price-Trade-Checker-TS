@@ -3,7 +3,8 @@
  * Settings use the same keys as the desktop config["filter_gen"], kept in localStorage (the same key as the Pyodide page).
  */
 import { APP_VERSION } from "./api.ts";
-import { fetchBase, getHub, getNames } from "./data.ts";
+import { fetchBase, getHub, getLeagues, getNames } from "./data.ts";
+import { chooseOption } from "./leagues.ts";
 import { $, $$, debounce, h, log, logAll, saveBlob } from "./dom.ts";
 import { FS, Download, packDownload, sounds, writeToFolder } from "./files.ts";
 import { openFilter } from "./open_filter.ts";
@@ -30,6 +31,10 @@ let tab = "tier";
 let lastText = "";
 let lastDownload: Download | null = null;
 let loadingLists = false;
+let reloadAgain: "no" | "yes" | "force" = "no"; // a load was asked for while one ran (the game or the league changed): run again when it ends
+/** the league picked in this session, by game (a name): the Checker's follows the main window, the others are also kept in the settings */
+const leaguePick: Record<string, string> = {};
+let lastLeagueNote = "";
 let dataBase = "./";
 
 // ---------------------------------------------------------------- settings
@@ -54,29 +59,102 @@ const changed = (): void => {
   persist();
 };
 
-// ---------------------------------------------------------------- lists (hub + NeverSink s2 + real names)
+// ---------------------------------------------------------------- league (the hub file the lists come from)
+const leagueKey = (g: string): string => `hub_league_${g}`;
+
+/**
+ * The leagues of the game for the dropdown and the one the lists come from: the league picked this session, else the main window's (the Checker),
+ * else the one the settings remember (the Filter Generator, the web page); a league the hub no longer offers -> the main league, said in the Status.
+ */
+async function resolveLeague(g: string): Promise<void> {
+  const { options, warning } = await getLeagues(g);
+  if (g !== game) return;
+  if (warning && warning !== lastLeagueNote) log(warning, "warn");
+  lastLeagueNote = warning ?? "";
+  const mainLg = platform().mainLeague?.(g) ?? null;
+  const wanted = leaguePick[g] ?? mainLg ?? (S.cfg[leagueKey(g)] as string | undefined) ?? null;
+  // the index could not be read: only the main league is offered, and the wanted one is not judged "gone" (it may just be the network)
+  const { option, note } = warning ? { option: options[0], note: null } : chooseOption(options, wanted);
+  if (note) {
+    log(note, "info");
+    if (!platform().mainLeague) S.cfg[leagueKey(g)] = option.name ?? ""; // forget what is gone
+    delete leaguePick[g];
+  }
+  S.leagues = options;
+  S.league = option;
+  tabWl.setLeagues(options, option.path);
+}
+
+/** the dropdown: another league -> its lists */
+function pickLeague(path: string): void {
+  const o = S.leagues.find((x) => x.path === path);
+  if (!o || o === S.league) return;
+  if (o.name) {
+    leaguePick[game] = o.name;
+    if (!platform().mainLeague) S.cfg[leagueKey(game)] = o.name;
+  }
+  persist();
+  S.league = o;
+  void relist();
+}
+
+/** the main window's league changed while the page is up: show it if it is one of the page's leagues */
+async function relistFor(g: string): Promise<void> {
+  if (g !== game) return;
+  const o = S.leagues.find((x) => x.name === leaguePick[g]);
+  if (o && o === S.league) return;
+  if (o) S.league = o;
+  await relist();
+}
+
+/** the lists of another league (or game): forget the old ones, load the new ones */
+async function relist(): Promise<void> {
+  S.data = { hub: null, base: null, baseTag: null, names: null, namesFrom: "", leaguePath: null };
+  tabWl.reload();
+  await loadLists(false);
+}
+
+// ---------------------------------------------------------------- lists (hub of the league + NeverSink s2 + real names)
 async function loadLists(force: boolean): Promise<void> {
-  if (loadingLists) return;
+  if (loadingLists) { // (the game or the league changed while it ran: its answer is not used, this load is done after it)
+    reloadAgain = force || reloadAgain === "force" ? "force" : "yes";
+    return;
+  }
   loadingLists = true;
   const g = game;
-  log("⟳ โหลดรายการ whitelist (hub + NeverSink)…", "info");
-  tabWl.setLoading(true);
-  let hub = null, base: string | null = null, tag: string | null = null, names: string[] | null = null, from = "";
-  try { hub = await getHub(g); } catch (e: any) { log(`⚠ ดึง hub ไม่ได้: ${e.message}`, "warn"); }
-  try { [base, tag] = await fetchBase(g, 2, !!force); } catch (e: any) { log(`⚠ ดึง NeverSink base filter ไม่ได้: ${e.message}`, "warn"); }
-  if (!base) log("⚠ ไม่มี NeverSink base filter (GitHub ล่ม + ไม่มี cache) — รายการ tier เริ่มต้นไม่ครบ", "warn");
-  const n = await getNames(g, dataBase);
-  if (n) {
-    names = n.names;
-    from = n.from;
-  } else log("⚠ ไม่มีรายชื่อไอเท็มจริง (hub และ snapshot ใช้ไม่ได้) — ชื่อที่ NeverSink ไม่มีจะไม่ถูกเขียน", "warn");
-  loadingLists = false;
-  if (g !== game) return; // the game was switched while loading
-  S.data = { hub, base, baseTag: tag, names, namesFrom: from };
-  logAll(S.api.wlLoad(hub, base || "", names));
-  if (from) log(`รายชื่อไอเท็มจริง: ${from === "snapshot" ? "จาก snapshot ที่มากับหน้านี้" : "จากข้อมูล trade ของ GGG"}${tag ? ` · NeverSink ${tag}` : ""}`, "info");
-  tabWl.reload();
-  tabNs.showTag(game);
+  let stale = false;
+  try {
+    log("⟳ โหลดรายการ whitelist (hub + NeverSink)…", "info");
+    tabWl.setLoading(true);
+    await resolveLeague(g);
+    const lg = S.league;
+    let hub = null, base: string | null = null, tag: string | null = null, names: string[] | null = null, from = "";
+    if (lg) {
+      try { hub = await getHub(g, lg.path); } catch (e: any) { log(`⚠ ดึง hub ไม่ได้ (${lg.label}): ${e.message}`, "warn"); } // no list from the hub; never another league's
+    }
+    try { [base, tag] = await fetchBase(g, 2, !!force); } catch (e: any) { log(`⚠ ดึง NeverSink base filter ไม่ได้: ${e.message}`, "warn"); }
+    if (!base) log("⚠ ไม่มี NeverSink base filter (GitHub ล่ม + ไม่มี cache) — รายการ tier เริ่มต้นไม่ครบ", "warn");
+    const n = await getNames(g, dataBase);
+    if (n) {
+      names = n.names;
+      from = n.from;
+    } else log("⚠ ไม่มีรายชื่อไอเท็มจริง (hub และ snapshot ใช้ไม่ได้) — ชื่อที่ NeverSink ไม่มีจะไม่ถูกเขียน", "warn");
+    stale = reloadAgain !== "no" || g !== game || lg !== S.league;
+    if (stale) return;
+    S.data = { hub, base, baseTag: tag, names, namesFrom: from, leaguePath: lg ? lg.path : null };
+    logAll(S.api.wlLoad(hub, base || "", names));
+    if (lg) log(`ลีกของรายการ hub: ${lg.label}${hub ? "" : " (ไม่มีรายการจาก hub)"}`, "info");
+    if (from) log(`รายชื่อไอเท็มจริง: ${from === "snapshot" ? "จาก snapshot ที่มากับหน้านี้" : "จากข้อมูล trade ของ GGG"}${tag ? ` · NeverSink ${tag}` : ""}`, "info");
+    tabWl.reload();
+    tabNs.showTag(game);
+  } finally {
+    loadingLists = false;
+    const f = reloadAgain;
+    reloadAgain = "no";
+    // asked for again meanwhile, or the league moved under this load without asking: load once more (this answer was not used)
+    if (f !== "no") void loadLists(f === "force");
+    else if (stale) void loadLists(false);
+  }
 }
 
 // ---------------------------------------------------------------- generate
@@ -127,8 +205,17 @@ async function generate(mode: "tier" | "whitelist", refresh: boolean): Promise<b
   try {
     let hub = null, base: string | null = null, tag: string | null = null, names: string[] | null = null;
     if (mode === "whitelist") {
+      if (loadingLists) {
+        log("⏳ กำลังโหลดรายการของลีกที่เลือก — รอให้โหลดเสร็จก่อนแล้วกด Generate อีกครั้ง", "warn");
+        return false;
+      }
       if (refresh) await loadLists(true);
+      if (loadingLists || (S.league && S.data.leaguePath !== S.league.path)) {
+        log("⏳ รายการยังไม่ตรงกับลีกที่เลือก — รอโหลดเสร็จแล้วกด Generate อีกครั้ง", "warn");
+        return false;
+      }
       ({ hub, base, baseTag: tag, names } = S.data);
+      log(`ℹ ลีกที่ใช้กับรายการของ hub: ${S.league ? `${S.league.label} (${S.league.path})` : "-"}`, "info");
       if (!base) {
         log("⚠ ไม่มี NeverSink base filter — whitelist ไม่มี tier เริ่มต้น ไม่ generate", "warn");
         return false;
@@ -339,7 +426,8 @@ async function setGame(g: string): Promise<void> {
   Object.assign(S.cfg, init.updates);
   for (const n of init.notes) log("ℹ " + n, "warn");
   for (const [from, to] of Object.entries(init.moved || {})) await sounds.copy(from, to); // the old S / A / B files -> sounds 1 / 2 / 3
-  S.data = { hub: null, base: null, baseTag: null, names: null, namesFrom: "" };
+  S.data = { hub: null, base: null, baseTag: null, names: null, namesFrom: "", leaguePath: null };
+  S.league = null;
   tabNs.load(S.cfg, g);
   tabWl.load(S.cfg);
   tabWl.reload();
@@ -362,7 +450,7 @@ export async function boot(root: HTMLElement, opts: BootOptions = {}): Promise<v
   const saved = store.get(KEY_GAME);
   await platform().beforeStart?.(saved === "poe1" ? "poe1" : "poe2");
   const ctx: Ctx = {
-    cfg: S.cfg, changed, generate, openFile, gotoNsTab: () => showTab("tier"), reloadLists: () => loadLists(true), game: () => game,
+    cfg: S.cfg, changed, generate, openFile, gotoNsTab: () => showTab("tier"), reloadLists: () => loadLists(true), pickLeague, game: () => game,
     // "เปิด filter…": the folder's list / the file picker; `fallback` is the plain file input. Nothing may fail silently here: a
     // list that throws says why and the next click goes straight to the plain input (it needs the click itself)
     openFilter: async (fallback) => {
@@ -399,6 +487,11 @@ export async function boot(root: HTMLElement, opts: BootOptions = {}): Promise<v
   });
   $("#btn-folder-forget").addEventListener("click", async () => { await FS.forget(game); refreshFolder(); });
 
+  // (Checker) the main window picked another league: the lists follow
+  platform().onMainLeague?.((g, lg) => {
+    leaguePick[g] = lg;
+    if (booted && g === game) void relistFor(g);
+  });
   $("#loading").hidden = true;
   $("#app").hidden = false;
   const g = store.get(KEY_GAME);

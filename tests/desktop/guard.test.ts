@@ -22,6 +22,9 @@ describe("addresses the page may read", () => {
   it.each([
     "https://storage.googleapis.com/poe-data-hub/poe1/prices/latest.json",
     "https://storage.googleapis.com/poe-data-hub/poe2/gems.json",
+    "https://storage.googleapis.com/poe-data-hub/poe1/prices/index.json", // the league dropdown: the index and the league files it names
+    "https://storage.googleapis.com/poe-data-hub/poe1/prices/hardcore/latest.json",
+    "https://storage.googleapis.com/poe-data-hub/poe2/prices/events/runes-of-aldur.json",
     "https://api.github.com/repos/NeverSinkDev/NeverSink-Filter/releases/latest",
     "https://raw.githubusercontent.com/NeverSinkDev/NeverSink-Filter-for-PoE2/0.10.4a/NeverSink%27s%20filter%20-%202-SEMI-STRICT.filter",
   ])("allows %s", (u) => {
@@ -29,7 +32,7 @@ describe("addresses the page may read", () => {
   });
   it.each([
     "http://storage.googleapis.com/poe-data-hub/poe1/prices/latest.json", "https://storage.googleapis.com/other-bucket/x.json",
-    "https://storage.googleapis.com/poe-data-hub/../other/x.json", "https://storage.googleapis.com/poe-data-hub/%2e%2e/other/x",
+    "https://storage.googleapis.com/poe-data-hub/poe2/prices/events/%2e%2e/%2e%2e/%2e%2e/%2e%2e/other/x.json", "https://storage.googleapis.com/poe-data-hub/../other/x.json", "https://storage.googleapis.com/poe-data-hub/%2e%2e/other/x",
     "https://api.github.com/repos/torvalds/linux/releases/latest", "https://api.github.com.evil.com/repos/NeverSinkDev/x",
     "https://evil.com/?https://api.github.com/repos/NeverSinkDev/x", "https://user:pw@api.github.com/repos/NeverSinkDev/x",
     "https://api.github.com:8443/repos/NeverSinkDev/x", "file:///C:/Windows/win.ini", "https://example.com/", "javascript:alert(1)", "not a url", "",

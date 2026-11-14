@@ -81,6 +81,8 @@ let importNote = "";
 const importDetails: string[] = [];
 let game: GameId = "poe2";
 let league = "";
+/** false while `league` is only the placeholder of a game just switched to (the hub's list has not come yet): the filter pages are not told it */
+let leagueKnown = true;
 let leagues: string[] = [];
 let mainWin: BrowserWindow | null = null;
 let pickerWin: BrowserWindow | null = null;
@@ -113,6 +115,7 @@ const filterHost = new FilterHost({
   importNote: () => importNote,
   // the game of the filter page is the game of the Checker (like the original's Filter Generator window)
   gameStore: { get: () => game, set: (g) => setGame(g, "filter") },
+  league: () => (league && leagueKnown ? { game, league } : null), // the league of the main window: the filter page starts at it and follows it
 });
 
 // updates of the program itself: the Releases of the Checker's own repo (public), channel "latest" (latest.yml); the feed is the one
@@ -174,6 +177,7 @@ async function fetchLeagues(autoPick: boolean): Promise<void> {
     if (!r.ok) return;
     leagues = r.leagues;
     league = r.picked;
+    leagueKnown = true;
     config.set("league", league);
     saveSoon();
     debugEvent(`league ${gv}: ${league} (auto=${autoPick})`);
@@ -184,6 +188,12 @@ async function fetchLeagues(autoPick: boolean): Promise<void> {
 }
 function sendLeagues(): void {
   if (mainWin && !mainWin.isDestroyed() && ready) mainWin.webContents.send("main:leagues", leagues, league);
+  pushLeagueToFilterPages();
+}
+/** the filter pages (the one shown and the one kept for regenerating) list the hub's items of the league picked in the main window */
+function pushLeagueToFilterPages(): void {
+  if (!league || !leagueKnown) return;
+  for (const w of [filterWin, regenWin]) if (w && !w.isDestroyed()) filterHost.pushLeague(w, game, league);
 }
 
 function setGame(g: GameId, from: "main" | "settings" | "filter" | "auto" = "main"): void {
@@ -193,6 +203,7 @@ function setGame(g: GameId, from: "main" | "settings" | "filter" | "auto" = "mai
   dbs = makeDbs(g);
   leagues = [...profiles.profileFor(g).default_leagues];
   league = leagues[0] ?? "";
+  leagueKnown = false;
   saveSoon();
   sendLeagues();
   closePicker("game switched");
@@ -1117,6 +1128,7 @@ function setupIpc(): void {
       config.set("league", l);
       saveSoon();
       debugEvent(`league picked ${l}`);
+      pushLeagueToFilterPages();
     }
   });
   ipcMain.on("main:refresh-leagues", (e) => {

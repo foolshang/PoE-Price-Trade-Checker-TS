@@ -41,6 +41,8 @@ export interface AppGenInput {
   base: [string | null, string | null];
   /** the hub's prices (null = could not be loaded) */
   hub?: any;
+  /** the league the hub's lists are from (the page's dropdown); the log names it */
+  league?: { label: string; path: string };
   /** the real item names the page loaded (the whitelist tab) */
   names?: Iterable<string> | null;
   decisions?: Record<string, string>;
@@ -84,6 +86,7 @@ export async function appGenerate(i: AppGenInput, appVersion = "t"): Promise<App
     for (const n of readdirSync(i.gameDir)) existing[n] = wanted.has(n) ? sha256(readFileSync(path.join(i.gameDir, n))) : null;
   }
   const hub = i.mode === "whitelist" ? (i.hub ?? null) : null; // tier mode never reads the hub (app.ts:128-146)
+  if (i.mode === "whitelist") log(`ℹ ลีกที่ใช้กับรายการของ hub: ${i.league ? `${i.league.label} (${i.league.path})` : "-"}`, "info"); // app.ts: the league the lists were made from
   const names = i.mode === "whitelist" ? (i.names ? [...i.names] : []) : null;
   const res = await api.generate({ cfg, game: i.game, hub, baseText: base, baseTag: tag, log, hashes, names, existing, decisions: i.decisions ?? {} }); // app.ts:161
   if (res.status !== "ok") return { status: res.status, message: res.message };

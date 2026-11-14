@@ -4,6 +4,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import zlib from "zlib";
+import { HC_EXTRA, EVENT_EXTRA, leagueVariant } from "./league_fixture.mjs";
 import { FIXTURES, startServer, routeNetwork, wait, launchBrowser, PICKER_STUBS } from "./harness.mjs";
 
 const OUT = path.resolve(process.argv[2] || path.join(os.tmpdir(), "web-ui-shots"));
@@ -493,6 +494,116 @@ check("PoE1 gem names input + autocomplete", await page.locator("#gem-input").is
 await shot("14_poe1_parts");
 await page.click("#subtab-items");
 await shot("15_poe1_unique");
+
+// ---------------------------------------------------------------- the league of the lists (dropdown on the Whitelist tab)
+{
+  const gzTxt = (f) => zlib.gunzipSync(fs.readFileSync(path.join(FIXTURES, f))).toString("utf-8");
+  const goneOf = (g) => leagueVariant(gzTxt(`hub_${g}.json.gz`), "hardcore").gone; // a Currency item only the main league's file has
+  const optionsOf = () => page.locator("#league-select option").evaluateAll((o) => o.map((x) => x.textContent));
+  const selectedPath = () => page.locator("#league-select").evaluate((s) => s.value);
+  const hubHas = (name) => page.evaluate((n) => !!window.PFG.state.data.hub && window.PFG.state.data.hub.items.some((i) => i.name === n), name);
+  const hubState = () => page.evaluate(() => ({ has: !!window.PFG.state.data.hub, path: window.PFG.state.data.leaguePath }));
+  const reload = async () => {
+    await wait(400); // the debounced save of the settings
+    await page.reload();
+    await page.waitForSelector("#app:not([hidden])", { timeout: 120000 });
+    await waitLog("โหลดรายการ whitelist แล้ว");
+    await page.click("#tab-wl");
+  };
+  const failRoute = async (re, status, body = "not found") => {
+    const h = (route) => route.fulfill({ status, contentType: "application/json", headers: { "Access-Control-Allow-Origin": "*" }, body });
+    await context.route(re, h);
+    return () => context.unroute(re, h);
+  };
+  const setCfg = (patch) => page.evaluate((p) => {
+    Object.assign(window.PFG.state.cfg, p); // (the page keeps its settings in memory and saves them when it closes)
+    localStorage.setItem("poeFilterGen.cfg", JSON.stringify(window.PFG.state.cfg));
+  }, patch);
+  const HC1 = "poe1/prices/hardcore/latest.json";
+  const poe1gone = goneOf("poe1");
+
+  await page.click("#tab-wl");
+  check("league: the dropdown lists main and hardcore of PoE1 (the hub's index), main first", JSON.stringify(await optionsOf()) === JSON.stringify(["Allflame", "Hardcore Allflame"]), JSON.stringify(await optionsOf()));
+  check("league: starts at the main league and the lists are its file", (await selectedPath()) === "poe1/prices/latest.json" && await hubHas(poe1gone) && !(await hubHas(HC_EXTRA)));
+  check("league: the Status names the league of the lists", (await logText()).includes("ลีกของรายการ hub: Allflame"));
+  await shot("14b_league_dropdown");
+
+  const before = calls.length;
+  await page.selectOption("#league-select", { label: "Hardcore Allflame" });
+  check("league: picking hardcore loads the hardcore file", await waitFor(async () => (await hubHas(HC_EXTRA)) && (await hubState()).path === HC1, 30000), JSON.stringify(await hubState()));
+  check("league: ... it asked the hub for exactly that file", calls.slice(before).includes("hub:" + HC1), calls.slice(before).join(","));
+  check("league: ... and the list shows the hardcore's item, not the main's", !(await hubHas(poe1gone)));
+  await page.selectOption("#pane-whitelist select[aria-label=หมวด]", { label: "Currency" });
+  await page.fill('#pane-whitelist input[aria-label=ค้นหา]', HC_EXTRA);
+  check("league: the row of the hardcore-only item is in the Currency list", await waitFor(async () => (await page.locator(`table.items tr[data-key="${HC_EXTRA}"]`).count()) === 1));
+  await page.fill('#pane-whitelist input[aria-label=ค้นหา]', "");
+  await shot("14c_league_hardcore");
+
+  // Generate says which league it used
+  await page.click(".tier-btns button[data-t=S]");
+  await page.click("#btn-cat-tier");
+  await page.click("#btn-generate-wl");
+  check("league: Generate names the league it used", await waitLog("ลีกที่ใช้กับรายการของ hub: Hardcore Allflame (poe1/prices/hardcore/latest.json)", 30000), await logText());
+
+  // back to main: the main file again (the cache is by path: the hardcore answer is not given for main)
+  await page.selectOption("#league-select", { label: "Allflame" });
+  check("league: back to main gives the main list (no mixing)", await waitFor(async () => (await hubHas(poe1gone)) && !(await hubHas(HC_EXTRA)), 30000));
+
+  // remembered in the settings, and used after a reload
+  await page.selectOption("#league-select", { label: "Hardcore Allflame" });
+  await waitFor(async () => (await hubState()).path === HC1, 30000);
+  await reload();
+  check("league: the league picked is remembered (settings)", (await selectedPath()) === HC1 && await hubHas(HC_EXTRA), await selectedPath());
+
+  // a remembered league the hub does not offer any more: main + a line in the Status
+  await setCfg({ hub_league_poe1: "Gone League" });
+  await reload();
+  check("league: a remembered league that is gone -> the main league", (await selectedPath()) === "poe1/prices/latest.json" && await hubHas(poe1gone));
+  check("league: ... and the Status says so", (await logText()).includes('ลีก "Gone League" ไม่อยู่ในรายการของ hub แล้ว'), await logText());
+
+  // the league's file cannot be had: no list from the hub, never another league's
+  {
+    await setCfg({ hub_league_poe1: "Hardcore Allflame" });
+    const undo = await failRoute(/poe-data-hub\/poe1\/prices\/hardcore\/latest\.json/, 404);
+    await reload();
+    const st = await hubState();
+    check("league: its file missing -> no hub list (not the main league's)", st.has === false && st.path === HC1, JSON.stringify(st));
+    check("league: ... the Status says which league failed", (await logText()).includes("ดึง hub ไม่ได้ (Hardcore Allflame)"), await logText());
+    await undo();
+  }
+
+  // the index cannot be had / is not the schema this program knows: main only, from latest.json, and the Status says so
+  for (const [why, status, body] of [["HTTP 404", 404, "not found"], ["schema_version 9", 200, JSON.stringify({ schema_version: 9, main: { league: "X", path: "poe1/prices/latest.json" } })]]) {
+    await setCfg({ hub_league_poe1: "Hardcore Allflame" });
+    const undo = await failRoute(/poe-data-hub\/poe1\/prices\/index\.json/, status, body);
+    await reload();
+    check(`league: index ${why} -> only the main league`, JSON.stringify(await optionsOf()) === JSON.stringify(["ลีกหลัก"]) && (await selectedPath()) === "poe1/prices/latest.json" && await hubHas(poe1gone), JSON.stringify(await optionsOf()));
+    check(`league: index ${why} -> the Status says why`, (await logText()).includes("อ่านรายชื่อลีกของ hub ไม่ได้") && (await logText()).includes("ใช้ลีกหลักอย่างเดียว"), await logText());
+    check(`league: index ${why} -> the remembered league is kept for later`, await page.evaluate(() => JSON.parse(localStorage.getItem("poeFilterGen.cfg")).hub_league_poe1) === "Hardcore Allflame");
+    await undo();
+  }
+
+  // PoE2: its own list (main, hardcore, event), and an event file
+  await setCfg({ hub_league_poe1: "" });
+  await reload();
+  await page.click("#game-poe2");
+  await waitLog("โหลดรายการ whitelist แล้ว");
+  await waitFor(async () => (await optionsOf()).length === 3);
+  check("league: PoE2 has its own list: main, hardcore, event", JSON.stringify(await optionsOf()) === JSON.stringify(["Forbidden Rites", "HC Forbidden Rites", "Runes of Aldur"]), JSON.stringify(await optionsOf()));
+  const EV2 = "poe2/prices/events/runes-of-aldur.json";
+  await page.selectOption("#league-select", { label: "Runes of Aldur" });
+  check("league: picking the event loads the event's file", await waitFor(async () => (await hubState()).path === EV2 && (await hubHas(EVENT_EXTRA)), 30000), JSON.stringify(await hubState()));
+  await shot("14d_league_event_poe2");
+  // the league of one game is not the league of the other
+  await page.click("#game-poe1");
+  await waitFor(async () => (await optionsOf()).includes("Allflame"));
+  check("league: back to PoE1 the dropdown is PoE1's, at its own league", JSON.stringify(await optionsOf()) === JSON.stringify(["Allflame", "Hardcore Allflame"]) && (await selectedPath()) === "poe1/prices/latest.json");
+  await waitFor(async () => (await hubState()).path === "poe1/prices/latest.json" && (await hubHas(poe1gone)), 30000);
+  await page.click(".tier-btns button[data-t=B]"); // (the reloads forgot the picked tier; what follows needs one)
+  await page.selectOption("#pane-whitelist select[aria-label=หมวด]", { index: 0 });
+  await page.click("#tab-ns");
+  await page.click("#tab-wl");
+}
 
 // ---------------------------------------------------------------- a phone-sized screen
 await page.setViewportSize({ width: 360, height: 780 });

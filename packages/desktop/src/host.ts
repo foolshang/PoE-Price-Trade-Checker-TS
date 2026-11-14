@@ -35,6 +35,8 @@ export interface FilterHostOptions {
   importNote?: () => string;
   /** where the page's choice of game lives (default: `filter_gen.standalone_game`, the Filter Generator's own memory) */
   gameStore?: { get(): GameId | null; set(g: GameId): void };
+  /** (Checker) the league of the main window and its game: given to a page at start (`fg:init`) and sent to it when it changes (`pushLeague`) */
+  league?: () => { game: GameId; league: string } | null;
 }
 
 const bad = (m: string): { ok: false; message: string } => ({ ok: false, message: m });
@@ -144,7 +146,7 @@ export class FilterHost {
       const store: Record<string, string> = { ...this.uiStore, [KEY_CFG]: this.cfgForPage() };
       const g = this.gameGet();
       if (g) store[KEY_GAME] = g;
-      return { version: o.version, buildTime: o.buildTime, exeName: o.exeName, configDir: o.configDir, store, importNote: o.importNote?.() ?? "" };
+      return { version: o.version, buildTime: o.buildTime, exeName: o.exeName, configDir: o.configDir, store, importNote: o.importNote?.() ?? "", league: o.league?.() ?? null };
     });
 
     this.on("fg:store-set", (_e, key: unknown, value: unknown) => {
@@ -396,6 +398,11 @@ export class FilterHost {
       this.readyWins.delete(wcId);
       this.flushWaiters.delete(wcId);
     });
+  }
+
+  /** Tell the page of `win` which league the main window has picked (the page reloads its lists). */
+  pushLeague(win: BrowserWindow, game: GameId, league: string): void {
+    if (!win.isDestroyed()) win.webContents.send("fg:league", game, league);
   }
 
   /** Resolves true when the page of `win` is up (has registered for regenerate requests), false after `timeoutMs`. */

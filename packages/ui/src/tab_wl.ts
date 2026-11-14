@@ -8,6 +8,7 @@ import type { RowsResult } from "./api.ts";
 import { K } from "./api.ts";
 import { getGemNames } from "./data.ts";
 import { debounce, esc, h } from "./dom.ts";
+import type { LeagueOption } from "./leagues.ts";
 import { S, Ctx } from "./state.ts";
 import { buildStyleEditor, StyleEditor } from "./style_editor.ts";
 
@@ -24,6 +25,8 @@ export const tabWl = {
   subtab: "items", equipGroup: "",
   ctx: null as unknown as Ctx,
   name: null as unknown as HTMLInputElement,
+  leagueSel: null as unknown as HTMLSelectElement,
+  leagueHint: null as unknown as HTMLElement,
   openInput: null as unknown as HTMLInputElement,
   openBtn: null as unknown as HTMLElement,
   tierBtns: {} as Record<string, HTMLElement>,
@@ -51,6 +54,13 @@ export const tabWl = {
   subPanes: {} as Record<string, HTMLElement>,
   partEditors: {} as Record<string, { ed: StyleEditor; box: HTMLElement; look: () => any }>,
 
+  /** the leagues of the game (value = the hub file), the one picked, and a line under the box (what the lists are now) */
+  setLeagues(options: LeagueOption[], selectedPath: string): void {
+    this.leagueSel.replaceChildren(...options.map((o) => h("option", { value: o.path, selected: o.path === selectedPath }, o.label)));
+    this.leagueSel.value = selectedPath;
+    this.leagueSel.disabled = options.length < 2;
+  },
+
   mount(pane: HTMLElement, ctx: Ctx): void {
     this.ctx = ctx;
     this.name = h("input", { type: "text", class: "grow", "aria-label": "ชื่อ filter", oninput: () => ctx.changed() });
@@ -63,6 +73,9 @@ export const tabWl = {
       } });
     this.openBtn = h("button", { type: "button", id: "btn-open", class: "secondary", onclick: () => ctx.openFilter(() => this.openInput.click()) }, "เปิด filter…");
 
+    // the league the item lists come from (the hub's file of that league)
+    this.leagueSel = h("select", { id: "league-select", "aria-label": "ลีก", onchange: () => ctx.pickLeague(this.leagueSel.value) });
+    this.leagueHint = h("span", { class: "hint" }, "รายการไอเท็มของ hub ตามลีกนี้");
     // 1) tier
     const tierBox = h("span", { class: "tier-btns" });
     for (const t of ["S", "A", "B", "C"]) {
@@ -111,6 +124,7 @@ export const tabWl = {
     const btnReload = h("button", { type: "button", class: "secondary", id: "btn-reload", onclick: () => ctx.reloadLists() }, "โหลดรายการใหม่");
 
     pane.replaceChildren(
+      h("div", { class: "row" }, h("label", { class: "l" }, "ลีก:"), this.leagueSel, this.leagueHint),
       h("div", { class: "row" }, h("label", { class: "l" }, "ชื่อ filter:"), this.name, h("span", { class: "hint" }, ".filter"), this.openBtn, this.openInput),
       h("div", { class: "row" }, h("label", { class: "l" }, "1) เลือก tier:"), tierBox, this.hint),
       h("div", { class: "row top" }, h("label", { class: "l" }, "2) สไตล์ของ tier:"), this.tierStyleBox),

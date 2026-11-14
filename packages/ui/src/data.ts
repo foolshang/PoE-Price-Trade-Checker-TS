@@ -4,6 +4,7 @@
  * data/trade_names_<game>.json), the gem list (poe1). The localStorage keys are the ones the Pyodide page used.
  */
 import { hubClient, hubSchema } from "@poe/core";
+import { LeagueOption, isPricesPath, mainOnly, mainPath, optionsFromFiles } from "./leagues.ts";
 import { platform } from "./platform.ts";
 import { S } from "./state.ts";
 import { readJson, store } from "./storage.ts";
@@ -32,11 +33,16 @@ export async function fetchText(url: string, label: string, headers?: Record<str
   return res.text;
 }
 
-/** the hub's prices of a game (kept 5 minutes, like the hub's own cache header) */
-export async function getHub(g: string): Promise<any> {
-  const c = hubCache[g];
+/**
+ * The hub's prices file of a league (kept 5 minutes, like the hub's own cache header). `path` is the file of that league (from the index; default:
+ * the main league's latest.json). The cache is by path: the answer for one league is never given for another. Throws when the file cannot be had
+ * or its schema_version is not the one expected (the caller then has no hub list).
+ */
+export async function getHub(g: string, path: string = mainPath(g)): Promise<any> {
+  if (!isPricesPath(g, path)) throw new Error(`hub path not allowed: ${path}`);
+  const c = hubCache[path];
   if (c && Date.now() - c.at < 5 * 60 * 1000) return c.data;
-  const url = `${HUB}/${g}/prices/latest.json`;
+  const url = `${HUB}/${path}`;
   const text = await fetchText(url, "hub");
   let data: any;
   try {
@@ -45,11 +51,36 @@ export async function getHub(g: string): Promise<any> {
     throw new Error(`hub fetch failed (${url}): ${(e as Error).message}`);
   }
   // a schema this page does not know is read like a hub that could not be reached (the caller shows no hub list)
-  if (!hubSchema.checkSchema(data, hubSchema.PRICES_SCHEMA_VERSION, `${g}/prices/latest.json`, (m) => console.warn(m), "treated as not loaded")) {
+  if (!hubSchema.checkSchema(data, hubSchema.PRICES_SCHEMA_VERSION, path, (m) => console.warn(m), "treated as not loaded")) {
     throw new Error(`hub schema mismatch: ${url}`);
   }
-  hubCache[g] = { data, at: Date.now() };
+  hubCache[path] = { data, at: Date.now() };
   return data;
+}
+
+const leagueCache: Record<string, { options: LeagueOption[]; at: number }> = {};
+
+/**
+ * The leagues of a game for the dropdown, from {game}/prices/index.json (5 minutes). When the index cannot be had (network, not JSON, schema_version
+ * not 1) the only league is the main one (latest.json) and `warning` says why; that answer is not cached, so the next load asks again.
+ */
+export async function getLeagues(g: string): Promise<{ options: LeagueOption[]; warning: string | null }> {
+  const c = leagueCache[g];
+  if (c && Date.now() - c.at < 5 * 60 * 1000) return { options: c.options, warning: null };
+  const file = `${g}/prices/index.json`;
+  const fail = (why: string): { options: LeagueOption[]; warning: string } =>
+    ({ options: mainOnly(g), warning: `⚠ อ่านรายชื่อลีกของ hub ไม่ได้ (${why}) — ใช้ลีกหลักอย่างเดียว (latest.json)` });
+  let data: any;
+  try {
+    data = JSON.parse(await fetchText(`${HUB}/${file}`, "hub index"));
+  } catch (e) {
+    return fail((e as Error).message);
+  }
+  const msgs: string[] = [];
+  if (!hubSchema.checkSchema(data, hubSchema.INDEX_SCHEMA_VERSION, file, (m) => msgs.push(m), "treated as not loaded")) return fail(msgs[0] || "schema_version");
+  const options = optionsFromFiles(g, hubClient.leagueFilesFromIndex(g, data));
+  leagueCache[g] = { options, at: Date.now() };
+  return { options, warning: null };
 }
 
 /**

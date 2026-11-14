@@ -52,8 +52,9 @@ describe("the filter the programs write, per mode", () => {
     const res = await gen(t, {}, "whitelist", { log: (m, tg = "info") => logs.push([tg, m]) });
     expect(res.status).toBe("none");
     expect(existsSync(path.join(t, "game"))).toBe(false);
-    expect(logs.length).toBe(1);
-    expect(logs[0][0]).toBe("warn");
+    const warns = logs.filter(([tg]) => tg === "warn"); // (besides the line that names the league)
+    expect(warns).toHaveLength(1);
+    expect(logs.filter(([tg]) => tg !== "warn").map(([, m]) => m)).toEqual(["ℹ ลีกที่ใช้กับรายการของ hub: -"]);
   });
 
   it("a whitelist category needs the hub and degrades when it is down", async () => {

@@ -14,6 +14,8 @@ export interface InitData {
   store: Record<string, string>;
   /** what the first start did with the original program's config (empty when nothing to say) */
   importNote: string;
+  /** (Checker) the league the main window has picked, with its game; null in the Filter Generator (it has no main window) */
+  league: { game: GameId; league: string } | null;
 }
 
 export interface FolderInfo {
@@ -76,6 +78,8 @@ export interface DesktopApi {
   /** a sound named in the config by a path of the original program: its bytes, from that path or from the game folder */
   readLegacySound(game: GameId, value: string): Promise<ReadSound | null>;
 
+  /** (Checker) the main window picked another league (or game): the page follows */
+  onLeague(cb: (game: GameId, league: string) => void): void;
   /** the main process asks the page to save before closing; the page answers with flushDone */
   onFlush(cb: () => void): void;
   flushDone(): void;

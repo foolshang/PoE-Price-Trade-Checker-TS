@@ -8,6 +8,7 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
+import { leagueKind, leagueVariant } from "./league_fixture.mjs";
 
 export const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const REPO = path.resolve(HERE, "..", "..");
@@ -69,6 +70,13 @@ export async function routeNetwork(context, calls = []) {
     calls.push("hub:" + (m ? m[1] + "/" + m[2] : url));
     if (m && m[2] === "prices/latest.json") {
       return route.fulfill({ status: 200, contentType: "application/json", headers: CORS, body: hubPrices(m[1]) });
+    }
+    if (m && m[2] === "prices/index.json") {
+      return route.fulfill({ status: 200, contentType: "application/json", headers: CORS, body: gz(`hub_league_index_${m[1]}.json.gz`) });
+    }
+    const kind = m && leagueKind(m[2]);
+    if (kind) { // the hardcore / event file: the main one with one item changed (league_fixture.mjs)
+      return route.fulfill({ status: 200, contentType: "application/json", headers: CORS, body: JSON.stringify({ schema_version: 2, ...JSON.parse(leagueVariant(gz(`hub_${m[1]}.json.gz`), kind).text) }) });
     }
     route.fulfill({ status: 404, contentType: "text/plain", headers: CORS, body: "not found" });
   });

@@ -135,7 +135,7 @@ describe("A) the filter page in the Checker", () => {
     const w = await openFilter(app, page);
     expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((x) => x.webContents.getURL().includes("filter.html")).getTitle())).toBe(`PoE Price & Trade Checker — Filter Generator v${ver}`);
     const keys = await w.evaluate(() => ({ d: Object.keys(window.desktop).sort(), others: [typeof window.checker, typeof window.picker, typeof window.settings, typeof window.skillRef], node: [typeof require, typeof process] }));
-    expect(keys.d).toEqual(["adoptPickedDir", "clearFolder", "fileExists", "flushDone", "folderInfo", "httpGet", "init", "listFilters", "listNames", "onFlush", "onRegen", "pickFilterFile", "pickFolder", "readFile", "readLegacySound", "ready", "storeDel", "storeSet", "tradeNames", "writeFile"]);
+    expect(keys.d).toEqual(["adoptPickedDir", "clearFolder", "fileExists", "flushDone", "folderInfo", "httpGet", "init", "listFilters", "listNames", "onFlush", "onLeague", "onRegen", "pickFilterFile", "pickFolder", "readFile", "readLegacySound", "ready", "storeDel", "storeSet", "tradeNames", "writeFile"]);
     expect(keys.others).toEqual(["undefined", "undefined", "undefined", "undefined"]);
     expect(keys.node).toEqual(["undefined", "undefined"]);
     expect(await w.locator("#game-poe1").getAttribute("aria-pressed")).toBe("true");
@@ -573,5 +573,45 @@ describe("E) the message over the game", () => {
     await wait(9000);
     expect(await app.evaluate(() => { const w = globalThis.__poeChecker.overlay(); return w ? w.isVisible() : false; })).toBe(false);
     expect(page.errors).toEqual([]);
+  }, 180000);
+});
+
+// ------------------------------------------------------------------------------------------------------------------------------
+describe("F) the league of the filter page follows the main window's", () => {
+  const idx = (g) => JSON.parse(data.checker[g].leagues);
+  const pickedOf = (w) => w.locator("#league-select").evaluate((s) => s.options[s.selectedIndex].textContent);
+
+  it("starts at the league of the main window, follows its changes, and the page keeps no league of its own in the config", async () => {
+    const sbx = sandbox();
+    const ix = idx("poe2");
+    const { app, page } = await start(sbx, { game: "poe2" });
+    await page.selectOption("#league", ix.hardcore.league);
+    const w = await openFilter(app, page);
+    await w.click("#tab-wl");
+    expect(await pickedOf(w)).toBe(ix.hardcore.league);
+    expect(await w.evaluate(() => window.PFG.state.data.leaguePath)).toBe(ix.hardcore.path);
+    // the main window picks another league: the page follows and reloads its lists
+    await page.selectOption("#league", ix.main.league);
+    await w.waitForFunction((p) => window.PFG.state.data.leaguePath === p && !!window.PFG.state.data.hub, ix.main.path, { timeout: 60000 });
+    expect(await pickedOf(w)).toBe(ix.main.league);
+    // a choice in the page's own dropdown is for this session: the config of the Checker has no hub_league_*
+    await w.selectOption("#league-select", { label: ix.events[0].league });
+    await w.waitForFunction((p) => window.PFG.state.data.leaguePath === p, ix.events[0].path, { timeout: 60000 });
+    await wait(900);
+    expect(Object.keys(readSaved(sbx).filter_gen ?? {}).filter((k) => k.startsWith("hub_league_"))).toEqual([]);
+    expect(w.errors).toEqual([]);
+  }, 180000);
+
+  it("Generate on the Whitelist tab names the league of the main window", async () => {
+    const sbx = sandbox();
+    const ix = idx("poe2");
+    const { app, page } = await start(sbx, { game: "poe2" });
+    await page.selectOption("#league", ix.hardcore.league);
+    const w = await openFilter(app, page);
+    await w.click("#tab-wl");
+    await w.click(".tier-btns button[data-t=S]");
+    await w.click("#btn-cat-tier");
+    await generate(w, "whitelist");
+    expect(await w.locator("#log").innerText()).toContain(`ลีกที่ใช้กับรายการของ hub: ${ix.hardcore.league} (${ix.hardcore.path})`);
   }, 180000);
 });

@@ -33,6 +33,9 @@ export function exposeDesktopApi(): void {
     adoptPickedDir: (game) => call("fg:folder-adopt-picked", game),
     readLegacySound: (game, value) => call("fg:sound-legacy", game, value),
 
+    onLeague: (cb) => {
+      ipcRenderer.on("fg:league", (_e, game: GameId, league: string) => cb(game, league));
+    },
     onFlush: (cb) => {
       ipcRenderer.on("fg:flush", () => cb());
     },

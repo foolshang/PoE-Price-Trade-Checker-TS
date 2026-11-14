@@ -20,6 +20,13 @@ export interface Platform {
   getText(url: string, headers?: Record<string, string>): Promise<HttpResult>;
   /** the real item names from somewhere better than the shipped snapshot (desktop: GGG's trade data, 7-day cache) */
   getNames?(game: string): Promise<string[] | null>;
+  /**
+   * (Checker) the league picked in the main window for this game (a name), or null when there is none. The page starts at it and follows it
+   * (`onMainLeague`); without this the page keeps the league the player picked in its own dropdown (the Filter Generator, the web page).
+   */
+  mainLeague?(game: string): string | null;
+  /** the main window picked another league: the page follows (it reloads its lists) */
+  onMainLeague?(cb: (game: string, league: string) => void): void;
   /** after a successful generate (desktop: remember the name and the NeverSink tag in the config) */
   afterGenerate?(info: { mode: string; game: string; name: string; baseTag: string | null; path?: string }): void | Promise<void>;
   /** after the saved settings and the sound slots are loaded, before the game is set up (desktop: sounds of the original program) */

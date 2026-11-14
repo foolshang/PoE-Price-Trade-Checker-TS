@@ -27,6 +27,21 @@ export interface LeagueFiles {
   events: { league: string; path: string }[];
 }
 
+/** The routing table of a (schema-checked) {game}/prices/index.json: main / hardcore / events with the hub file of each. */
+export function leagueFilesFromIndex(game: string, index: any): LeagueFiles {
+  const main = truthy(index.main) ? index.main : {};
+  const mainPath = truthy(main.path) ? main.path : `${game}/prices/latest.json`;
+  const hc = index.hardcore;
+  const events = (Array.isArray(index.events) ? index.events : [])
+    .filter((e: any) => truthy(e.league) && truthy(e.path))
+    .map((e: any) => ({ league: e.league, path: e.path }));
+  return {
+    main: { league: main.league === undefined ? null : main.league, path: mainPath },
+    hardcore: truthy(hc) && truthy(hc.league) && truthy(hc.path) ? { league: hc.league, path: hc.path } : null,
+    events,
+  };
+}
+
 export class HubClient {
   constructor(private http: HttpPort, private warn: Log = noopLog) {}
 
@@ -82,19 +97,7 @@ export class HubClient {
   /** Reshape index.json into the league -> file routing table a consumer needs. */
   async getLeagueFiles(game: string): Promise<LeagueFiles> {
     const index = await this.getIndex(game);
-    if (truthy(index)) {
-      const main = truthy(index.main) ? index.main : {};
-      const mainPath = truthy(main.path) ? main.path : `${game}/prices/latest.json`;
-      const hc = index.hardcore;
-      const events = (Array.isArray(index.events) ? index.events : [])
-        .filter((e: any) => truthy(e.league) && truthy(e.path))
-        .map((e: any) => ({ league: e.league, path: e.path }));
-      return {
-        main: { league: main.league === undefined ? null : main.league, path: mainPath },
-        hardcore: truthy(hc) && truthy(hc.league) && truthy(hc.path) ? { league: hc.league, path: hc.path } : null,
-        events,
-      };
-    }
+    if (truthy(index)) return leagueFilesFromIndex(game, index);
     const latestPath = `${game}/prices/latest.json`;
     let leagueName: string | null;
     try {

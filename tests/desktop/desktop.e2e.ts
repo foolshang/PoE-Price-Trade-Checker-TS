@@ -417,7 +417,7 @@ describe("J) what the page can and cannot do", () => {
     expect(r.process).toBe("undefined");
     expect(r.ipc).toBe("undefined");
     expect(r.module).toBe("undefined");
-    expect(r.keys).toEqual(["adoptPickedDir", "clearFolder", "fileExists", "flushDone", "folderInfo", "httpGet", "init", "listFilters", "listNames", "onFlush", "onRegen", "pickFilterFile", "pickFolder", "readFile", "readLegacySound", "ready", "storeDel", "storeSet", "tradeNames", "writeFile"]);
+    expect(r.keys).toEqual(["adoptPickedDir", "clearFolder", "fileExists", "flushDone", "folderInfo", "httpGet", "init", "listFilters", "listNames", "onFlush", "onLeague", "onRegen", "pickFilterFile", "pickFolder", "readFile", "readLegacySound", "ready", "storeDel", "storeSet", "tradeNames", "writeFile"]);
   }, 120000);
 
   it("names are checked in the main process: no folders, no other file types, no other hosts", async () => {
@@ -527,5 +527,76 @@ describe("Z) the update banner of the Filter Generator", () => {
     await wait(1200);
     expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(1);
     expect(await page.evaluate(() => Object.keys(window.updater).sort())).toEqual(["get", "install", "onState", "openRelease"]);
+  }, 120000);
+});
+
+describe("K) the league of the lists (Whitelist tab dropdown)", () => {
+  const idx = (g) => JSON.parse(data.checker[g].leagues);
+  const names = (g) => { const ix = idx(g); return [ix.main.league, ...(ix.hardcore ? [ix.hardcore.league] : []), ...ix.events.map((e) => e.league)]; };
+  const optionsOf = (page) => page.locator("#league-select option").allInnerTexts();
+  const pickedOf = (page) => page.locator("#league-select").evaluate((s) => s.options[s.selectedIndex].textContent);
+
+  it("lists main / hardcore / events of the game from the hub's index, starts at the main league", async () => {
+    const sbx = sandbox();
+    const { page } = await start(sbx, { game: "poe2" });
+    await page.click("#tab-wl");
+    expect(await optionsOf(page)).toEqual(names("poe2"));
+    expect(await pickedOf(page)).toBe(idx("poe2").main.league);
+    expect(await page.locator("#log").innerText()).toContain(`ลีกของรายการ hub: ${idx("poe2").main.league}`);
+    expect(page.errors).toEqual([]);
+  }, 120000);
+
+  it("picking another league loads its file, is kept in the config, and is the league after a restart; Generate names it", async () => {
+    const sbx = sandbox();
+    const hc = idx("poe2").hardcore;
+    {
+      const { app, page } = await start(sbx, { game: "poe2" });
+      await page.click("#tab-wl");
+      const before = net.calls().length;
+      await page.selectOption("#league-select", { label: hc.league });
+      await page.waitForFunction((p) => window.PFG.state.data.leaguePath === p && !!window.PFG.state.data.hub, hc.path, { timeout: 60000 });
+      expect(net.calls().slice(before).some((u) => u.includes(`/poe-data-hub/${hc.path}`))).toBe(true);
+      const cfg = await savedCfg(sbx, (v) => v.hub_league_poe2 === hc.league);
+      expect(cfg.hub_league_poe2).toBe(hc.league);
+      await page.click(".tier-btns button[data-t=S]");
+      await page.click("#btn-cat-tier");
+      await generate(page, "whitelist");
+      expect(await page.locator("#log").innerText()).toContain(`ลีกที่ใช้กับรายการของ hub: ${hc.league} (${hc.path})`);
+      await app.close();
+    }
+    const { page } = await start(sbx, { game: "poe2" }); // (no cfg given: the saved one is read)
+    await page.click("#tab-wl");
+    expect(await pickedOf(page)).toBe(hc.league);
+    expect(page.errors).toEqual([]);
+  }, 180000);
+
+  it("a remembered league the hub no longer offers -> the main league, said in the Status", async () => {
+    const sbx = sandbox();
+    const { page } = await start(sbx, { cfg: { hub_league_poe2: "Gone League" }, game: "poe2" });
+    await page.click("#tab-wl");
+    expect(await pickedOf(page)).toBe(idx("poe2").main.league);
+    expect(await page.locator("#log").innerText()).toContain('ลีก "Gone League" ไม่อยู่ในรายการของ hub แล้ว');
+  }, 120000);
+
+  it("the index not there: only the main league, from latest.json, and the Status says so", async () => {
+    const sbx = sandbox();
+    net.state.noLeagueIndex = true;
+    try {
+      const { page } = await start(sbx, { cfg: { hub_league_poe2: idx("poe2").hardcore.league }, game: "poe2" });
+      await page.click("#tab-wl");
+      expect(await optionsOf(page)).toEqual(["ลีกหลัก"]);
+      expect(await page.locator("#log").innerText()).toContain("อ่านรายชื่อลีกของ hub ไม่ได้");
+    } finally {
+      net.state.noLeagueIndex = false;
+    }
+  }, 120000);
+
+  it("every hub address the page asks for (index, league files) passes the main process' allow-list", async () => {
+    const sbx = sandbox();
+    const { page } = await start(sbx, { game: "poe2" });
+    await page.click("#tab-wl");
+    await page.selectOption("#league-select", { label: idx("poe2").events[0].league });
+    await page.waitForFunction((p) => window.PFG.state.data.leaguePath === p && !!window.PFG.state.data.hub, idx("poe2").events[0].path, { timeout: 60000 });
+    expect(page.errors).toEqual([]);
   }, 120000);
 });
