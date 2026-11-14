@@ -149,6 +149,7 @@ starts (the Checker's filter page reuses phase 2-3 output).
 
 - **F4: league-age view and whole-league totals.** Views by league age (days 1-21 / 22-60 / 61+) and the cumulative figures of the whole league. The data exists in the hub's
   `archive/*.skills.json`, but those files are big (PoE2: about 18 MB gzip, over 120 MB unpacked). To use them the hub must first publish a small summary file; ask the hub for it before any work here.
+- **Generate coordination out of the DOM.** Move the orchestration of Generate in `packages/ui/src/app.ts` (name check, base / hub / names, sound store and `existing`, the call to `WebApi.generate`, delivery) into a function that does not need the DOM, so the apps and the tests call the same one; then delete the copy in `packages/core/test/app_path.ts`.
 
 ## R. Risks found while surveying (details for the phases)
 
