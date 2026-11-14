@@ -620,6 +620,59 @@ await shot("15_poe1_unique");
   await page.click("#tab-wl");
 }
 
+// ---------------------------------------------------------------- categories with no name are hidden (Scarab, 3.30)
+{
+  const gzTxt = (f) => zlib.gunzipSync(fs.readFileSync(path.join(FIXTURES, f))).toString("utf-8");
+  const CORS_H = { "Access-Control-Allow-Origin": "*" };
+  const catsOf = () => page.locator("#pane-whitelist select[aria-label=หมวด] option").evaluateAll((o) => o.map((x) => x.value));
+  const reloadWl = async () => {
+    await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("poeFilterGen.ns.text.")) localStorage.removeItem(k); });
+    await wait(400);
+    await page.reload();
+    await page.waitForSelector("#app:not([hidden])", { timeout: 120000 });
+    await waitLog("โหลดรายการ whitelist แล้ว");
+    await page.click("#tab-wl");
+  };
+  await page.evaluate(() => { Object.assign(window.PFG.state.cfg, { hub_league_poe1: "" }); localStorage.setItem("poeFilterGen.cfg", JSON.stringify(window.PFG.state.cfg)); });
+  await page.click("#game-poe1");
+  await waitLog("โหลดรายการ whitelist แล้ว");
+  await reloadWl();
+  check("hidden categories: with names in the data, Scarab is offered", (await catsOf()).includes("Scarab"), (await catsOf()).join(","));
+
+  // 3.30: the hub has no Scarab and NeverSink has no Scarab name
+  const hubNoScarab = (route) => {
+    const d = JSON.parse(gzTxt("hub_poe1.json.gz"));
+    d.items = d.items.filter((i) => i.category !== "Scarab");
+    route.fulfill({ status: 200, contentType: "application/json", headers: CORS_H, body: JSON.stringify({ schema_version: 2, ...d }) });
+  };
+  const nsNoScarab = (route) => route.fulfill({ status: 200, contentType: "text/plain; charset=utf-8", headers: CORS_H,
+    body: fs.readFileSync(path.join(FIXTURES, "neversink_poe1_s2.filter"), "utf-8").split(/\r?\n/).filter((l) => !/Scarab/.test(l)).join("\n") });
+  await context.route(/poe-data-hub\/poe1\/prices\/latest\.json/, hubNoScarab);
+  await context.route(/^https:\/\/raw\.githubusercontent\.com\//, nsNoScarab);
+  await reloadWl();
+  const cats = await catsOf();
+  check("hidden categories: no Scarab name anywhere -> the Scarab category is not offered, the others are", !cats.includes("Scarab") && cats.includes("Currency") && cats.includes("Fragment"), cats.join(","));
+  await page.click(".tier-btns button[data-t=A]");
+  await page.click("#btn-generate-wl");
+  check("hidden categories: Generate names the hidden category", await waitLog("หมวดที่ซ่อนเพราะไม่มีชื่อไอเท็มในรายการของลีกนี้: Scarab", 30000), await logText());
+
+  // the hub cannot be loaded: nothing is hidden for that reason (NeverSink's names stay, Scarab included when it has names)
+  await context.unroute(/poe-data-hub\/poe1\/prices\/latest\.json/, hubNoScarab);
+  await context.unroute(/^https:\/\/raw\.githubusercontent\.com\//, nsNoScarab);
+  const hubDown = (route) => route.fulfill({ status: 503, contentType: "text/plain", headers: CORS_H, body: "down" });
+  await context.route(/poe-data-hub\/poe1\/prices\/latest\.json/, hubDown);
+  await reloadWl();
+  check("hidden categories: the hub failed to load -> no category is hidden (a failed load is not an empty category)", (await catsOf()).includes("Scarab"), (await catsOf()).join(","));
+  await context.unroute(/poe-data-hub\/poe1\/prices\/latest\.json/, hubDown);
+
+  // the data has names again: the category is back by itself
+  await reloadWl();
+  check("hidden categories: names are back in the data -> the category is back", (await catsOf()).includes("Scarab"), (await catsOf()).join(","));
+  await page.click(".tier-btns button[data-t=B]");
+  await page.click("#tab-ns");
+  await page.click("#tab-wl");
+}
+
 // ---------------------------------------------------------------- NeverSink tab without a base filter
 {
   await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("poeFilterGen.ns.text.")) localStorage.removeItem(k); }); // (no cached text)

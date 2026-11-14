@@ -314,3 +314,74 @@ describe("NeverSink's own blocks inside the whitelist file", () => {
 });
 
 void blk;
+
+// ------------------------------------------------------------------------------------------------ categories with no name are hidden
+describe("categories with no name in the loaded lists are hidden (Scarab since 3.30)", () => {
+  const without = (hub: any, cat: string): any => ({ ...hub, items: hub.items.filter((i: any) => i.category !== cat), currency: (hub.currency ?? []).filter((i: any) => i.category !== cat) });
+  const noScarabBase = (base: string): string => base.replace(/^.*Scarab.*$/gm, "");
+
+  it("PoE1: no Scarab name in the hub and none in NeverSink -> the Scarab category is not offered; a category with names stays", () => {
+    const [hub, base] = data("poe1");
+    const m = new WlModel("poe1");
+    m.setData(without(hub, "Scarab"), base.split("\n").filter((l) => !/Scarab/.test(l)).join("\n"));
+    expect(m.hiddenCategories()).toContain("Scarab");
+    expect(cats(m).has("Scarab")).toBe(false);
+    expect(cats(m).has("Currency")).toBe(true);
+    expect(m.allCategories().map(([c]) => c)).toContain("Scarab");
+    expect(m.rows("Scarab")).toEqual([]);
+  });
+
+  it("the category comes back by itself when the data has names again", () => {
+    const [hub, base] = data("poe1");
+    const m = new WlModel("poe1");
+    m.setData(without(hub, "Scarab"), noScarabBase(base));
+    expect(cats(m).has("Scarab")).toBe(false);
+    m.setData(hub, base);
+    expect(m.hiddenCategories()).not.toContain("Scarab");
+    expect(cats(m).has("Scarab")).toBe(true);
+    expect(m.rows("Scarab").length).toBeGreaterThan(0);
+  });
+
+  it("the hub could not be loaded (null / no items): nothing is hidden because of it", () => {
+    const [, base] = data("poe1");
+    for (const hub of [null, { schema_version: 2, items: [], currency: [] }]) {
+      const m = new WlModel("poe1");
+      m.setData(hub, base);
+      expect(m.hiddenCategories()).toEqual([]);
+      expect(cats(m).has("Scarab")).toBe(true);
+    }
+  });
+
+  it("NeverSink could not be loaded (empty text): nothing is hidden", () => {
+    const [hub] = data("poe1");
+    const m = new WlModel("poe1");
+    m.setData(hub, "");
+    expect(m.hiddenCategories()).toEqual([]);
+  });
+
+  it("nothing is hidden before the lists are loaded", () => {
+    expect(new WlModel("poe1").hiddenCategories()).toEqual([]);
+  });
+
+  it("a saved tier of a hidden category is kept, and the filter has no empty BaseType line and no Scarab name", () => {
+    const [hub, base] = data("poe1");
+    const h = without(hub, "Scarab"), b = base.split("\n").filter((l) => !/Scarab/.test(l)).join("\n");
+    const m = new WlModel("poe1");
+    m.setData(h, b);
+    m.cat_tier["Scarab"] = "A";
+    expect((m.cfg() as any).wl_cat_tier_poe1.Scarab).toBe("A"); // kept in the settings
+    const text = m.build("").text as string;
+    expect(text).not.toMatch(/^\s*BaseType\s*(==)?\s*$/m);
+    expect(text).not.toContain("Scarab");
+  });
+
+  it("PoE2 has its own: a category without a name is hidden the same way", () => {
+    const [hub, base] = data("poe2");
+    const m = new WlModel("poe2");
+    m.setData(without(hub, "Omen"), base);
+    const stillNs = m.rows("Omen").length;
+    if (stillNs === 0) expect(cats(m).has("Omen")).toBe(false);
+    else expect(cats(m).has("Omen")).toBe(true); // NeverSink still names some: the category stays
+    expect(cats(m).has("Currency")).toBe(true);
+  });
+});
