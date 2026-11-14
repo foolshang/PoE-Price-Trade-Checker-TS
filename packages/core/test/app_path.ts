@@ -42,7 +42,7 @@ export interface AppGenInput {
   /** the hub's prices (null = could not be loaded) */
   hub?: any;
   /** the league the hub's lists are from (the page's dropdown); the log names it */
-  league?: { label: string; path: string };
+  league?: { label: string; listPath: string };
   /** the real item names the page loaded (the whitelist tab) */
   names?: Iterable<string> | null;
   /** the names the page adds from GGG's item list ({name: category}); none = a run like the original's (the goldens) */
@@ -79,7 +79,7 @@ export async function appGenerate(i: AppGenInput, appVersion = "t"): Promise<App
   const name = v.name || cfg[key];
   const [base, tag] = i.base;
   if (i.mode === "whitelist") { // app.ts:221-225 (the league the lists are from is named first)
-    log(`ℹ ลีกที่ใช้กับรายการของ hub: ${i.league ? `${i.league.label} (${i.league.path})` : "-"}`, "info");
+    log(`ℹ ลีกที่เลือก: ${i.league ? i.league.label : "-"} · แหล่งรายชื่อไอเท็ม: ${i.league ? i.league.listPath : "-"}`, "info");
     if (!base) {
       log("⚠ ไม่มี NeverSink base filter — whitelist ไม่มี tier เริ่มต้น ไม่ generate", "warn");
       return { status: "aborted" };
