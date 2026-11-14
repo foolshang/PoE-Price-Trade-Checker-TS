@@ -45,8 +45,6 @@ export interface AppGenInput {
   league?: { label: string; listPath: string };
   /** the real item names the page loaded (the whitelist tab) */
   names?: Iterable<string> | null;
-  /** the names the page adds from GGG's item list ({name: category}); none = a run like the original's (the goldens) */
-  added?: Record<string, string> | null;
   decisions?: Record<string, string>;
   /** make writing `<name>.filter` fail with this error (the page then logs it and hands nothing over) */
   failWrite?: Error;
@@ -99,7 +97,7 @@ export async function appGenerate(i: AppGenInput, appVersion = "t"): Promise<App
   }
   const hub = i.mode === "whitelist" ? (i.hub ?? null) : null; // tier mode never reads the hub (app.ts:213-235)
   const names = i.mode === "whitelist" ? (i.names ? [...i.names] : []) : null;
-  const res = await api.generate({ cfg, game: i.game, hub, baseText: base, baseTag: tag, log, hashes, names, added: i.mode === "whitelist" ? (i.added ?? null) : null, existing, decisions: i.decisions ?? {} }); // app.ts:252
+  const res = await api.generate({ cfg, game: i.game, hub, baseText: base, baseTag: tag, log, hashes, names, existing, decisions: i.decisions ?? {} }); // app.ts:252
   if (res.status !== "ok") return { status: res.status, message: res.message };
   const filePath = path.join(i.gameDir, `${name}.filter`);
   try { // deliver() -> writeToFolder: sounds, then the filter, CRLF once

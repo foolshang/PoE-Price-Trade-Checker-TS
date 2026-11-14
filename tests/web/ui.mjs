@@ -620,31 +620,6 @@ await shot("15_poe1_unique");
   await page.click("#tab-wl");
 }
 
-// ---------------------------------------------------------------- names from GGG's item list (the 4th source of the lists)
-{
-  await page.click("#tab-wl");
-  const search = '#pane-whitelist input[aria-label=ค้นหา]';
-  const rowOf = (key) => page.locator(`table.items tr[data-key="${key}"]`);
-  const GGG_CURRENCY = "Royal Visage", GGG_FRAGMENT = "Xoph's Flawless Breachstone"; // (in the shipped snapshot, in neither the hub nor NeverSink fixture)
-  await page.selectOption("#pane-whitelist select[aria-label=หมวด]", { label: "Currency" });
-  await page.fill(search, GGG_CURRENCY);
-  check("GGG names: a new currency name of the snapshot is in the Currency list, listed (no starting tier of its own)", await waitFor(async () => (await rowOf(GGG_CURRENCY).count()) === 1) && ["D", "S"].includes(await rowOf(GGG_CURRENCY).getAttribute("data-tier"))); // (D, or the S the league cases above gave the whole Currency category)
-  await page.fill(search, "");
-  await page.selectOption("#pane-whitelist select[aria-label=หมวด]", { label: "Fragment" });
-  await page.fill(search, GGG_FRAGMENT);
-  check("GGG names: a name the rules put in Fragment is in the Fragment list, shown as D", await waitFor(async () => (await rowOf(GGG_FRAGMENT).count()) === 1) && (await rowOf(GGG_FRAGMENT).getAttribute("data-tier")) === "D");
-  await page.fill(search, "");
-  await page.click(".tier-btns button[data-t=A]");
-  await page.click("#btn-cat-tier");
-  await page.fill(search, GGG_FRAGMENT);
-  check("GGG names: a tier for the whole category moves it too", await waitFor(async () => (await rowOf(GGG_FRAGMENT).getAttribute("data-tier")) === "A"));
-  await page.fill(search, "");
-  await page.click("#btn-generate-wl");
-  check("GGG names: Generate says how many were added and written, per category", await waitLog("ชื่อจาก GGG ที่เติมในรายการ", 30000) && /เขียนลง filter \d+ ชื่อ \([^)]*Fragment \d+/.test(await logText()), (await logText()).slice(-300));
-  check("GGG names: the log says where the real names came from", (await logText()).includes("รายชื่อไอเท็มจริง: จาก snapshot"));
-  await shot("14d_ggg_names");
-}
-
 // ---------------------------------------------------------------- NeverSink tab without a base filter
 {
   await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("poeFilterGen.ns.text.")) localStorage.removeItem(k); }); // (no cached text)
