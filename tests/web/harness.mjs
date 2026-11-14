@@ -46,6 +46,8 @@ export async function launchBrowser() {
 }
 
 const gz = (f) => zlib.gunzipSync(fs.readFileSync(path.join(FIXTURES, f))).toString("utf-8");
+// the fixture is the hub's items only; the real file carries schema_version 2 (the page ignores a prices file without it)
+const hubPrices = (g) => JSON.stringify({ schema_version: 2, ...JSON.parse(gz(`hub_${g}.json.gz`)) });
 const CORS = { "Access-Control-Allow-Origin": "*" };
 
 /** Answer every call to another site from local fixtures. `calls` collects what the page asked for. */
@@ -66,7 +68,7 @@ export async function routeNetwork(context, calls = []) {
     const m = url.match(/poe-data-hub\/(poe[12])\/(.*)$/);
     calls.push("hub:" + (m ? m[1] + "/" + m[2] : url));
     if (m && m[2] === "prices/latest.json") {
-      return route.fulfill({ status: 200, contentType: "application/json", headers: CORS, body: gz(`hub_${m[1]}.json.gz`) });
+      return route.fulfill({ status: 200, contentType: "application/json", headers: CORS, body: hubPrices(m[1]) });
     }
     route.fulfill({ status: 404, contentType: "text/plain", headers: CORS, body: "not found" });
   });

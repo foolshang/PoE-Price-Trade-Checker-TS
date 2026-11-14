@@ -8,6 +8,7 @@ import zlib from "node:zlib";
 import { FIXTURES } from "./harness.mjs";
 
 const gz = (f) => zlib.gunzipSync(fs.readFileSync(path.join(FIXTURES, f))).toString("utf-8");
+const withSchema = (text) => JSON.stringify({ schema_version: 2, ...JSON.parse(text) });
 const CERTS = path.join(import.meta.dirname, "certs");
 
 /** GGG's stats payload ({result:[{id, entries:[{id,text}]}]}) from the flat list of the fixtures */
@@ -24,7 +25,8 @@ export function fixtureData() {
   const names = { poe1: JSON.parse(gz("trade_names_poe1.json.gz")), poe2: JSON.parse(gz("trade_names_poe2.json.gz")) };
   const payload = (list) => JSON.stringify({ result: [{ id: "all", label: "all", entries: list.map((name) => ({ name })) }] });
   return {
-    hub: { poe1: gz("hub_poe1.json.gz"), poe2: gz("hub_poe2.json.gz") },
+    // the fixture is the hub's items only; the real file carries schema_version 2 (the program ignores a prices file without it)
+    hub: { poe1: withSchema(gz("hub_poe1.json.gz")), poe2: withSchema(gz("hub_poe2.json.gz")) },
     ns: {
       poe1: fs.readFileSync(path.join(FIXTURES, "neversink_poe1_s2.filter"), "utf-8"),
       poe2: fs.readFileSync(path.join(FIXTURES, "neversink_poe2_s2.filter"), "utf-8"),
