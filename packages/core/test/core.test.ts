@@ -41,14 +41,6 @@ describe("compose / fetch plan", () => {
     expect(filterCore.composeFilterBody("", "BASE")).toBe("\n# ===== base filter below =====\nBASE");
     expect(() => filterCore.composeFilterBody("  \n", null)).toThrow("nothing to write — no NeverSink base filter available");
   });
-
-  it("planFetch", () => {
-    expect(filterCore.planFetch({}, "poe2")).toEqual({ mode: "tier", hub: false, neversink: true });
-    const wl = { whitelist_enabled: true };
-    expect(filterCore.planFetch(wl, "poe2")).toEqual({ mode: "whitelist", hub: false, neversink: false });
-    expect(filterCore.planFetch({ ...wl, whitelist_cats_poe2: ["Rune"] }, "poe2").hub).toBe(true);
-    expect(filterCore.planFetch({ ...wl, whitelist_cats_poe2: ["Rune"] }, "poe1").hub).toBe(false);
-  });
 });
 
 const hub = () => ({

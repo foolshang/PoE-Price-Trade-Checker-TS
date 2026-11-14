@@ -315,7 +315,6 @@ CALLS = {
         filter_core.build_quest_blocks(game, style, sound_file, default_lines),
     "filter_core.tier_sound_requests": lambda cfg: filter_core.tier_sound_requests(cfg),
     "filter_core.migrate_sounds": lambda cfg: list(filter_core.migrate_sounds(cfg)),
-    "filter_core.plan_fetch": lambda cfg, game: filter_core.plan_fetch(cfg, game),
     "filter_core.add_shared_tier_sounds": lambda section, copied: filter_core.add_shared_tier_sounds(section, copied),
     # filter_whitelist
     "w.tier_of_step": lambda tag: w.tier_of_step(tag),

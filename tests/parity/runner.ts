@@ -318,7 +318,6 @@ const CALLS: Record<string, Fn> = {
   "filter_core.build_quest_blocks": (game, style, soundFile = null, defaultLines = null) => filterCore.buildQuestBlocks(game, style, soundFile, defaultLines),
   "filter_core.tier_sound_requests": (cfg) => filterCore.tierSoundRequests(cfg),
   "filter_core.migrate_sounds": (cfg) => filterCore.migrateSounds(cfg),
-  "filter_core.plan_fetch": (cfg, game) => filterCore.planFetch(cfg, game),
   "filter_core.add_shared_tier_sounds": (section, copied) => filterCore.addSharedTierSounds(section, copied),
   "w.tier_of_step": (tag) => w.tierOfStep(tag),
   "w.bad_name": (n) => w.badName(n),

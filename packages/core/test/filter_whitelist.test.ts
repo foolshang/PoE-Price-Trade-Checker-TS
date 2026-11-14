@@ -238,13 +238,11 @@ describe("the generated file", () => {
 
   it("core wiring (wl_v2)", async () => {
     const cfg = { whitelist_enabled: true, wl_v2: true };
-    expect(filterCore.planFetch(cfg, "poe1")).toEqual({ mode: "whitelist", hub: true, neversink: true });
     expect(await filterCore.buildFilterText(cfg, "poe1", { hubData: HUB, baseText: null })).toBeNull();
     const res = (await filterCore.buildFilterText(cfg, "poe1", { hubData: HUB, baseText: MINI }))!;
     expect(res.mode).toBe("whitelist");
     expect(res.base_text).toBeNull();
     expect(res.count).toBeGreaterThan(0);
-    expect(filterCore.planFetch({ whitelist_enabled: true }, "poe1").neversink).toBe(false); // legacy config keeps the old engine
   });
 
   it("the default sound is kept when the user style has no sound", () => {

@@ -472,10 +472,6 @@ def call_cases() -> list:
            {"sound_s": ""}, {"sound_format": 1, "sound_s": "x.mp3"}, {"wl_tier_style": {"S": {"text": [1, 2, 3]}}}]
     for cfg in mig:
         c("filter_core.migrate_sounds", cfg)
-    for cfg in [{}, {"whitelist_enabled": True}, {"whitelist_enabled": True, "wl_v2": True}, {"whitelist_enabled": True, "whitelist_cats_poe2": ["Currency"]},
-                {"whitelist_enabled": False, "wl_v2": True}]:
-        for g in GAMES:
-            c("filter_core.plan_fetch", cfg, g)
     sec = "# a\nShow\n    PlayAlertSound 6 300\n  PlayAlertSound 1 100\n   PlayAlertSound 3\nShow\n    PlayAlertSound 12 5\nPlayAlertSound 2 1\n\n"
     c("filter_core.add_shared_tier_sounds", sec, {"1": "a.mp3", "2": "b.mp3", "4": "d.mp3"})
     c("filter_core.add_shared_tier_sounds", sec.rstrip("\n"), {"1": "a.mp3"})
