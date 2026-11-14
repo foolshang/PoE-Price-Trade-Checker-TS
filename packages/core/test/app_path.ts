@@ -69,15 +69,21 @@ export async function appGenerate(i: AppGenInput, appVersion = "t"): Promise<App
   api.game = i.game;
   const cfg: Cfg = { ...i.fg, whitelist_enabled: i.mode === "whitelist" }; // app.ts collectCfg(mode)
   const key = i.mode === "whitelist" ? "filter_name_whitelist" : "filter_name_tier";
-  const v = api.validateName(cfg[key] ?? (i.mode === "whitelist" ? filterCore.DEFAULT_WHITELIST_NAME : filterCore.DEFAULT_TIER_NAME)); // app.ts:120 (the page's box always has a value)
+  const v = api.validateName(cfg[key] ?? (i.mode === "whitelist" ? filterCore.DEFAULT_WHITELIST_NAME : filterCore.DEFAULT_TIER_NAME)); // app.ts:198 (the page's box always has a value)
   if (v.error) {
     log(`✗ ชื่อ filter ใช้ไม่ได้: ${v.error}`, "err");
     return { status: "name-error", message: v.error };
   }
   const name = v.name || cfg[key];
   const [base, tag] = i.base;
-  if (i.mode === "whitelist" && !base) return { status: "aborted" }; // app.ts:132-135
-  if (i.mode === "tier" && base === null) { // app.ts:140-144
+  if (i.mode === "whitelist") { // app.ts:218-222 (the league the lists are from is named first)
+    log(`ℹ ลีกที่ใช้กับรายการของ hub: ${i.league ? `${i.league.label} (${i.league.path})` : "-"}`, "info");
+    if (!base) {
+      log("⚠ ไม่มี NeverSink base filter — whitelist ไม่มี tier เริ่มต้น ไม่ generate", "warn");
+      return { status: "aborted" };
+    }
+  }
+  if (i.mode === "tier" && base === null) { // app.ts:227-231
     log("⚠ ไม่มี NeverSink base filter ให้ใช้ (GitHub ล่ม + ไม่มี cache)", "warn");
     log("✗ nothing to write — no NeverSink base filter available — ไฟล์เดิมไม่ถูกแตะ", "err");
     return { status: "aborted" };
@@ -89,10 +95,9 @@ export async function appGenerate(i: AppGenInput, appVersion = "t"): Promise<App
     const wanted = new Set(Object.values(srcs).map((p) => api.safeName(path.basename(p))));
     for (const n of readdirSync(i.gameDir)) existing[n] = wanted.has(n) ? sha256(readFileSync(path.join(i.gameDir, n))) : null;
   }
-  const hub = i.mode === "whitelist" ? (i.hub ?? null) : null; // tier mode never reads the hub (app.ts:128-146)
-  if (i.mode === "whitelist") log(`ℹ ลีกที่ใช้กับรายการของ hub: ${i.league ? `${i.league.label} (${i.league.path})` : "-"}`, "info"); // app.ts: the league the lists were made from
+  const hub = i.mode === "whitelist" ? (i.hub ?? null) : null; // tier mode never reads the hub (app.ts:213-232)
   const names = i.mode === "whitelist" ? (i.names ? [...i.names] : []) : null;
-  const res = await api.generate({ cfg, game: i.game, hub, baseText: base, baseTag: tag, log, hashes, names, existing, decisions: i.decisions ?? {} }); // app.ts:161
+  const res = await api.generate({ cfg, game: i.game, hub, baseText: base, baseTag: tag, log, hashes, names, existing, decisions: i.decisions ?? {} }); // app.ts:249
   if (res.status !== "ok") return { status: res.status, message: res.message };
   const filePath = path.join(i.gameDir, `${name}.filter`);
   try { // deliver() -> writeToFolder: sounds, then the filter, CRLF once
