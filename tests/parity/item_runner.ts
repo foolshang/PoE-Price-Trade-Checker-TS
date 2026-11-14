@@ -117,7 +117,7 @@ function leagueIndex(game: string, shape: string): any {
 }
 async function leagueFiles(game: string, shape: string) {
   const files: Record<string, any> = {};
-  if (shape === "down") files[`${game}/prices/latest.json`] = { league: "Fallback League" };
+  if (shape === "down") files[`${game}/prices/latest.json`] = { schema_version: 2, league: "Fallback League" };
   else if (shape !== "down_nolatest") files[`${game}/prices/index.json`] = leagueIndex(game, shape);
   return fakeHub(files).getLeagueFiles(game);
 }

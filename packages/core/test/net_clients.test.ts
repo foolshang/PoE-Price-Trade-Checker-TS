@@ -69,7 +69,7 @@ describe("hub_client", () => {
   it("get_index returns null on failure, not a throw", async () => expect(await new hubClient.HubClient(DOWN).getIndex("poe1")).toBeNull());
 
   it("get_prices fetches the exact path", async () => {
-    const h = http(() => JSON.stringify({ league: "Mirage" }));
+    const h = http(() => JSON.stringify({ schema_version: 2, league: "Mirage" }));
     const data = await new hubClient.HubClient(h).getPrices("poe1/prices/hardcore/latest.json");
     expect(h.urls).toEqual(["https://storage.googleapis.com/poe-data-hub/poe1/prices/hardcore/latest.json"]);
     expect(data.league).toBe("Mirage");

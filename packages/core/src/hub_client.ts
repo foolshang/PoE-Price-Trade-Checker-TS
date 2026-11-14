@@ -2,9 +2,11 @@
  * Fetch data from poe-data-hub (prices, index, meta, passives, skills). Port of poe_price_trade/hub_client.py.
  * Schema reference: SPEC.md of the Poe_Hub project (sections 8.1, 8.1a/b/c, 8.2). The HTTP client is injected.
  */
+import { INDEX_SCHEMA_VERSION, META_SCHEMA_VERSION, PRICES_SCHEMA_VERSION, checkSchema } from "./hub_schema.ts";
 import { HttpError, HttpPort } from "./ports.ts";
 import { Log, noopLog, truthy } from "./py.ts";
 
+/** The ONE place the hub's address is written (the web page, the desktop guard and this client all read it). */
 export const HUB_BASE_URL = "https://storage.googleapis.com/poe-data-hub";
 
 /**
@@ -38,14 +40,18 @@ export class HubClient {
     }
   }
 
-  /** a hub-relative path fetched as it is (e.g. 'poe2/prices/latest.json'); throws on failure */
-  getPrices(path: string): Promise<any> {
-    return this.get(path);
+  /** a hub-relative path fetched as it is (e.g. 'poe2/prices/latest.json'); throws on failure and on a schema_version that is not PRICES_SCHEMA_VERSION */
+  async getPrices(path: string): Promise<any> {
+    const data = await this.get(path);
+    if (!checkSchema(data, PRICES_SCHEMA_VERSION, path, this.warn, "treated as not loaded")) throw new Error(`hub schema mismatch: ${path}`);
+    return data;
   }
 
-  private async soft(path: string, what: string, game: string): Promise<any | null> {
+  private async soft(path: string, what: string, game: string, schema?: number): Promise<any | null> {
     try {
-      return await this.get(path);
+      const data = await this.get(path);
+      if (schema !== undefined && !checkSchema(data, schema, path, this.warn, "treated as not loaded")) return null;
+      return data;
     } catch (e) {
       this.warn(`hub ${what} fetch failed (${game}): ${(e as Error).message}`, "warn");
       return null;
@@ -54,17 +60,14 @@ export class HubClient {
 
   /** {game}/prices/index.json - null when the hub is unreachable or the index does not exist yet. */
   getIndex(game: string): Promise<any | null> {
-    return this.soft(`${game}/prices/index.json`, "index", game);
+    return this.soft(`${game}/prices/index.json`, "index", game, INDEX_SCHEMA_VERSION);
   }
   /** {game}/meta/latest.json - null on any failure (SPEC 8.2). */
   getMeta(game: string): Promise<any | null> {
-    return this.soft(`${game}/meta/latest.json`, "meta", game);
+    return this.soft(`${game}/meta/latest.json`, "meta", game, META_SCHEMA_VERSION);
   }
   getPassives(game: string): Promise<any | null> {
     return this.soft(`${game}/passives/latest.json`, "passives", game);
-  }
-  getGems(game: string): Promise<any | null> {
-    return this.soft(`${game}/gems.json`, "gems", game);
   }
   getSkillsIndex(game: string): Promise<any | null> {
     return this.soft(`${game}/skills/index.json`, "skills index", game);

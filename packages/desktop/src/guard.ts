@@ -3,6 +3,7 @@
  * The page never sends a path: it sends a game id and a file NAME, and a URL for the network. Both are checked here.
  */
 import path from "node:path";
+import { hubClient } from "@poe/core";
 
 export const GAMES = ["poe1", "poe2"] as const;
 export const isGame = (g: unknown): g is "poe1" | "poe2" => g === "poe1" || g === "poe2";
@@ -22,8 +23,9 @@ export function isAllowedName(name: unknown): name is string {
 }
 
 /** The hosts (and path prefixes) the page may read through the main process: the hub bucket and NeverSink on GitHub. */
+const HUB = new URL(hubClient.HUB_BASE_URL); // the hub's address is written once, in core (hub_client.ts)
 const ALLOWED: { host: string; prefix: string }[] = [
-  { host: "storage.googleapis.com", prefix: "/poe-data-hub/" },
+  { host: HUB.hostname, prefix: `${HUB.pathname.replace(/\/+$/, "")}/` },
   { host: "api.github.com", prefix: "/repos/NeverSinkDev/" },
   { host: "raw.githubusercontent.com", prefix: "/NeverSinkDev/" },
 ];

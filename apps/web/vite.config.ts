@@ -1,10 +1,12 @@
 import { readFileSync } from "node:fs";
 import { defineConfig } from "vite";
+import { HUB_BASE_URL } from "../../packages/core/src/hub_client.ts";
 
 const version: string = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf-8")).version;
 
 // the hub only allows https://foolshang.github.io as an origin (CORS): for a local test the server forwards /__hub/* to it
-const hubProxy = { "/__hub": { target: "https://storage.googleapis.com", changeOrigin: true, rewrite: (p: string) => p.replace(/^\/__hub/, "/poe-data-hub") } };
+const hub = new URL(HUB_BASE_URL); // the hub's address: written once, in core
+const hubProxy = { "/__hub": { target: hub.origin, changeOrigin: true, rewrite: (p: string) => p.replace(/^\/__hub/, hub.pathname.replace(/\/+$/, "")) } };
 
 // base "./": the page works from any folder (GitHub Pages sub-path /ts/ included)
 export default defineConfig({

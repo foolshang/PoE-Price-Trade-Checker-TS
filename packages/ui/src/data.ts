@@ -3,6 +3,7 @@
  * Google Cloud Storage, CORS set for this site), the real item names (the snapshot shipped with the page:
  * data/trade_names_<game>.json), the gem list (poe1). The localStorage keys are the ones the Pyodide page used.
  */
+import { hubClient, hubSchema } from "@poe/core";
 import { platform } from "./platform.ts";
 import { S } from "./state.ts";
 import { readJson, store } from "./storage.ts";
@@ -11,7 +12,7 @@ import { readJson, store } from "./storage.ts";
  * The hub's CORS header allows only https://foolshang.github.io, so a page served from localhost reaches it through a proxy of
  * the dev / preview server (`npm run web:local` builds with VITE_HUB_BASE=/__hub); the deployed page uses the hub directly.
  */
-const HUB: string = (import.meta as any).env?.VITE_HUB_BASE || "https://storage.googleapis.com/poe-data-hub";
+const HUB: string = (import.meta as any).env?.VITE_HUB_BASE || hubClient.HUB_BASE_URL;
 const KEY_NS = "poeFilterGen.ns.";
 const NS_CHECK_HOURS = 24;
 const hubCache: Record<string, { data: any; at: number }> = {};
@@ -43,6 +44,10 @@ export async function getHub(g: string): Promise<any> {
   } catch (e) {
     throw new Error(`hub fetch failed (${url}): ${(e as Error).message}`);
   }
+  // a schema this page does not know is read like a hub that could not be reached (the caller shows no hub list)
+  if (!hubSchema.checkSchema(data, hubSchema.PRICES_SCHEMA_VERSION, `${g}/prices/latest.json`, (m) => console.warn(m), "treated as not loaded")) {
+    throw new Error(`hub schema mismatch: ${url}`);
+  }
   hubCache[g] = { data, at: Date.now() };
   return data;
 }
@@ -73,7 +78,8 @@ export async function getGemNames(g: string): Promise<string[]> {
   if (g !== "poe1") return [];
   if (gemAll) return gemAll;
   try {
-    gemAll = S.api.gemNames(JSON.parse(await fetchText(`${HUB}/${g}/gems.json`, "gems")));
+    const payload = hubSchema.gemsPayload(JSON.parse(await fetchText(`${HUB}/${g}/gems.json`, "gems")), `${g}/gems.json`, (m) => console.warn(m));
+    gemAll = payload ? S.api.gemNames(payload) : [];
   } catch {
     gemAll = [];
   }

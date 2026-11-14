@@ -7,6 +7,7 @@
  * `case_only` groups whose rows may sit under any member) help to find the meta row of a stat whose row sits under another id of its group.
  */
 import { HubClient } from "./hub_client.ts";
+import { META_SCHEMA_VERSION, checkSchema } from "./hub_schema.ts";
 import { MetaDB, WEAPON_CLASSES } from "./meta_db.ts";
 import { ModDatabase, normalizeMod } from "./mod_db.ts";
 import type { StatGroup } from "./rendering_aliases.ts";
@@ -354,7 +355,8 @@ export class ModBadgeDB {
     const path = this.cachePath(game);
     if (path === null || !(await this.places.fs.exists(path))) return null;
     try {
-      return JSON.parse(await this.places.fs.readText(path));
+      const cached = JSON.parse(await this.places.fs.readText(path));
+      return checkSchema(cached, META_SCHEMA_VERSION, `${game}/meta/latest.json (disk cache)`, this.places.warn ?? noopLog, "ignored") ? cached : null;
     } catch (e) {
       (this.places.warn ?? noopLog)(`mod badge cache read failed: ${(e as Error).message}`, "warn");
       return null;
