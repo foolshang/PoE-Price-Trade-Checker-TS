@@ -218,7 +218,10 @@ const need = requirements([
 ]);
 describe.skipIf(need.skip)("B) the installed program updates itself from a local feed", () => {
   beforeAll(() => failIfMissing(need.problems));
-  const FAKE = "99.0.0-beta.1";
+  // A STABLE number: the installed program is a stable release (allowPrerelease follows its own version), so a pre-release number is
+  // skipped on purpose (see the pre-release case below). Only the "version:" line is changed; the installer name, size and sha512 in
+  // latest.yml stay those of the real last pack, so the checksum is right and the real installer runs.
+  const FAKE = "99.0.0";
   const fakeNewer = (t) => t.replace(/^version: .+$/m, `version: ${FAKE}`);
   const killAll = () => { try { execFileSync("taskkill", ["/F", "/IM", "PoE-Price-Trade-Checker-TS.exe", "/T"], { stdio: "ignore" }); } catch { /* none */ } };
   const pids = () => {
@@ -263,6 +266,15 @@ describe.skipIf(need.skip)("B) the installed program updates itself from a local
     expect(await hook(app, "updaterState")).toMatchObject({ phase: "available", version: FAKE, auto: false });
     expect(await hook(app, "quitting")).toBe(false);
   }, 180000);
+
+  it("a pre-release on the feed is skipped by a stable program (on purpose): no strip, no red dot, nothing downloaded", async () => {
+    const { app, page, feed, sbx } = await begin({ auto_update: true }, { yml: (t) => t.replace(/^version: .+$/m, "version: 99.0.0-beta.1") });
+    expect(await until(() => logTxt(sbx).includes("99.0.0-beta.1 is a pre-release - skipped"), 60000)).toBe(true);
+    await wait(3000);
+    expect(await page.locator("#update-bar").isHidden()).toBe(true);
+    expect(await hook(app, "updaterState")).not.toMatchObject({ phase: "available" });
+    expect(exes(feed)).toBe(0);
+  }, 120000);
 
   it("automatic update ON: downloaded in the background, then waits for the choice - nothing closes, nothing is installed", async () => {
     const { app, page, feed, sbx } = await begin({ auto_update: true });
@@ -331,6 +343,9 @@ describe.skipIf(need.skip)("B) the installed program updates itself from a local
     const { app, page, sbx, feed } = await begin(settings);
     await page.locator("#update-bar").waitFor({ state: "visible", timeout: 60000 });
     expect(exes(feed)).toBe(0);
+    // The program checks the saved league against the hub's live list at start and replaces one that has ended ("Allflame" is long
+    // gone), whatever the update does. So the league is compared with the one saved BEFORE 'update now', not with the seed.
+    const before = JSON.parse(fs.readFileSync(path.join(sbx.checkerDir, "config.json"), "utf-8"));
     const old = pids();
     await page.locator('#update-bar button[data-act="install-now"]').click();
     await page.waitForFunction(() => document.querySelector("#update-bar .update-text")?.innerText.includes("ทันทีที่โหลดเสร็จ"), null, { timeout: 30000 });
@@ -342,7 +357,7 @@ describe.skipIf(need.skip)("B) the installed program updates itself from a local
     killAll();
     await wait(1500);
     const after = JSON.parse(fs.readFileSync(path.join(sbx.checkerDir, "config.json"), "utf-8"));
-    expect(after).toMatchObject({ ...settings, filter_gen: expect.objectContaining(settings.filter_gen) });
+    expect(after).toMatchObject({ ...settings, league: before.league, filter_gen: expect.objectContaining(settings.filter_gen) });
   }, 900000);
 
   it("the check repeats (every 24 hours, shortened here) and finds a version published later, with automatic update on or off", async () => {
