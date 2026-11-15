@@ -147,7 +147,7 @@ starts (the Checker's filter page reuses phase 2-3 output).
 
 ### v1.0.1 (built, not released)
 
-League choice on the filter page (all three programs), hub schema guards, `planFetch` removed, tier "no base" message, Hardcore reads the item lists of the softcore main league (no hardcore file for the lists), CHANGELOG 1.0.1, installers built. Waiting: e2e of the installed exes (`test:desktop`, `test:checker`), Winai's test in the game, the update rehearsal 1.0.0 -> 1.0.1, then Winai's order to tag.
+League choice on the filter page (all three programs), hub schema guards, `planFetch` removed, tier "no base" message, Hardcore reads the item lists of the softcore main league (no hardcore file for the lists), CHANGELOG 1.0.1, installers built. Done: e2e of the installed exes (`test:desktop` 49 / 49, `test:checker` 132 / 132 after the update group B fix), update rehearsal 1.0.0 -> 1.0.1 with a local feed (both programs). Waiting: Winai's test in the game, the GitHub dry run, then Winai's order to tag.
 
 ### After the release (not started)
 
